@@ -1,0 +1,8 @@
+{
+  "files": [
+    "frontend/src/app/layout.tsx",
+    "frontend/app/layout.tsx"
+  ],
+  "insertBefore": "</body>",
+  "commentSyntax": "{/* %s */}"
+}

@@ -1,0 +1,42 @@
+{
+  "admin@novathesis.edu.vn": {
+    "id": 1,
+    "email": "admin@novathesis.edu.vn",
+    "password_hash": "$pbkdf2-sha256$29000$YMw5xxjD2DvnvHdOyRkDgA$wRT1RKg4hb2FdHiAYLYKgeJgThWvKyXrI4rnCE2PxD4",
+    "role": "ADMIN",
+    "status": "ACTIVE",
+    "full_name": "Quản Trị Viên Hệ Thống",
+    "avatar_url": null,
+    "created_at": "2026-01-01T00:00:00"
+  },
+  "student@novathesis.edu.vn": {
+    "id": 2,
+    "email": "student@novathesis.edu.vn",
+    "password_hash": "$pbkdf2-sha256$29000$6P3f29tby9kbo9Ta.59zLg$q0Y9/G4K6oLk8UXISq8dEcj3WhvLw88MSkX/heyen0c",
+    "role": "STUDENT",
+    "status": "ACTIVE",
+    "full_name": "Lê Văn C",
+    "avatar_url": null,
+    "created_at": "2026-02-01T00:00:00"
+  },
+  "testuser@gmail.com": {
+    "id": 3,
+    "email": "testuser@gmail.com",
+    "password_hash": "$pbkdf2-sha256$29000$tBbiXKs15rzXGiMkZExpzQ$3MekfTHbBvP7FJuc1Gj1gafMXF.Y6nPczDQv0EteYRM",
+    "role": "STUDENT",
+    "status": "ACTIVE",
+    "full_name": "Nguyen Van Test",
+    "avatar_url": null,
+    "created_at": "2026-07-19T00:00:00"
+  },
+  "khoapdeptrai07@gmail.com": {
+    "id": 4,
+    "email": "khoapdeptrai07@gmail.com",
+    "password_hash": "$pbkdf2-sha256$29000$klJKSan1HgOgtPbeew/BWA$mlfUIKD52Z5GX0Ak2e80YWA/mhBjL1r2C.okVRA3u7Y",
+    "role": "STUDENT",
+    "status": "ACTIVE",
+    "full_name": "Khoa",
+    "avatar_url": null,
+    "created_at": "2026-07-19T00:00:00"
+  }
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "user_email": "student@novathesis.edu.vn",
+    "action": "AUTH_LOGIN",
+    "ip_address": "192.168.1.45",
+    "details": "{\"browser\": \"Chrome\", \"os\": \"Windows 11\"}",
+    "created_at": "2026-07-19 10:45:12",
+    "level": "INFO"
+  },
+  {
+    "id": 2,
+    "user_email": "admin@novathesis.edu.vn",
+    "action": "CONFIG_UPDATE",
+    "ip_address": "127.0.0.1",
+    "details": "{\"key\": \"AI_MODEL\", \"old\": \"gpt-4-turbo\", \"new\": \"gpt-4o\"}",
+    "created_at": "2026-07-18 16:20:00",
+    "level": "INFO"
+  }
+]
