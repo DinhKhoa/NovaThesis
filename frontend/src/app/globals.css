@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--fg-primary);
+  
+  --color-surface: var(--bg-surface);
+  --color-muted: var(--bg-muted);
+  
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  
+  --color-border: var(--border-color);
+  
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Base Light Theme - DUE Corporate */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-muted: #f1f5f9;
+  
+  --fg-primary: #0f172a;
+  --fg-secondary: #475569;
+  --fg-muted: #94a3b8;
+  
+  --accent: #00529C; /* DUE Blue */
+  --accent-secondary: #F26522; /* DUE Orange */
+  --accent-tertiary: #00A651; /* DUE Green */
+  --accent-fg: #ffffff;
+  
+  --border-color: #e2e8f0;
+  --border-hover: #cbd5e1;
+  
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
+}
+
+/* Dark Theme - DUE Corporate */
+.dark {
+  --bg-primary: #020617;
+  --bg-secondary: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-muted: #334155;
+  
+  --fg-primary: #f8fafc;
+  --fg-secondary: #94a3b8;
+  --fg-muted: #64748b;
+  
+  --accent: #3b82f6; /* Lighter DUE Blue for dark mode */
+  --accent-secondary: #f97316; /* Lighter Orange */
+  --accent-tertiary: #10b981; /* Lighter Green */
+  --accent-fg: #ffffff;
+  
+  --border-color: #334155;
+  --border-hover: #475569;
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.8), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--fg-primary);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.heading-display {
+  font-size: clamp(3rem, 8vw, 6rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
