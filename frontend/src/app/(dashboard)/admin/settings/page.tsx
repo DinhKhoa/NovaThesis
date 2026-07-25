@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Gear, FloppyDisk, Sliders, Robot, HardDrive, Shield } from "@phosphor-icons/react";
+import { FloppyDisk, Robot, Shield } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Card, Button, Input, Textarea } from "@/components/ui";
+import { Card, Button, Input } from "@/components/ui";
 import { toast } from "@/lib/toast";
 
 interface SystemConfig {
@@ -77,12 +77,12 @@ export default function AdminSettingsPage() {
   return (
     <div>
       <PageHeader
-        title="Cấu hình hệ thống (System Configs)"
-        description="Quản lý các thông số kỹ thuật, AI model, dung lượng lưu trữ (UC 2.7)."
+        title="Cấu hình"
+        description="Tham số vận hành: mô hình AI, giới hạn dung lượng và chính sách tài khoản."
         actions={
           <Button
             variant="primary"
-            icon={<FloppyDisk size={18} />}
+            icon={<FloppyDisk size={15} />}
             loading={saving}
             onClick={handleSave}
           >

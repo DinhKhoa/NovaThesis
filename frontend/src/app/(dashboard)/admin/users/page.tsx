@@ -5,29 +5,26 @@ import {
   Users,
   UserPlus,
   MagnifyingGlass,
-  Funnel,
   Lock,
   LockOpen,
   Trash,
   DotsThreeVertical,
-  Plus,
-  ShieldCheck,
-  GraduationCap,
-  User,
 } from "@phosphor-icons/react";
-import { PageHeader } from "@/components/layout";
+import { PageHeader, Toolbar } from "@/components/layout";
 import {
-  Card,
-  Button,
-  Input,
+  Avatar,
   Badge,
-  Modal,
+  Button,
+  Card,
   Dropdown,
   DropdownItem,
   DropdownSeparator,
-  Avatar,
+  EmptyState,
+  Input,
+  Modal,
+  Select,
+  Table,
 } from "@/components/ui";
-import { api, isApiError } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
 /* ========================================
@@ -214,154 +211,188 @@ export default function AdminUsersPage() {
   return (
     <div>
       <PageHeader
-        title="Quản lý tài khoản"
-        description="Danh sách toàn bộ người dùng trong hệ thống (Sinh viên, Giảng viên, Admin)."
+        title="Người dùng"
+        description="Tài khoản sinh viên, giảng viên và quản trị viên."
         actions={
           <Button
             variant="primary"
-            icon={<UserPlus size={18} />}
+            icon={<UserPlus size={15} />}
             onClick={() => setCreateModalOpen(true)}
           >
-            Thêm Giảng viên
+            Thêm giảng viên
           </Button>
         }
       />
 
-      {/* Filter & Search Bar (UC 2.2) */}
-      <Card className="p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="w-full md:w-80">
-          <Input
-            placeholder="Tìm kiếm theo tên, email, mã số..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            icon={<MagnifyingGlass size={18} />}
-          />
-        </div>
+      <Card hoverable={false} className="overflow-hidden">
+        <Toolbar>
+          <div className="flex-1 min-w-0 max-w-sm">
+            <Input
+              placeholder="Tìm theo tên, email hoặc mã số…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              icon={<MagnifyingGlass size={14} />}
+              aria-label="Tìm người dùng"
+            />
+          </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Role Filter */}
-          <select
-            className="input-base text-[13px] py-2 w-full md:w-36"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-          >
-            <option value="ALL">Tất cả vai trò</option>
-            <option value="STUDENT">Sinh viên</option>
-            <option value="LECTURER">Giảng viên</option>
-            <option value="ADMIN">Admin</option>
-          </select>
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="w-auto"
+              aria-label="Lọc theo vai trò"
+            >
+              <option value="ALL">Mọi vai trò</option>
+              <option value="STUDENT">Sinh viên</option>
+              <option value="LECTURER">Giảng viên</option>
+              <option value="ADMIN">Quản trị viên</option>
+            </Select>
 
-          {/* Status Filter */}
-          <select
-            className="input-base text-[13px] py-2 w-full md:w-36"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="ACTIVE">Hoạt động</option>
-            <option value="SUSPENDED">Bị khóa</option>
-          </select>
-        </div>
-      </Card>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-auto"
+              aria-label="Lọc theo trạng thái"
+            >
+              <option value="ALL">Mọi trạng thái</option>
+              <option value="ACTIVE">Hoạt động</option>
+              <option value="SUSPENDED">Bị khóa</option>
+            </Select>
+          </div>
+        </Toolbar>
 
-      {/* Users Data Table (UC 2.2) */}
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border-primary)", background: "var(--bg-secondary)" }}>
-                <th className="py-3 px-4 text-[12px] font-semibold text-tertiary uppercase tracking-wider">Người dùng</th>
-                <th className="py-3 px-4 text-[12px] font-semibold text-tertiary uppercase tracking-wider">Mã số</th>
-                <th className="py-3 px-4 text-[12px] font-semibold text-tertiary uppercase tracking-wider">Vai trò</th>
-                <th className="py-3 px-4 text-[12px] font-semibold text-tertiary uppercase tracking-wider">Trạng thái</th>
-                <th className="py-3 px-4 text-[12px] font-semibold text-tertiary uppercase tracking-wider">Ngày tạo</th>
-                <th className="py-3 px-4 text-[12px] font-semibold text-tertiary uppercase tracking-wider text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted text-[14px]">
-                    Không tìm thấy tài khoản phù hợp
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="transition-colors hover:bg-[var(--bg-hover)]"
-                    style={{ borderBottom: "1px solid var(--border-secondary)" }}
+        <Table
+          data={filteredUsers}
+          keyExtractor={(u) => String(u.id)}
+          pageSize={20}
+          rowAccent={(u) => (u.status === "SUSPENDED" ? "danger" : undefined)}
+          emptyState={
+            <EmptyState
+              compact
+              icon={<Users size={15} />}
+              title="Không tìm thấy tài khoản"
+              description="Thử từ khóa khác hoặc bỏ bớt điều kiện lọc."
+            />
+          }
+          columns={[
+            {
+              key: "full_name",
+              header: "Người dùng",
+              sortValue: (u) => u.full_name,
+              render: (u) => (
+                <div className="flex items-center gap-2.5 min-w-0 py-0.5">
+                  <Avatar name={u.full_name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium leading-tight truncate">
+                      {u.full_name}
+                    </p>
+                    <p className="text-[12px] text-tertiary truncate">{u.email}</p>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              key: "code",
+              header: "Mã số",
+              width: "1%",
+              hideOnMobile: true,
+              sortValue: (u) => u.code ?? "",
+              render: (u) => (
+                <span className="font-mono text-[12.5px] text-secondary">
+                  {u.code || "—"}
+                </span>
+              ),
+            },
+            {
+              key: "role",
+              header: "Vai trò",
+              width: "1%",
+              sortValue: (u) => u.role,
+              render: (u) => (
+                <Badge variant={roleBadges[u.role].variant}>
+                  {roleBadges[u.role].label}
+                </Badge>
+              ),
+            },
+            {
+              key: "status",
+              header: "Trạng thái",
+              width: "1%",
+              sortValue: (u) => u.status,
+              render: (u) => (
+                <Badge
+                  variant={u.status === "ACTIVE" ? "success" : "danger"}
+                  dot={u.status !== "ACTIVE"}
+                >
+                  {u.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
+                </Badge>
+              ),
+            },
+            {
+              key: "created_at",
+              header: "Ngày tạo",
+              width: "1%",
+              hideOnMobile: true,
+              sortValue: (u) => u.created_at,
+              render: (u) => (
+                <span className="text-[12.5px] text-tertiary tnum whitespace-nowrap">
+                  {u.created_at}
+                </span>
+              ),
+            },
+            {
+              key: "actions",
+              header: "",
+              width: "1%",
+              align: "right",
+              render: (u) => (
+                <Dropdown
+                  align="right"
+                  trigger={
+                    <span
+                      className="row-actions btn-icon btn-icon-sm"
+                      role="button"
+                      aria-label={`Thao tác với ${u.full_name}`}
+                    >
+                      <DotsThreeVertical size={15} />
+                    </span>
+                  }
+                >
+                  <DropdownItem
+                    onClick={() => {
+                      setSelectedUser(u);
+                      setLockModalOpen(true);
+                    }}
+                    icon={
+                      u.status === "ACTIVE" ? (
+                        <Lock size={14} />
+                      ) : (
+                        <LockOpen size={14} />
+                      )
+                    }
                   >
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={u.full_name} size="sm" />
-                        <div>
-                          <p className="text-[14px] font-medium leading-tight">{u.full_name}</p>
-                          <p className="text-[12px] text-tertiary">{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4 font-mono text-[13px] text-secondary">
-                      {u.code || "—"}
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <Badge variant={roleBadges[u.role].variant}>
-                        {roleBadges[u.role].label}
-                      </Badge>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <Badge variant={u.status === "ACTIVE" ? "success" : "danger"} dot>
-                        {u.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
-                      </Badge>
-                    </td>
-
-                    <td className="py-3 px-4 text-[13px] text-tertiary">
-                      {u.created_at}
-                    </td>
-
-                    <td className="py-3 px-4 text-right">
-                      <Dropdown
-                        align="right"
-                        trigger={
-                          <button className="btn-ghost p-1.5 rounded-lg text-tertiary hover:text-primary">
-                            <DotsThreeVertical size={18} />
-                          </button>
-                        }
-                      >
-                        <DropdownItem
-                          onClick={() => {
-                            setSelectedUser(u);
-                            setLockModalOpen(true);
-                          }}
-                          icon={u.status === "ACTIVE" ? <Lock size={16} /> : <LockOpen size={16} />}
-                        >
-                          {u.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                        </DropdownItem>
-                        <DropdownSeparator />
-                        <DropdownItem
-                          danger
-                          onClick={() => {
-                            setSelectedUser(u);
-                            setDeleteModalOpen(true);
-                          }}
-                          icon={<Trash size={16} />}
-                        >
-                          Xóa tài khoản
-                        </DropdownItem>
-                      </Dropdown>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    {u.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa"}
+                  </DropdownItem>
+                  <DropdownSeparator />
+                  <DropdownItem
+                    danger
+                    onClick={() => {
+                      setSelectedUser(u);
+                      setDeleteModalOpen(true);
+                    }}
+                    icon={<Trash size={14} />}
+                  >
+                    Xóa tài khoản
+                  </DropdownItem>
+                </Dropdown>
+              ),
+            },
+          ]}
+        />
       </Card>
 
-      {/* Modal: Create Lecturer (UC 2.3) */}
+      {/* Modal: Create Lecturer */}
       <Modal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -415,7 +446,7 @@ export default function AdminUsersPage() {
         </form>
       </Modal>
 
-      {/* Modal: Confirm Lock / Unlock (UC 2.4) */}
+      {/* Modal: Confirm Lock / Unlock */}
       <Modal
         open={lockModalOpen}
         onClose={() => setLockModalOpen(false)}
@@ -440,7 +471,7 @@ export default function AdminUsersPage() {
         </p>
       </Modal>
 
-      {/* Modal: Confirm Soft Delete (UC 2.5) */}
+      {/* Modal: Confirm Soft Delete */}
       <Modal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}

@@ -1,81 +1,1248 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   NOVATHESIS DESIGN SYSTEM
+   --------------------------------------------------------------------------
+   An academic workbench, not a landing page. Three rules hold it together:
+
+   1. Hairlines over shadows. Structure comes from 1px borders and background
+      steps, so dense tables stay readable instead of floating in soft blur.
+   2. One accent. DUE Blue carries every interactive affordance. Semantic
+      colours (success/warning/danger/info) are reserved for state, never
+      decoration, so a red cell always means something is wrong.
+   3. Compact by default. 13px base, 4px spacing grid, 32px control height.
+      Rows are meant to fit on screen, not to breathe.
+   ========================================================================== */
 
 @theme {
-  --color-background: var(--bg-primary);
-  --color-foreground: var(--fg-primary);
-  
-  --color-surface: var(--bg-surface);
-  --color-muted: var(--bg-muted);
-  
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
+
+  /* Interactive + state colours. Exposed to Tailwind so `text-accent`,
+     `bg-success`, `border-danger` and their variants all resolve. */
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
-  
-  --color-border: var(--border-color);
-  
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --radius-control: 8px;
+  --radius-surface: 12px;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ------------------------------------------------------------------
+     MOTION
+     Hover feedback is a response, not an effect. Three rules keep it from
+     turning into noise on a screen with forty controls on it:
+
+     1. Only `transform`, `opacity`, `box-shadow` and colour animate. Never
+        size, spacing or position — a control that reflows on hover makes
+        the row under the cursor jump.
+     2. Travel scales with the element: 1px for a 32px control, 2px for a
+        card. Big enough to feel, too small to notice.
+     3. Press beats hover. `:active` fires at 70ms so a click always feels
+        acknowledged before the hover transition has finished.
+     ------------------------------------------------------------------ */
+  --dur-press: 70ms;
+  --dur-hover: 140ms;
+  --dur-slow: 220ms;
+  --ease-hover: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Base Light Theme - DUE Corporate */
+/* --------------------------------------------------------------------------
+   LIGHT — paper. Canvas is a half-step grey so white cards read as objects.
+   -------------------------------------------------------------------------- */
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
+  --bg-canvas: #f4f6f8;
   --bg-surface: #ffffff;
-  --bg-muted: #f1f5f9;
-  
-  --fg-primary: #0f172a;
-  --fg-secondary: #475569;
-  --fg-muted: #94a3b8;
-  
-  --accent: #00529C; /* DUE Blue */
-  --accent-secondary: #F26522; /* DUE Orange */
-  --accent-tertiary: #00A651; /* DUE Green */
+  --bg-subtle: #f1f4f7;
+  --bg-sunken: #eaeef3;
+  --bg-hover: #eef1f5;
+  --bg-active: #e3e8ee;
+
+  --fg-primary: #101720;
+  --fg-secondary: #47515f;
+  --fg-tertiary: #6b7684;
+  --fg-muted: #98a2b1;
+  --fg-onaccent: #ffffff;
+
+  --border-primary: #dfe4ea;
+  --border-secondary: #ecf0f4;
+  --border-strong: #c2cad4;
+  --border-focus: var(--accent);
+
+  /* Held as channel triplets so solid colours and their tints derive from one
+     source. `color-mix` would do this too, but Lightning CSS emits an opaque
+     fallback for it — which turns a 10% wash into a solid block behind text. */
+  --accent-rgb: 0 82 156;
+  --success-rgb: 18 121 63;
+  --warning-rgb: 161 92 7;
+  --danger-rgb: 192 51 43;
+  --info-rgb: 11 106 168;
+
+  --accent-hover: #00417c;
   --accent-fg: #ffffff;
-  
-  --border-color: #e2e8f0;
-  --border-hover: #cbd5e1;
-  
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
+
+  --shadow-sm: 0 1px 2px rgb(16 23 32 / 0.06);
+  --shadow-md: 0 2px 4px -1px rgb(16 23 32 / 0.06), 0 8px 16px -4px rgb(16 23 32 / 0.08);
+  --shadow-lg: 0 8px 24px -6px rgb(16 23 32 / 0.12), 0 24px 48px -12px rgb(16 23 32 / 0.14);
+
+  --topbar-height: 3.25rem;
+  --sidebar-width: 15rem;
+  --sidebar-width-collapsed: 3.5rem;
 }
 
-/* Dark Theme - DUE Corporate */
+/* --------------------------------------------------------------------------
+   DARK — ink. Deliberately blue-black rather than neutral grey so the DUE
+   accent sits in the same family as the chrome instead of fighting it.
+   -------------------------------------------------------------------------- */
 .dark {
-  --bg-primary: #020617;
-  --bg-secondary: #0f172a;
-  --bg-surface: #1e293b;
-  --bg-muted: #334155;
-  
-  --fg-primary: #f8fafc;
-  --fg-secondary: #94a3b8;
-  --fg-muted: #64748b;
-  
-  --accent: #3b82f6; /* Lighter DUE Blue for dark mode */
-  --accent-secondary: #f97316; /* Lighter Orange */
-  --accent-tertiary: #10b981; /* Lighter Green */
-  --accent-fg: #ffffff;
-  
-  --border-color: #334155;
-  --border-hover: #475569;
-  
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.8);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.8), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  --bg-canvas: #0a0d12;
+  --bg-surface: #11151c;
+  --bg-subtle: #161b23;
+  --bg-sunken: #0d1116;
+  --bg-hover: #1b212b;
+  --bg-active: #232a35;
+
+  --fg-primary: #e9edf2;
+  --fg-secondary: #a4aebb;
+  --fg-tertiary: #7d8798;
+  --fg-muted: #5e6773;
+  --fg-onaccent: #ffffff;
+
+  --border-primary: #222935;
+  --border-secondary: #191f28;
+  --border-strong: #333c4a;
+
+  --accent-rgb: 77 155 240;
+  --success-rgb: 62 194 135;
+  --warning-rgb: 224 165 59;
+  --danger-rgb: 240 115 107;
+  --info-rgb: 86 176 238;
+
+  --accent-hover: #6aaef5;
+  --accent-fg: #06121f;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.4), 0 8px 16px -4px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 8px 24px -6px rgb(0 0 0 / 0.55), 0 24px 48px -12px rgb(0 0 0 / 0.6);
 }
 
-body {
-  background-color: var(--bg-primary);
+/* Solids, tints and tint borders all derive from the channel triplets above,
+   so light and dark stay in step and there is exactly one place to retune. */
+:root,
+.dark {
+  --accent: rgb(var(--accent-rgb));
+  --success: rgb(var(--success-rgb));
+  --warning: rgb(var(--warning-rgb));
+  --danger: rgb(var(--danger-rgb));
+  --info: rgb(var(--info-rgb));
+
+  --accent-subtle: rgb(var(--accent-rgb) / 0.1);
+  --accent-border: rgb(var(--accent-rgb) / 0.28);
+  --success-bg: rgb(var(--success-rgb) / 0.12);
+  --success-border: rgb(var(--success-rgb) / 0.28);
+  --warning-bg: rgb(var(--warning-rgb) / 0.14);
+  --warning-border: rgb(var(--warning-rgb) / 0.28);
+  --danger-bg: rgb(var(--danger-rgb) / 0.12);
+  --danger-border: rgb(var(--danger-rgb) / 0.28);
+  --info-bg: rgb(var(--info-rgb) / 0.12);
+  --info-border: rgb(var(--info-rgb) / 0.28);
+
+  /* Legacy aliases kept so older markup keeps rendering. */
+  --bg-primary: var(--bg-canvas);
+  --bg-secondary: var(--bg-subtle);
+  --bg-tertiary: var(--bg-sunken);
+  --bg-muted: var(--bg-subtle);
+  --border-color: var(--border-primary);
+  --border-hover: var(--border-strong);
+  --hairline-light: var(--border-secondary);
+  --accent-secondary: #f26522;
+  --accent-tertiary: #00a651;
+}
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--border-primary);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--fg-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Vietnamese sets a lot of stacked diacritics; disabling contextual
+       alternates keeps tone marks from colliding at small sizes. */
+    font-feature-settings: "cv05" 1, "calt" 0;
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.015em;
+    font-weight: 600;
+    color: var(--fg-primary);
+  }
+
+  /* Tabular numerals everywhere numbers stack: tables, stats, dates. */
+  table, .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::placeholder {
+    color: var(--fg-muted);
+  }
+
+  ::selection {
+    background: rgb(var(--accent-rgb) / 0.24);
+    color: var(--fg-primary);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Thin, self-effacing scrollbars — dense screens have a lot of them. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-muted);
+    background-clip: content-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    /* Colour feedback survives; displacement does not. Zeroing only the
+       duration would keep the 1px jump and just make it instant. */
+    .btn:hover, .btn:active,
+    .btn-icon:hover, .btn-icon:active,
+    .card-interactive:hover, .card-interactive:active,
+    .row-hover:hover, .row-hover:active,
+    .btn:hover .btn-trail,
+    .nav-item:hover .nav-icon,
+    .th-sort:hover svg {
+      transform: none !important;
+    }
+
+    .menu-item:hover {
+      padding-left: 0.5rem !important;
+    }
+  }
+}
+
+/* ==========================================================================
+   SEMANTIC TEXT UTILITIES
+   These carry meaning Tailwind's colour namespace can't express (fg vs bg
+   share names like "primary"), so they're declared as first-class utilities
+   and therefore still compose with hover:, dark:, group-hover: and friends.
+   ========================================================================== */
+
+@utility text-primary {
   color: var(--fg-primary);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100dvh;
-  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility text-secondary {
+  color: var(--fg-secondary);
+}
+@utility text-tertiary {
+  color: var(--fg-tertiary);
+}
+@utility text-muted {
+  color: var(--fg-muted);
 }
 
-.heading-display {
-  font-size: clamp(3rem, 8vw, 6rem);
-  line-height: 1.1;
-  letter-spacing: -0.04em;
-  font-weight: 700;
+@utility surface-canvas {
+  background-color: var(--bg-canvas);
+}
+@utility surface-base {
+  background-color: var(--bg-surface);
+}
+@utility surface-subtle {
+  background-color: var(--bg-subtle);
+}
+@utility surface-sunken {
+  background-color: var(--bg-sunken);
+}
+
+@utility hairline {
+  border-color: var(--border-secondary);
+}
+
+/* ==========================================================================
+   COMPONENTS
+   ========================================================================== */
+
+@layer components {
+  /* ---------- Surfaces ---------- */
+
+  .card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-surface);
+  }
+
+  .card-interactive {
+    transition: border-color var(--dur-hover) var(--ease-hover),
+      box-shadow var(--dur-hover) var(--ease-hover),
+      transform var(--dur-hover) var(--ease-hover);
+  }
+
+  .card-interactive:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  /* Settles most of the way back down under the cursor, so a click reads as
+     the card being pushed rather than the hover simply ending. */
+  .card-interactive:active {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+    transition-duration: var(--dur-press);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-secondary);
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Section label: small caps eyebrow used to group dense forms. */
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-tertiary);
+  }
+
+  /* ---------- Form controls ---------- */
+
+  .input-base {
+    width: 100%;
+    height: 32px;
+    padding: 0 0.625rem;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--fg-primary);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-control);
+    transition: border-color var(--dur-hover) var(--ease-hover),
+      box-shadow var(--dur-hover) var(--ease-hover);
+  }
+
+  .input-base:hover:not(:disabled):not(:focus) {
+    border-color: var(--border-strong);
+  }
+
+  .input-base:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-subtle);
+  }
+
+  .input-base:disabled {
+    background-color: var(--bg-subtle);
+    color: var(--fg-muted);
+    cursor: not-allowed;
+  }
+
+  .input-base[aria-invalid="true"] {
+    border-color: var(--danger);
+  }
+
+  .input-base[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 3px var(--danger-bg);
+  }
+
+  textarea.input-base {
+    height: auto;
+    min-height: 76px;
+    padding: 0.5rem 0.625rem;
+    line-height: 1.6;
+    resize: vertical;
+  }
+
+  select.input-base {
+    appearance: none;
+    padding-right: 1.75rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7684' stroke-width='2.5' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    cursor: pointer;
+  }
+
+  .dark select.input-base {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237d8798' stroke-width='2.5' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+  }
+
+  .field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-secondary);
+    margin-bottom: 0.3125rem;
+  }
+
+  /* ---------- Buttons ---------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 32px;
+    padding: 0 0.75rem;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    white-space: nowrap;
+    border-radius: var(--radius-control);
+    border: 1px solid transparent;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color var(--dur-hover) var(--ease-hover),
+      border-color var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover),
+      box-shadow var(--dur-hover) var(--ease-hover),
+      transform var(--dur-hover) var(--ease-hover);
+  }
+
+  /* 1px is the whole gesture. Enough that the control feels picked up,
+     small enough that a toolbar of six buttons doesn't ripple. */
+  .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(0);
+    transition-duration: var(--dur-press);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Trailing chevrons and arrows lean toward where the button will take you.
+     Applied via a wrapper class, not `svg:last-child`, so a leading icon on
+     an icon-only button never picks it up. */
+  .btn-trail {
+    display: inline-flex;
+    transition: transform var(--dur-hover) var(--ease-hover);
+  }
+
+  .btn:hover:not(:disabled) .btn-trail {
+    transform: translateX(2px);
+  }
+
+  .btn-xs {
+    height: 24px;
+    padding: 0 0.5rem;
+    font-size: 12px;
+    gap: 0.25rem;
+  }
+
+  .btn-sm {
+    height: 28px;
+    padding: 0 0.625rem;
+    font-size: 12.5px;
+  }
+
+  .btn-lg {
+    height: 38px;
+    padding: 0 1rem;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    background-color: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+    /* Coloured glow rather than a neutral drop shadow, so the lift reads on
+       both light and dark canvases. */
+    box-shadow: 0 3px 10px -3px rgb(var(--accent-rgb) / 0.5);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    box-shadow: none;
+  }
+
+  .btn-secondary {
+    background-color: var(--bg-surface);
+    color: var(--fg-primary);
+    border-color: var(--border-primary);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--bg-hover);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--fg-secondary);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--bg-hover);
+    color: var(--fg-primary);
+    transform: none;
+  }
+
+  .btn-danger {
+    background-color: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    filter: brightness(0.92);
+    box-shadow: 0 3px 10px -3px rgb(var(--danger-rgb) / 0.5);
+  }
+
+  .btn-danger:active:not(:disabled) {
+    box-shadow: none;
+  }
+
+  /* Square icon-only button, sized to line up with .btn in a toolbar. */
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-control);
+    color: var(--fg-tertiary);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover),
+      transform var(--dur-hover) var(--ease-hover);
+  }
+
+  /* Scale, not lift: these cluster three-abreast in table rows, and three
+     things rising together looks like the row itself moved. */
+  .btn-icon:hover:not(:disabled) {
+    background-color: var(--bg-hover);
+    color: var(--fg-primary);
+    transform: scale(1.1);
+  }
+
+  .btn-icon:active:not(:disabled) {
+    transform: scale(0.94);
+    transition-duration: var(--dur-press);
+  }
+
+  .btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-icon-sm {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* ---------- Badges & chips ---------- */
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    padding: 0.0625rem 0.4375rem;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .badge-neutral {
+    background-color: var(--bg-subtle);
+    color: var(--fg-secondary);
+    border-color: var(--border-primary);
+  }
+
+  .badge-accent {
+    background-color: var(--accent-subtle);
+    color: var(--accent);
+    border-color: var(--accent-border);
+  }
+
+  .badge-success {
+    background-color: var(--success-bg);
+    color: var(--success);
+    border-color: var(--success-border);
+  }
+
+  .badge-warning {
+    background-color: var(--warning-bg);
+    color: var(--warning);
+    border-color: var(--warning-border);
+  }
+
+  .badge-danger {
+    background-color: var(--danger-bg);
+    color: var(--danger);
+    border-color: var(--danger-border);
+  }
+
+  .badge-info {
+    background-color: var(--info-bg);
+    color: var(--info);
+    border-color: var(--info-border);
+  }
+
+  .badge-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 99px;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  /* Removable filter token above a table. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 22px;
+    padding: 0 0.25rem 0 0.4375rem;
+    font-size: 11.5px;
+    border-radius: 5px;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-primary);
+    color: var(--fg-secondary);
+    transition: background-color var(--dur-hover) var(--ease-hover),
+      border-color var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover);
+  }
+
+  button.chip {
+    cursor: pointer;
+  }
+
+  button.chip:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--border-strong);
+    color: var(--fg-primary);
+  }
+
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--fg-tertiary);
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-primary);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+  }
+
+  /* ---------- Data table ---------- */
+
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+  }
+
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--fg-tertiary);
+    background-color: var(--bg-subtle);
+    padding: 0.4375rem 0.75rem;
+    border-bottom: 1px solid var(--border-primary);
+    white-space: nowrap;
+  }
+
+  .data-table tbody td {
+    padding: 0.4375rem 0.75rem;
+    border-bottom: 1px solid var(--border-secondary);
+    vertical-align: middle;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table tbody tr.is-clickable {
+    cursor: pointer;
+  }
+
+  .data-table tbody td {
+    transition: background-color var(--dur-hover) var(--ease-hover);
+  }
+
+  .data-table tbody tr:hover td {
+    background-color: var(--bg-hover);
+  }
+
+  /* Row actions stay quiet until the row is under the cursor, so a 15-row
+     table isn't 45 icons competing for attention. */
+  .row-actions {
+    opacity: 0.45;
+    transition: opacity var(--dur-hover) var(--ease-hover);
+  }
+
+  .data-table tbody tr:hover .row-actions,
+  .row-actions:focus-within {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    /* Touch has no hover to reveal them with. */
+    .row-actions {
+      opacity: 1;
+    }
+  }
+
+  /* Sortable column header affordance. */
+  .th-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    user-select: none;
+    color: inherit;
+  }
+
+  .th-sort {
+    transition: color var(--dur-hover) var(--ease-hover);
+  }
+
+  .th-sort:hover {
+    color: var(--fg-primary);
+  }
+
+  .th-sort svg {
+    transition: transform var(--dur-hover) var(--ease-hover), opacity var(--dur-hover);
+  }
+
+  .th-sort:hover svg {
+    opacity: 1;
+    transform: translateY(1px);
+  }
+
+  /* ---------- Navigation & menus ---------- */
+
+  .nav-item {
+    transition: background-color var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover);
+  }
+
+  .nav-item .nav-icon {
+    transition: transform var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover);
+  }
+
+  /* The icon leads and the label follows it — a small directional cue that
+     costs no layout, since both are transforms. */
+  .nav-item:hover .nav-icon {
+    transform: translateX(2px);
+  }
+
+  .nav-item:not(.is-active):hover {
+    background-color: var(--bg-hover);
+  }
+
+  /* The active rail grows out of the centre when the route becomes current. */
+  .nav-rail {
+    transform-origin: center;
+    animation: rail-in var(--dur-slow) var(--ease-hover) both;
+  }
+
+  /* Owns its own horizontal padding: Tailwind's utilities layer is emitted
+     after components, so a `px-2` on the element would win over the hover
+     rule below and the item would never move. */
+  .menu-item {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    transition: background-color var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover),
+      padding-left var(--dur-hover) var(--ease-hover);
+  }
+
+  /* Padding rather than transform: menu items have a hover background, and
+     sliding the box would slide the highlight off the menu edge. */
+  .menu-item:hover:not(:disabled) {
+    padding-left: 0.625rem;
+  }
+
+  /* Underline that wipes in from the leading edge. Sized with
+     `background-size` so it animates on the compositor and never reflows. */
+  .link {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    transition: background-size var(--dur-slow) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover);
+  }
+
+  .link:hover {
+    background-size: 100% 1px;
+  }
+
+  .tab-underline {
+    transform-origin: center;
+    transition: transform var(--dur-slow) var(--ease-hover),
+      opacity var(--dur-hover) var(--ease-hover);
+  }
+
+  /* Suggested prompts, citation rows, session list — anything that is a row
+     of text you can click but isn't a button. */
+  .row-hover {
+    transition: background-color var(--dur-hover) var(--ease-hover),
+      border-color var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover),
+      transform var(--dur-hover) var(--ease-hover);
+  }
+
+  .row-hover:hover {
+    transform: translateX(2px);
+  }
+
+  .row-hover:active {
+    transform: translateX(1px);
+    transition-duration: var(--dur-press);
+  }
+
+  /* ---------- Feedback ---------- */
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--bg-subtle) 25%,
+      var(--bg-hover) 37%,
+      var(--bg-subtle) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 6px;
+  }
+
+  /* Vertical rail used by activity feeds and milestone history. */
+  .timeline-rail {
+    position: relative;
+    padding-left: 1.125rem;
+  }
+
+  .timeline-rail::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background: var(--border-primary);
+  }
+
+  /* Pulled back out of the rail's own padding. The node is positioned against
+     the list item, which starts where the padding ends, so `left: 0` would
+     drop it on top of the first character of each entry. */
+  .timeline-node {
+    position: absolute;
+    left: -1.125rem;
+    top: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-strong);
+  }
+
+  .timeline-node-active {
+    border-color: var(--accent);
+  }
+}
+
+/* ==========================================================================
+   MOTION
+   Short, single-purpose. Nothing decorative loops.
+   ========================================================================== */
+
+@keyframes rail-in {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes caret-blink {
+  0%, 45% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* Opacity only, deliberately. `fade-rise` animates `transform`, and an
+   element with a transform animation in effect becomes the containing block
+   for every `position: fixed` descendant — which re-anchors modal and toast
+   overlays to the page wrapper instead of the viewport. Route transitions
+   wrap page content, so they must never introduce a transform. */
+.page-enter {
+  animation: fade-in 0.2s ease both;
+}
+
+.fade-in {
+  animation: fade-in 0.18s ease both;
+}
+
+.pop-in {
+  animation: pop-in 0.16s var(--ease-out-quint) both;
+}
+
+/* Typing caret trailing a streaming AI response. */
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: caret-blink 1s steps(1) infinite;
+}
+
+/* Indeterminate progress sliver for background jobs (embedding, exports). */
+.progress-indeterminate {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.progress-indeterminate::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 25%;
+  background: var(--accent);
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   PAGE TRANSITIONS
+   --------------------------------------------------------------------------
+   Driven by React's <ViewTransition> in the dashboard and auth layouts, so
+   the browser animates snapshots rather than the live tree. Nothing in the
+   real DOM is transformed, which is what keeps `position: fixed` overlays
+   anchored to the viewport during a navigation.
+
+   Deliberately a crossfade with a short rise, not a directional slide. The
+   sidebar is a flat list of twelve destinations, not a hierarchy — sliding
+   the viewport sideways would imply a spatial relationship between "Tài liệu"
+   and "Báo cáo" that does not exist, and would grate by the tenth click.
+
+   Timing is asymmetric on purpose: the old page leaves quickly so it stops
+   competing for attention, and the new one arrives a beat later so the eye
+   has something to land on.
+   ========================================================================== */
+
+:root {
+  --vt-exit: 110ms;
+  --vt-enter: 190ms;
+}
+
+@keyframes vt-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vt-rise {
+  from { transform: translateY(6px); }
+  to { transform: none; }
+}
+
+::view-transition-old(.page) {
+  animation: var(--vt-exit) ease-in both vt-fade reverse;
+}
+
+::view-transition-new(.page) {
+  animation: var(--vt-enter) ease-out var(--vt-exit) both vt-fade,
+    var(--vt-enter) var(--ease-hover) var(--vt-exit) both vt-rise;
+}
+
+/* Chrome holds still. `display: none` on the outgoing snapshot prevents the
+   double-image flash where the old and new bars overlap mid-transition. */
+::view-transition-group(app-sidebar),
+::view-transition-group(app-topbar) {
+  animation: none;
+  z-index: 10;
+}
+
+::view-transition-old(app-sidebar),
+::view-transition-old(app-topbar) {
+  display: none;
+}
+
+::view-transition-new(app-sidebar),
+::view-transition-new(app-topbar) {
+  animation: none;
+}
+
+/* Positional movement is the usual trigger for motion sensitivity, so the
+   rise goes and the crossfade stays — an instant swap is harsher than a
+   120ms dissolve, not gentler. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(.page) {
+    animation: 120ms ease both vt-fade;
+  }
+
+  ::view-transition-old(.page) {
+    animation: 90ms ease both vt-fade reverse;
+  }
+
+  ::view-transition-group(*) {
+    animation-duration: 120ms;
+  }
+}
+
+/* ==========================================================================
+   KANBAN BOARD — DRAG & DROP
+   --------------------------------------------------------------------------
+   The board enforces the milestone FSM (see `lib/milestone-fsm.ts`), so the
+   styling has to carry three states, not two: a column can be a legal target,
+   an illegal one, or the card's own origin. Showing only "hovered / not
+   hovered" would let a user drag toward a column that will refuse them and
+   discover it on release.
+   ========================================================================== */
+
+.drop-zone {
+  border: 1px dashed transparent;
+  transition: background-color var(--dur-hover) var(--ease-hover),
+    border-color var(--dur-hover) var(--ease-hover),
+    opacity var(--dur-hover) var(--ease-hover);
+}
+
+/* Legal target: quietly inviting. */
+.drop-zone[data-drop="valid"] {
+  border-color: var(--accent-border);
+  background-color: var(--accent-subtle);
+}
+
+/* Illegal target: recedes rather than shouting. A board of red columns during
+   every drag would be alarming; dimming says "not here" without the alarm. */
+.drop-zone[data-drop="invalid"] {
+  opacity: 0.4;
+}
+
+/* Where the card came from — neutral, so returning it reads as a no-op. */
+.drop-zone[data-drop="source"] {
+  border-color: var(--border-primary);
+  background-color: var(--bg-subtle);
+}
+
+.board-card {
+  cursor: grab;
+  transition: opacity var(--dur-hover) var(--ease-hover),
+    border-color var(--dur-hover) var(--ease-hover);
+}
+
+.board-card:active {
+  cursor: grabbing;
+}
+
+/* The original stays in place as a ghost outline while the copy flies, so the
+   column height never collapses and the other cards do not jump. */
+.board-card[data-dragging="true"] {
+  opacity: 0.35;
+}
+
+.board-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.drag-grip {
+  color: var(--fg-muted);
+  cursor: grab;
+  /* Only the grip opts out of touch scrolling; the rest of the card still
+     scrolls the board under a finger. */
+  touch-action: none;
+  transition: color var(--dur-hover) var(--ease-hover);
+}
+
+.board-card:hover .drag-grip {
+  color: var(--fg-tertiary);
+}
+
+/* ---- The card in flight ---- */
+
+.drag-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  /* A slight tilt reads as "picked up" far more cheaply than a large shadow,
+     and survives on both light and dark canvases. */
+  transform: rotate(1.5deg);
+  filter: drop-shadow(0 10px 20px rgb(8 12 18 / 0.22));
+}
+
+.drag-reason {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  margin-top: 0.375rem;
+  padding: 0.25rem 0.4375rem;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #fff;
+  background: var(--danger);
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drag-ghost {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   SHEET (side panel)
+   Enter and exit are CSS animations rather than transitions: an animation
+   runs on mount without a two-frame dance, and its `animationend` gives the
+   component an event to unmount on instead of a timer.
+   ========================================================================== */
+
+@keyframes sheet-in-right {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+@keyframes sheet-out-right {
+  from { transform: none; }
+  to { transform: translateX(100%); }
+}
+@keyframes sheet-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
+@keyframes sheet-out-left {
+  from { transform: none; }
+  to { transform: translateX(-100%); }
+}
+
+.sheet-panel[data-side="right"][data-state="open"] {
+  animation: sheet-in-right 260ms var(--ease-hover) both;
+}
+.sheet-panel[data-side="right"][data-state="closing"] {
+  animation: sheet-out-right 200ms ease-in both;
+}
+.sheet-panel[data-side="left"][data-state="open"] {
+  animation: sheet-in-left 260ms var(--ease-hover) both;
+}
+.sheet-panel[data-side="left"][data-state="closing"] {
+  animation: sheet-out-left 200ms ease-in both;
+}
+
+.sheet-scrim[data-state="open"] {
+  animation: fade-in 200ms ease both;
+}
+.sheet-scrim[data-state="closing"] {
+  animation: fade-in 180ms ease both reverse;
+}
+
+/* The slide is the one piece of large-area motion in the app. Reduced motion
+   keeps the fade — an instant appearance is more jarring, not less — and
+   drops the travel. */
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel[data-state="open"] {
+    animation: fade-in 140ms ease both;
+  }
+  .sheet-panel[data-state="closing"] {
+    animation: fade-in 120ms ease both reverse;
+  }
 }

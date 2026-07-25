@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FloppyDisk, GraduationCap } from "@phosphor-icons/react";
+import { ArrowLeft, FloppyDisk } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import { Card, Button, Input, Textarea } from "@/components/ui";
 import { useAuthStore, isLecturer } from "@/lib/auth";
@@ -66,8 +66,8 @@ export default function NewThesisPage() {
         title={isLecturer(user) ? "Tạo Đề tài mới (Giảng viên)" : "Đề xuất Đề tài mới (Sinh viên)"}
         description={
           isLecturer(user)
-            ? "Tạo đề tài nghiên cứu để sinh viên đăng ký (UC 3.11)."
-            : "Đề xuất tên đề tài và nội dung cho Giảng viên hướng dẫn duyệt (UC 3.1)."
+            ? "Tạo đề tài nghiên cứu để sinh viên đăng ký."
+            : "Đề xuất tên đề tài và nội dung cho Giảng viên hướng dẫn duyệt."
         }
       />
 
@@ -135,7 +135,7 @@ export default function NewThesisPage() {
               variant="primary"
               type="submit"
               loading={submitting}
-              icon={<FloppyDisk size={18} />}
+              icon={<FloppyDisk size={15} />}
             >
               {isLecturer(user) ? "Khởi tạo Đề tài" : "Gửi Đề xuất"}
             </Button>

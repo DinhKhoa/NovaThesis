@@ -48,12 +48,12 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center p-6"
+        className="min-h-dvh flex items-center justify-center p-6"
         style={{ background: "var(--bg-primary)" }}
       >
         <div className="text-center max-w-sm page-enter">
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            className="w-12 h-12 rounded-[12px] flex items-center justify-center mx-auto mb-4"
             style={{
               background: "var(--info-bg)",
               color: "var(--info)",
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-6"
+      className="min-h-dvh flex items-center justify-center p-6"
       style={{ background: "var(--bg-primary)" }}
     >
       <div className="w-full max-w-sm">
@@ -136,7 +136,7 @@ export default function ForgotPasswordPage() {
             placeholder="your@email.edu.vn"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            icon={<EnvelopeSimple size={18} />}
+            icon={<EnvelopeSimple size={15} />}
             autoComplete="email"
             autoFocus
           />

@@ -1,22 +1,17 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import {
-  Kanban,
   Plus,
   Clock,
   CheckCircle,
   XCircle,
-  PencilSimple,
-  Trash,
   UploadSimple,
   CalendarCheck,
-  DownloadSimple,
-  ChatCircleText,
   FilePdf,
-  Warning,
-  ListChecks,
-  ArrowsClockwise,
+  DotsSixVertical,
+  Prohibit,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import {
@@ -28,9 +23,18 @@ import {
   Textarea,
   Dropdown,
   DropdownItem,
+  Select,
+  Table,
+  useMounted,
 } from "@/components/ui";
-import { useAuthStore, isLecturer, isStudent } from "@/lib/auth";
+import { useAuthStore, isLecturer } from "@/lib/auth";
 import { toast } from "@/lib/toast";
+import {
+  checkTransition,
+  STATUS_LABELS,
+  TRANSITION_TOASTS,
+} from "@/lib/milestone-fsm";
+import { useBoardDrag } from "@/lib/use-board-drag";
 
 /* ========================================
    TYPES (ERD Milestones Table)
@@ -113,12 +117,15 @@ const mockMilestones: Milestone[] = [
 ];
 
 const statusColumns: { key: MilestoneStatus; label: string; variant: "neutral" | "info" | "warning" | "success" | "danger" }[] = [
-  { key: "NOT_STARTED", label: "Chưa bắt đầu", variant: "neutral" },
-  { key: "ONGOING", label: "Đang làm", variant: "info" },
-  { key: "PENDING_APPROVAL", label: "Chờ phê duyệt", variant: "warning" },
-  { key: "REVISION_REQUIRED", label: "Cần sửa đổi", variant: "danger" },
-  { key: "COMPLETED", label: "Hoàn thành", variant: "success" },
+  { key: "NOT_STARTED", label: STATUS_LABELS.NOT_STARTED, variant: "neutral" },
+  { key: "ONGOING", label: STATUS_LABELS.ONGOING, variant: "info" },
+  { key: "PENDING_APPROVAL", label: STATUS_LABELS.PENDING_APPROVAL, variant: "warning" },
+  { key: "REVISION_REQUIRED", label: STATUS_LABELS.REVISION_REQUIRED, variant: "danger" },
+  { key: "COMPLETED", label: STATUS_LABELS.COMPLETED, variant: "success" },
 ];
+
+/* Left-to-right order, which is also the order the keyboard arrows walk. */
+const COLUMN_ORDER = statusColumns.map((c) => c.key) as readonly MilestoneStatus[];
 
 export default function MilestonesPage() {
   const { user } = useAuthStore();
@@ -172,13 +179,38 @@ export default function MilestonesPage() {
     setDeadline("");
   };
 
-  // Status Change Drag/Dropdown (UC 4.8)
-  const handleStatusChange = (id: number, newStatus: MilestoneStatus) => {
-    setMilestones((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m))
-    );
-    toast.info("Đã cập nhật trạng thái milestone");
-  };
+  // Status change (UC 4.8). Every path into this — drag, keyboard, menu —
+  // goes through the FSM first, so the board can never produce a state the
+  // server would reject.
+  const handleStatusChange = React.useCallback(
+    (id: number, next: MilestoneStatus) => {
+      setMilestones((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, status: next } : m))
+      );
+      toast.success(TRANSITION_TOASTS[next] ?? "Đã cập nhật trạng thái.");
+    },
+    []
+  );
+
+  /* The board reads the transition table rather than owning any rules of its
+     own, so drag, keyboard and the row menu all agree on what is legal. */
+  const canDrop = React.useCallback(
+    (id: string, from: MilestoneStatus, to: MilestoneStatus) => {
+      const m = milestones.find((x) => String(x.id) === id);
+      if (!m) return { allowed: false };
+      return checkTransition(from, to, user?.role, m);
+    },
+    [milestones, user?.role]
+  );
+
+  const board = useBoardDrag<MilestoneStatus>({
+    columns: COLUMN_ORDER,
+    canDrop,
+    onDrop: (id, _from, to) => handleStatusChange(Number(id), to),
+    onReject: (reason) => toast.error(reason),
+  });
+
+  const mounted = useMounted();
 
   // Approve Milestone (UC 4.10)
   const handleApprove = (id: number) => {
@@ -238,21 +270,21 @@ export default function MilestonesPage() {
   return (
     <div>
       <PageHeader
-        title="Quản lý Tiến độ & Milestone"
-        description="Theo dõi mốc báo cáo, nộp minh chứng, phê duyệt và xuất báo cáo PDF (UC 4.1 - 4.15)."
+        title="Tiến độ"
+        description="Các mốc công việc của đề tài, hạn nộp và trạng thái phê duyệt."
         actions={
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
-              icon={<FilePdf size={18} />}
+              icon={<FilePdf size={15} />}
               loading={exportingPdf}
               onClick={handleExportPdf}
             >
-              Xuất PDF (UC 4.15)
+              Xuất PDF
             </Button>
             <Button
               variant="primary"
-              icon={<Plus size={18} />}
+              icon={<Plus size={15} />}
               onClick={() => setCreateModalOpen(true)}
             >
               Thêm Milestone
@@ -272,7 +304,7 @@ export default function MilestonesPage() {
             }`}
             onClick={() => setViewMode("kanban")}
           >
-            Kanban Board (UC 4.2)
+            Kanban Board
           </button>
           <button
             className={`px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors ${
@@ -289,25 +321,64 @@ export default function MilestonesPage() {
 
       {/* KANBAN BOARD VIEW (UC 4.2, 4.8) */}
       {viewMode === "kanban" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto pb-4">
           {statusColumns.map((col) => {
             const items = milestones.filter((m) => m.status === col.key);
+            const state = board.columnState(col.key);
 
             return (
-              <div key={col.key} className="flex flex-col gap-3 min-w-[240px]">
+              <div key={col.key} className="flex flex-col gap-2 min-w-[240px]">
                 {/* Column Header */}
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)]">
-                  <span className="text-[13px] font-semibold text-secondary">{col.label}</span>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-primary)]">
+                  <span className="text-[12.5px] font-semibold text-secondary">{col.label}</span>
                   <Badge variant={col.variant}>{items.length}</Badge>
                 </div>
 
-                {/* Cards Container */}
-                <div className="flex flex-col gap-3 min-h-[400px]">
+                {/* Drop zone. The whole column is the target, not the gaps
+                    between cards — position within a status carries no meaning
+                    here, so asking the user to aim at a 4px gap would be
+                    precision for its own sake. */}
+                <div
+                  ref={board.registerColumn(col.key)}
+                  data-drop={state}
+                  aria-dropeffect={state === "valid" ? "move" : undefined}
+                  className="drop-zone flex flex-col gap-2 min-h-[22rem] rounded-lg p-1"
+                >
                   {items.map((m) => (
-                    <Card key={m.id} className="p-4 flex flex-col justify-between">
+                    <Card
+                      key={m.id}
+                      hoverable={false}
+                      data-dragging={
+                        board.activeItemId === String(m.id) ? "true" : undefined
+                      }
+                      className="board-card p-3 flex flex-col justify-between"
+                      onPointerDown={(e: React.PointerEvent) =>
+                        board.startPointerDrag(e, String(m.id), m.status)
+                      }
+                      onKeyDown={(e: React.KeyboardEvent) =>
+                        board.handleKeyDown(e, String(m.id), m.status)
+                      }
+                      tabIndex={0}
+                      aria-roledescription="Thẻ mốc tiến độ, có thể kéo thả"
+                      aria-grabbed={board.activeItemId === String(m.id)}
+                      aria-label={`${m.name} — ${STATUS_LABELS[m.status]}. Nhấn Space để di chuyển.`}
+                    >
                       <div>
-                        <h3 className="text-[14px] font-semibold mb-2 leading-snug">{m.name}</h3>
-                        <p className="text-[12px] text-tertiary line-clamp-2 mb-3 leading-relaxed">
+                        <div className="flex items-start gap-1.5 mb-1.5">
+                          {/* `touch-action: none` lives on the grip alone, so
+                              the board still scrolls under a finger everywhere
+                              else on the card. */}
+                          <span
+                            className="drag-grip -ml-1 mt-px flex-shrink-0"
+                            aria-hidden="true"
+                          >
+                            <DotsSixVertical size={14} weight="bold" />
+                          </span>
+                          <h3 className="text-[13px] font-semibold leading-snug">
+                            {m.name}
+                          </h3>
+                        </div>
+                        <p className="text-[12px] text-tertiary line-clamp-2 mb-2.5 leading-relaxed">
                           {m.description}
                         </p>
                       </div>
@@ -342,7 +413,7 @@ export default function MilestonesPage() {
                               </button>
                             }
                           >
-                            {/* Student Action: Upload evidence (UC 4.9) */}
+                            {/* Student Action: Upload evidence */}
                             <DropdownItem
                               icon={<UploadSimple size={16} />}
                               onClick={() => {
@@ -350,10 +421,10 @@ export default function MilestonesPage() {
                                 setUploadModalOpen(true);
                               }}
                             >
-                              Nộp minh chứng (UC 4.9)
+                              Nộp minh chứng
                             </DropdownItem>
 
-                            {/* Student Action: Extend deadline (UC 4.7) */}
+                            {/* Student Action: Extend deadline */}
                             <DropdownItem
                               icon={<CalendarCheck size={16} />}
                               onClick={() => {
@@ -361,7 +432,7 @@ export default function MilestonesPage() {
                                 setExtendModalOpen(true);
                               }}
                             >
-                              Xin gia hạn (UC 4.7)
+                              Xin gia hạn
                             </DropdownItem>
 
                             {/* GV Actions: Approve / Reject (UC 4.10, 4.11) */}
@@ -371,7 +442,7 @@ export default function MilestonesPage() {
                                   icon={<CheckCircle size={16} />}
                                   onClick={() => handleApprove(m.id)}
                                 >
-                                  Duyệt thành công (UC 4.10)
+                                  Duyệt thành công
                                 </DropdownItem>
                                 <DropdownItem
                                   danger
@@ -381,7 +452,7 @@ export default function MilestonesPage() {
                                     setRevisionModalOpen(true);
                                   }}
                                 >
-                                  Yêu cầu sửa (UC 4.11)
+                                  Yêu cầu sửa
                                 </DropdownItem>
                               </>
                             )}
@@ -390,6 +461,12 @@ export default function MilestonesPage() {
                       </div>
                     </Card>
                   ))}
+
+                  {items.length === 0 && (
+                    <p className="text-[12px] text-muted text-center py-6 select-none">
+                      {state === "valid" ? "Thả vào đây" : "Trống"}
+                    </p>
+                  )}
                 </div>
               </div>
             );
@@ -397,7 +474,144 @@ export default function MilestonesPage() {
         </div>
       )}
 
-      {/* Modal: Create Milestone (UC 4.1) */}
+      {/* LIST VIEW
+          The toggle for this already existed but rendered nothing. It matters
+          more now: a board you can only operate by dragging is unusable on a
+          narrow screen and awkward with assistive tech, so this is the same
+          workflow reachable through a plain control. Both paths call the same
+          FSM, so neither can produce a state the other would refuse. */}
+      {viewMode === "list" && (
+        <Card hoverable={false} className="overflow-hidden">
+          <Table
+            data={milestones}
+            keyExtractor={(m) => String(m.id)}
+            pageSize={20}
+            rowAccent={(m) =>
+              m.status === "REVISION_REQUIRED"
+                ? "danger"
+                : m.status === "COMPLETED"
+                  ? "success"
+                  : undefined
+            }
+            columns={[
+              {
+                key: "name",
+                header: "Mốc tiến độ",
+                sortValue: (m) => m.name,
+                render: (m) => (
+                  <div className="min-w-0 py-0.5">
+                    <p className="text-[13px] font-medium truncate max-w-[28rem]">
+                      {m.name}
+                    </p>
+                    <p className="text-[12px] text-tertiary truncate max-w-[34rem]">
+                      {m.description}
+                    </p>
+                  </div>
+                ),
+              },
+              {
+                key: "evidence",
+                header: "Minh chứng",
+                width: "1%",
+                hideOnMobile: true,
+                render: (m) =>
+                  m.evidence_filename ? (
+                    <span className="chip max-w-[12rem] truncate">
+                      {m.evidence_filename}
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  ),
+              },
+              {
+                key: "deadline",
+                header: "Hạn nộp",
+                width: "1%",
+                hideOnMobile: true,
+                sortValue: (m) => m.deadline,
+                render: (m) => (
+                  <span className="text-[12.5px] text-tertiary tnum whitespace-nowrap">
+                    {m.deadline}
+                  </span>
+                ),
+              },
+              {
+                key: "status",
+                header: "Trạng thái",
+                width: "1%",
+                sortValue: (m) => m.status,
+                render: (m) => {
+                  /* Only the transitions the FSM would actually accept are
+                     offered, so the control cannot present a dead end. */
+                  const targets = COLUMN_ORDER.filter(
+                    (t) =>
+                      t === m.status ||
+                      checkTransition(m.status, t, user?.role, m).allowed
+                  );
+                  return (
+                    <Select
+                      value={m.status}
+                      aria-label={`Trạng thái của ${m.name}`}
+                      className="w-auto"
+                      disabled={targets.length <= 1}
+                      onChange={(e) =>
+                        handleStatusChange(m.id, e.target.value as MilestoneStatus)
+                      }
+                    >
+                      {targets.map((t) => (
+                        <option key={t} value={t}>
+                          {STATUS_LABELS[t]}
+                        </option>
+                      ))}
+                    </Select>
+                  );
+                },
+              },
+            ]}
+          />
+        </Card>
+      )}
+
+      {/* Live region: the only feedback a keyboard or screen-reader user gets
+          while a card is in flight, since they cannot see the highlight. */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {board.activeItemId && board.activeTarget
+          ? board.rejection
+            ? `Không thể thả vào ${STATUS_LABELS[board.activeTarget]}. ${board.rejection}`
+            : `Đang ở ${STATUS_LABELS[board.activeTarget]}. Nhấn Space để thả.`
+          : ""}
+      </div>
+
+      {/* Floating card that follows the pointer. Portalled to <body> so no
+          ancestor transform can re-anchor it, and pointer-events disabled so
+          it never becomes its own hit target. */}
+      {mounted && board.drag
+        ? createPortal(
+            <div
+              className="drag-ghost"
+              style={{
+                left: board.drag.x - board.drag.dx,
+                top: board.drag.y - board.drag.dy,
+                width: board.drag.w,
+              }}
+            >
+              <div className="card p-3">
+                <p className="text-[13px] font-semibold leading-snug">
+                  {milestones.find((m) => String(m.id) === board.drag!.itemId)?.name}
+                </p>
+              </div>
+              {board.rejection && (
+                <p className="drag-reason">
+                  <Prohibit size={12} weight="bold" />
+                  {board.rejection}
+                </p>
+              )}
+            </div>,
+            document.body
+          )
+        : null}
+
+      {/* Modal: Create Milestone */}
       <Modal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -435,7 +649,7 @@ export default function MilestonesPage() {
         </form>
       </Modal>
 
-      {/* Modal: Upload Evidence File (UC 4.9) */}
+      {/* Modal: Upload Evidence File */}
       <Modal
         open={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
@@ -480,7 +694,7 @@ export default function MilestonesPage() {
         </div>
       </Modal>
 
-      {/* Modal: Extend Deadline Request (UC 4.7) */}
+      {/* Modal: Extend Deadline Request */}
       <Modal
         open={extendModalOpen}
         onClose={() => setExtendModalOpen(false)}
@@ -513,7 +727,7 @@ export default function MilestonesPage() {
         </div>
       </Modal>
 
-      {/* Modal: GV Revision Request (UC 4.11) */}
+      {/* Modal: GV Revision Request */}
       <Modal
         open={revisionModalOpen}
         onClose={() => setRevisionModalOpen(false)}

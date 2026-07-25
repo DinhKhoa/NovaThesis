@@ -6,11 +6,9 @@ import {
   Camera,
   Lock,
   FloppyDisk,
-  GraduationCap,
   IdentificationCard,
   Building,
   EnvelopeSimple,
-  ShieldCheck,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import {
@@ -46,13 +44,16 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = React.useState("");
   const [changingPassword, setChangingPassword] = React.useState(false);
 
-  React.useEffect(() => {
-    if (user) {
-      setFullName(user.full_name || "");
-      setLecturerCode(user.lecturer_code || "");
-      setDepartment(user.department || "");
-    }
-  }, [user]);
+  /* Seed the form from the loaded profile without an effect: when the source
+     record changes identity, drop the draft and re-read from it. Edits made
+     since then are preserved, because only a new `user.id` resets. */
+  const [seededFor, setSeededFor] = React.useState<number | null>(null);
+  if (user && seededFor !== user.id) {
+    setSeededFor(user.id);
+    setFullName(user.full_name || "");
+    setLecturerCode(user.lecturer_code || "");
+    setDepartment(user.department || "");
+  }
 
   // Handle Profile Update (UC 1.9)
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -160,12 +161,12 @@ export default function ProfilePage() {
   return (
     <div>
       <PageHeader
-        title="Hồ sơ cá nhân"
-        description="Quản lý thông tin cá nhân và cài đặt bảo mật tài khoản."
+        title="Hồ sơ"
+        description="Thông tin cá nhân, ảnh đại diện và mật khẩu."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Avatar & Role Summary Card (UC 1.8) */}
+        {/* Left: Avatar & Role Summary Card */}
         <Card className="p-6 flex flex-col items-center text-center">
           <div className="relative mb-4 group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
             <Avatar src={user?.avatar_url} name={user?.full_name} size="lg" className="w-24 h-24 text-2xl" />
@@ -211,7 +212,7 @@ export default function ProfilePage() {
           </Button>
         </Card>
 
-        {/* Right: Edit Profile Form (UC 1.9) */}
+        {/* Right: Edit Profile Form */}
         <Card className="lg:col-span-2 p-6">
           <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
             <User size={18} style={{ color: "var(--accent)" }} />
@@ -223,14 +224,14 @@ export default function ProfilePage() {
               label="Họ và tên"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              icon={<User size={18} />}
+              icon={<User size={15} />}
             />
 
             <Input
               label="Email"
               value={user?.email || ""}
               disabled
-              icon={<EnvelopeSimple size={18} />}
+              icon={<EnvelopeSimple size={15} />}
               helperText="Email không thể thay đổi"
             />
 
@@ -241,13 +242,13 @@ export default function ProfilePage() {
                   label="Mã số giảng viên (MSGV)"
                   value={lecturerCode}
                   onChange={(e) => setLecturerCode(e.target.value)}
-                  icon={<IdentificationCard size={18} />}
+                  icon={<IdentificationCard size={15} />}
                 />
                 <Input
                   label="Khoa / Bộ môn"
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  icon={<Building size={18} />}
+                  icon={<Building size={15} />}
                 />
               </>
             )}
@@ -257,7 +258,7 @@ export default function ProfilePage() {
                 type="submit"
                 variant="primary"
                 loading={saving}
-                icon={<FloppyDisk size={18} />}
+                icon={<FloppyDisk size={15} />}
               >
                 Lưu thay đổi
               </Button>
@@ -266,7 +267,7 @@ export default function ProfilePage() {
         </Card>
       </div>
 
-      {/* Change Password Modal (UC 1.7) */}
+      {/* Change Password Modal */}
       <Modal
         open={passwordModalOpen}
         onClose={() => setPasswordModalOpen(false)}
@@ -301,7 +302,7 @@ export default function ProfilePage() {
             type="password"
             value={oldPassword}
             onChange={(e) => setOldPassword(e.target.value)}
-            icon={<Lock size={18} />}
+            icon={<Lock size={15} />}
           />
           <Input
             label="Mật khẩu mới"
@@ -309,14 +310,14 @@ export default function ProfilePage() {
             placeholder="Tối thiểu 8 ký tự"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            icon={<Lock size={18} />}
+            icon={<Lock size={15} />}
           />
           <Input
             label="Xác nhận mật khẩu mới"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            icon={<Lock size={18} />}
+            icon={<Lock size={15} />}
           />
         </div>
       </Modal>

@@ -70,7 +70,7 @@ function ResetPasswordForm() {
     return (
       <div className="text-center max-w-sm page-enter">
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          className="w-12 h-12 rounded-[12px] flex items-center justify-center mx-auto mb-4"
           style={{ background: "var(--success-bg)", color: "var(--success)" }}
         >
           <CheckCircle size={32} weight="duotone" />
@@ -147,7 +147,7 @@ function ResetPasswordForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             error={errors.password}
-            icon={<Lock size={18} />}
+            icon={<Lock size={15} />}
             autoComplete="new-password"
             helperText="Gồm chữ hoa, chữ thường và số"
             autoFocus
@@ -170,7 +170,7 @@ function ResetPasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           error={errors.confirm}
-          icon={<Lock size={18} />}
+          icon={<Lock size={15} />}
           autoComplete="new-password"
         />
 
@@ -191,7 +191,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-6"
+      className="min-h-dvh flex items-center justify-center p-6"
       style={{ background: "var(--bg-primary)" }}
     >
       <Suspense fallback={<div className="text-[14px] text-tertiary">Đang tải...</div>}>

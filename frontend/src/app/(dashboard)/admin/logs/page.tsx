@@ -2,13 +2,8 @@
 
 import React from "react";
 import {
-  Notebook,
   MagnifyingGlass,
-  Funnel,
   Eye,
-  Clock,
-  User,
-  Desktop,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import { Card, Input, Badge, Modal, Button } from "@/components/ui";
@@ -97,8 +92,8 @@ export default function AdminLogsPage() {
   return (
     <div>
       <PageHeader
-        title="Nhật ký hệ thống (System Logs)"
-        description="Kiểm toán tất cả hoạt động, đăng nhập, và thao tác hệ thống (UC 2.6)."
+        title="Nhật ký hệ thống"
+        description="Lịch sử đăng nhập và thao tác trên dữ liệu, phục vụ kiểm toán."
       />
 
       <Card className="p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -107,7 +102,7 @@ export default function AdminLogsPage() {
             placeholder="Tìm theo email, hành động, IP..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            icon={<MagnifyingGlass size={18} />}
+            icon={<MagnifyingGlass size={15} />}
           />
         </div>
 

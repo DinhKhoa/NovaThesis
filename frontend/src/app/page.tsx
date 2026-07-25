@@ -1,229 +1,249 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { VantaBackground } from "@/components/VantaBackground";
-import { 
-  ArrowRight, 
-  TerminalWindow, 
-  Database, 
-  ShareNetwork, 
+import { useTheme } from "next-themes";
+import {
+  ArrowRight,
+  ChatCircleDots,
+  Files,
+  GraduationCap,
+  Kanban,
+  Moon,
+  Quotes,
   ShieldCheck,
-  MagnifyingGlass,
-  X,
-  SignIn
+  Sun,
 } from "@phosphor-icons/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMounted } from "@/components/ui";
+import { AuthSheet, type AuthMode } from "@/components/auth-sheet";
 
-export default function TechLanding() {
-  const [mounted, setMounted] = useState(false);
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
+/* ==========================================================================
+   PUBLIC ENTRY PAGE
+   The audience is students and lecturers at one university who were sent a
+   link — not visitors being sold a product. So: say what it is, say who it's
+   for, and get out of the way of the login button.
+   ========================================================================== */
 
-  useEffect(() => setMounted(true), []);
+const CAPABILITIES = [
+  {
+    icon: <Kanban size={17} weight="duotone" />,
+    title: "Tiến độ theo mốc",
+    body: "Mỗi đề tài có các mốc công việc với hạn nộp và trạng thái phê duyệt rõ ràng. Không còn phải hỏi “đến đâu rồi?” qua tin nhắn.",
+  },
+  {
+    icon: <Files size={17} weight="duotone" />,
+    title: "Tài liệu có phiên bản",
+    body: "Bản thảo v1, v2 và bản cuối được lưu song song thay vì ghi đè. Giảng viên luôn xem đúng bản mình đã nhận xét.",
+  },
+  {
+    icon: <ChatCircleDots size={17} weight="duotone" />,
+    title: "Nhận xét đúng chỗ",
+    body: "Phản hồi của giảng viên gắn trực tiếp vào mốc tiến độ hoặc tài liệu liên quan, và có trạng thái đã xử lý.",
+  },
+  {
+    icon: <Quotes size={17} weight="duotone" />,
+    title: "Trợ lý AI có dẫn nguồn",
+    body: "Hỏi đáp dựa trên chính tài liệu trong đề tài của bạn. Mỗi câu trả lời kèm tên tệp và số trang để đối chiếu.",
+  },
+];
+
+function ThemeButton() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const mounted = useMounted();
+  if (!mounted) return <span className="w-8 h-8" aria-hidden="true" />;
+
+  const dark = resolvedTheme === "dark";
+  return (
+    <button
+      onClick={() => setTheme(dark ? "light" : "dark")}
+      className="btn-icon"
+      aria-label={dark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+    >
+      {dark ? <Sun size={16} /> : <Moon size={16} />}
+    </button>
+  );
+}
+
+function LandingContent() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  /* The URL stays the source of truth. /login and /register redirect here
+     with ?auth=, so every existing link, bookmark and email pointing at the
+     old routes still opens the right panel. */
+  const authParam = params.get("auth");
+  const mode: AuthMode = authParam === "register" ? "register" : "login";
+  const open = authParam === "login" || authParam === "register";
+
+  const openAuth = (m: AuthMode) => {
+    router.push(`/?auth=${m}`, { scroll: false });
+  };
+
+  // `replace`, so dismissing the panel does not leave a history entry that
+  // the back button would reopen it from.
+  const closeAuth = () => router.replace("/", { scroll: false });
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--fg-primary)] overflow-x-hidden selection:bg-[var(--accent)] selection:text-white">
-      {mounted && <VantaBackground />}
-      
-      {/* Navigation / Header */}
-      <header className="relative z-10 w-full border-b border-[var(--border-color)] bg-[var(--bg-primary)]/80 backdrop-blur-md">
-        <div className="w-full max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between text-[13px] font-mono tracking-tight">
-          <div className="flex items-center gap-6">
-            <div className="font-bold text-[14px] flex items-center gap-2 text-[var(--fg-primary)]">
-              <div className="w-2 h-2 bg-[var(--accent-secondary)] rounded-sm animate-pulse" />
-              NOVATHESIS
-            </div>
-            <nav className="hidden md:flex gap-6 text-[var(--fg-muted)]">
-              <Link href="/documents" className="hover:text-[var(--fg-primary)] transition-colors">API_DOCS</Link>
-              <Link href="/architecture" className="hover:text-[var(--fg-primary)] transition-colors">SYS_ARCH</Link>
-              <Link href="/status" className="hover:text-[var(--fg-primary)] transition-colors">NETWORK_STATUS</Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="hidden sm:block text-[var(--fg-muted)]">v2.0.5 [BUILD 5012]</span>
-            <ThemeToggle />
-            <div className="h-4 w-[1px] bg-[var(--border-color)] mx-2" />
-            <button 
-              onClick={() => setIsLoginOpen(true)}
-              className="hover:text-[var(--accent)] font-semibold transition-colors flex items-center gap-1"
-            >
-              AUTH_INIT <ArrowRight size={14} />
-            </button>
-          </div>
+    <div className="min-h-dvh flex flex-col surface-canvas">
+      {/* ---------- Header ---------- */}
+      <header
+        className="sticky top-0 z-20 surface-base"
+        style={{ borderBottom: "1px solid var(--border-primary)" }}
+      >
+        <div className="mx-auto max-w-5xl px-5 py-2.5 flex items-center gap-3">
+          <span
+            className="w-7 h-7 rounded-[7px] flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
+          >
+            <GraduationCap size={16} weight="fill" />
+          </span>
+          <span className="flex flex-col leading-tight min-w-0">
+            <span className="text-[13.5px] font-semibold tracking-tight">
+              NovaThesis
+            </span>
+            <span className="text-[10.5px] text-tertiary truncate">
+              ĐH Kinh tế – ĐH Đà Nẵng
+            </span>
+          </span>
+
+          <div className="flex-1" />
+
+          <ThemeButton />
+          <button
+            onClick={() => openAuth("login")}
+            className="btn btn-primary btn-sm"
+          >
+            Đăng nhập
+          </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="relative z-10 w-full max-w-[1600px] mx-auto px-6 pt-24 pb-32">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
-          
-          {/* Left Column: Dense Typography & Call to Actions */}
-          <div className="lg:col-span-5 flex flex-col justify-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--bg-surface)] border border-[var(--border-color)] text-[11px] font-mono mb-8 uppercase tracking-wider text-[var(--fg-secondary)] w-max">
-              <ShieldCheck size={14} className="text-[var(--accent-tertiary)]" />
-              End-to-End Encrypted RAG Pipeline
-            </div>
-            
-            <h1 className="text-5xl md:text-7xl font-semibold tracking-[-0.03em] leading-[1.05] mb-8 text-[var(--fg-primary)]">
-              Luận văn.<br />
-              <span className="text-[var(--fg-muted)]">Được biên dịch.</span>
-            </h1>
-            
-            <p className="text-[15px] leading-relaxed text-[var(--fg-secondary)] max-w-md mb-10 border-l-2 border-[var(--accent)] pl-4">
-              Hệ thống quản trị tài liệu học thuật theo kiến trúc State Machine. 
-              Tuyệt đối chặt chẽ. Khả năng tra cứu vector tốc độ cao. Được thiết kế 
-              riêng cho quy trình đào tạo khắt khe.
-            </p>
+      <main className="flex-1">
+        {/* ---------- Hero ---------- */}
+        <section className="mx-auto max-w-5xl px-5 pt-16 pb-14">
+          <p className="eyebrow mb-3">Hệ thống quản lý luận văn</p>
+          <h1 className="text-[32px] sm:text-[40px] font-semibold tracking-[-0.025em] leading-[1.15] max-w-2xl">
+            Luận văn, tiến độ và tài liệu — ở cùng một chỗ.
+          </h1>
+          <p className="text-[15px] text-secondary leading-relaxed max-w-xl mt-4">
+            Dành cho sinh viên và giảng viên hướng dẫn của Trường Đại học Kinh tế –
+            Đại học Đà Nẵng. Đăng nhập bằng email do nhà trường cấp.
+          </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 font-mono text-[13px]">
-              <button onClick={() => setIsLoginOpen(true)} className="flex items-center justify-center gap-2 bg-[var(--accent)] text-white px-6 py-3 font-bold hover:bg-[var(--accent-secondary)] transition-colors">
-                <TerminalWindow size={16} /> BẮT ĐẦU PHIÊN
-              </button>
-              <Link href="/documents" className="flex items-center justify-center gap-2 bg-[var(--bg-surface)] border border-[var(--border-color)] text-[var(--fg-primary)] px-6 py-3 font-semibold hover:border-[var(--accent)] transition-colors">
-                TÀI LIỆU KỸ THUẬT
-              </Link>
+          <div className="flex flex-wrap items-center gap-2.5 mt-7">
+            <button
+              onClick={() => openAuth("login")}
+              className="btn btn-primary btn-lg"
+            >
+              Đăng nhập
+              <span className="btn-trail">
+                <ArrowRight size={15} />
+              </span>
+            </button>
+            <button
+              onClick={() => openAuth("register")}
+              className="btn btn-secondary btn-lg"
+            >
+              Đăng ký tài khoản
+            </button>
+          </div>
+        </section>
+
+        {/* ---------- Capabilities ---------- */}
+        <section
+          className="surface-base"
+          style={{
+            borderTop: "1px solid var(--border-primary)",
+            borderBottom: "1px solid var(--border-primary)",
+          }}
+        >
+          <div className="mx-auto max-w-5xl px-5 py-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-8">
+              {CAPABILITIES.map((c) => (
+                <div key={c.title} className="flex gap-3">
+                  <span
+                    className="w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: "var(--accent-subtle)",
+                      color: "var(--accent)",
+                    }}
+                    aria-hidden="true"
+                  >
+                    {c.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-[14px] font-semibold mb-1">{c.title}</h2>
+                    <p className="text-[13px] text-tertiary leading-relaxed">
+                      {c.body}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        </section>
 
-          {/* Right Column: Data-dense Technical Panel */}
-          <div className="lg:col-span-7 bg-[var(--bg-surface)]/95 backdrop-blur-md border border-[var(--border-color)] p-1 overflow-hidden shadow-2xl">
-            <div className="w-full bg-[var(--bg-primary)] border-b border-[var(--border-color)] px-4 py-2 flex items-center justify-between text-[11px] font-mono text-[var(--fg-muted)]">
-              <div className="flex gap-2 items-center">
-                <div className="w-2 h-2 rounded-full bg-[var(--accent-secondary)]" />
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <div className="w-2 h-2 rounded-full bg-[var(--accent-tertiary)]" />
-                <span className="ml-2 text-[var(--fg-primary)]">sys_monitor_v2</span>
-              </div>
-              <span className="text-[var(--accent-tertiary)]">ACTIVE_NODES: 34</span>
-            </div>
-            
-            <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 font-mono">
-              {/* Feature 1 */}
-              <div>
-                <div className="flex items-center gap-2 text-[var(--fg-primary)] font-bold text-[13px] mb-3 border-b border-[var(--border-color)] pb-2">
-                  <ShareNetwork size={16} className="text-[var(--accent)]" />
-                  FINITE STATE MACHINE
-                </div>
-                <div className="text-[12px] text-[var(--fg-secondary)] leading-relaxed">
-                  Ngăn chặn triệt để lỗ hổng quy trình nộp bài. Đồ án chỉ được phép chuyển trạng thái theo đúng luồng định trước (Draft → Submitted → Reviewed).
-                </div>
-                <div className="mt-4 text-[10px] text-[var(--fg-muted)] bg-[var(--bg-primary)] p-2 border border-[var(--border-color)]">
-                  <span className="text-[var(--accent-tertiary)]">{"[OK]"}</span> STRICT_MODE_ENABLED<br/>
-                  <span className="text-[var(--accent-tertiary)]">{"[OK]"}</span> STATE_TRANSITIONS_LOCKED
-                </div>
-              </div>
-
-              {/* Feature 2 */}
-              <div>
-                <div className="flex items-center gap-2 text-[var(--fg-primary)] font-bold text-[13px] mb-3 border-b border-[var(--border-color)] pb-2">
-                  <Database size={16} className="text-[var(--accent-secondary)]" />
-                  RAG VECTOR ENGINE
-                </div>
-                <div className="text-[12px] text-[var(--fg-secondary)] leading-relaxed">
-                  Toàn bộ cơ sở dữ liệu đồ án được vectorize qua mô hình embedding 1536 chiều, kết hợp tìm kiếm ngữ nghĩa với HNSW Index siêu tốc.
-                </div>
-                <div className="mt-4 flex flex-col gap-1 text-[10px] text-[var(--fg-muted)]">
-                  <div className="flex justify-between border-b border-[var(--border-color)] border-dashed pb-1">
-                    <span>QPS</span> <span className="text-[var(--fg-primary)]">~4.2k</span>
-                  </div>
-                  <div className="flex justify-between border-b border-[var(--border-color)] border-dashed py-1">
-                    <span>LATENCY</span> <span className="text-[var(--fg-primary)]">32ms</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Code Panel */}
-              <div className="md:col-span-2 mt-4 bg-[var(--bg-primary)] border border-[var(--border-color)] p-4 relative">
-                <div className="absolute top-0 right-0 bg-[var(--accent)] text-white px-2 py-0.5 text-[10px] font-bold">
-                  SEARCH_QUERY
-                </div>
-                <div className="flex items-center gap-3 text-[13px] text-[var(--fg-primary)] mb-4 mt-2">
-                  <MagnifyingGlass size={16} className="text-[var(--fg-muted)]" />
-                  <span className="animate-pulse w-[1px] h-4 bg-[var(--accent-secondary)] inline-block"></span>
-                  <span className="text-[var(--fg-secondary)] opacity-80">"Giải thuật học sâu trong thị giác máy tính 2024"</span>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="text-[11px] border border-[var(--border-color)] p-2 hover:bg-[var(--bg-surface)] cursor-pointer transition-colors flex gap-3">
-                    <span className="text-[var(--accent-tertiary)] font-semibold shrink-0">98.4%</span> 
-                    <span className="text-[var(--fg-primary)]">Đồ án: Nhận diện khuôn mặt với YOLOv8 (SV: Nguyễn Văn A)</span>
-                  </div>
-                  <div className="text-[11px] border border-[var(--border-color)] p-2 hover:bg-[var(--bg-surface)] cursor-pointer transition-colors flex gap-3">
-                    <span className="text-[var(--accent-tertiary)] font-semibold shrink-0">92.1%</span> 
-                    <span className="text-[var(--fg-primary)]">Đồ án: Ứng dụng CNN trong phân loại ảnh y tế (SV: Trần Thị B)</span>
-                  </div>
-                </div>
-              </div>
-
+        {/* ---------- Data handling ----------
+            Students upload unpublished research here. Saying plainly how it is
+            stored belongs on the page they see before signing in. */}
+        <section className="mx-auto max-w-5xl px-5 py-12">
+          <div className="flex gap-3 max-w-2xl">
+            <ShieldCheck
+              size={18}
+              weight="duotone"
+              className="text-tertiary flex-shrink-0 mt-0.5"
+            />
+            <div>
+              <h2 className="text-[14px] font-semibold mb-1.5">Về dữ liệu của bạn</h2>
+              <p className="text-[13px] text-tertiary leading-relaxed">
+                Tài liệu luận văn được lưu ở vùng riêng tư và chỉ truy cập được bằng
+                liên kết có chữ ký, có thời hạn. Trợ lý AI chỉ tìm trong phạm vi tài
+                liệu mà tài khoản của bạn có quyền đọc — nội dung đề tài của sinh
+                viên khác không nằm trong phạm vi đó.
+              </p>
             </div>
           </div>
-          
-        </div>
+        </section>
       </main>
 
-      {/* Login Sidebar Overlay */}
-      {isLoginOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
-            onClick={() => setIsLoginOpen(false)}
-          />
-          
-          {/* Sidebar */}
-          <div className="relative w-full max-w-md bg-[var(--bg-surface)] h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)]">
-              <div className="font-bold text-lg flex items-center gap-2">
-                <SignIn size={24} className="text-[var(--accent)]" /> 
-                Truy cập hệ thống
-              </div>
-              <button 
-                onClick={() => setIsLoginOpen(false)}
-                className="p-2 hover:bg-[var(--bg-muted)] rounded-full transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-8 flex-1 overflow-y-auto">
-              <p className="text-[var(--fg-secondary)] text-[14px] mb-8">
-                Đăng nhập bằng tài khoản nội bộ để quản lý đồ án và tài liệu nghiên cứu.
-              </p>
-              
-              <form className="space-y-6">
-                <div>
-                  <label className="block text-[13px] font-semibold text-[var(--fg-primary)] mb-2">Mã sinh viên / Email</label>
-                  <input 
-                    type="text" 
-                    placeholder="VD: 12345678"
-                    className="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-[14px] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition-all"
-                  />
-                </div>
-                
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-[13px] font-semibold text-[var(--fg-primary)]">Mật khẩu</label>
-                    <Link href="/forgot-password" className="text-[12px] text-[var(--accent)] hover:underline">Quên mật khẩu?</Link>
-                  </div>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••"
-                    className="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-[14px] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] transition-all"
-                  />
-                </div>
-                
-                <button type="button" className="w-full py-3 bg-[var(--accent)] text-white rounded-lg font-semibold hover:bg-[#003d75] transition-colors mt-4">
-                  Đăng nhập
-                </button>
-              </form>
-              
-              <div className="mt-8 pt-8 border-t border-[var(--border-color)] text-center text-[13px] text-[var(--fg-secondary)]">
-                Bạn chưa có tài khoản? <Link href="/register" className="text-[var(--accent)] font-semibold hover:underline">Đăng ký hồ sơ mới</Link>
-              </div>
-            </div>
-          </div>
+      <footer style={{ borderTop: "1px solid var(--border-primary)" }}>
+        <div className="mx-auto max-w-5xl px-5 py-5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <span className="text-[12px] text-muted">
+            © {new Date().getFullYear()} Trường Đại học Kinh tế – Đại học Đà Nẵng
+          </span>
+          <span className="flex-1" />
+          <button
+            onClick={() => openAuth("login")}
+            className="text-[12px] text-tertiary hover:text-primary"
+          >
+            Đăng nhập
+          </button>
+          <Link
+            href="/forgot-password"
+            className="text-[12px] text-tertiary hover:text-primary"
+          >
+            Quên mật khẩu
+          </Link>
         </div>
-      )}
+      </footer>
+
+      <AuthSheet
+        open={open}
+        mode={mode}
+        onModeChange={openAuth}
+        onClose={closeAuth}
+      />
     </div>
+  );
+}
+
+export default function LandingPage() {
+  /* useSearchParams needs a Suspense boundary, otherwise the whole route
+     opts out of static rendering. */
+  return (
+    <React.Suspense fallback={null}>
+      <LandingContent />
+    </React.Suspense>
   );
 }

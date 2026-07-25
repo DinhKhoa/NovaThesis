@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   GraduationCap,
-  BookmarkSimple,
   Clock,
   CheckCircle,
   XCircle,
@@ -18,7 +17,6 @@ import {
   ChatCircleDots,
   Robot,
 } from "@phosphor-icons/react";
-import { PageHeader } from "@/components/layout";
 import {
   Card,
   Button,
@@ -26,7 +24,7 @@ import {
   Modal,
   Textarea,
   Input,
-  Avatar,
+  
 } from "@/components/ui";
 import { useAuthStore, isLecturer, isStudent } from "@/lib/auth";
 import { toast } from "@/lib/toast";
@@ -270,7 +268,7 @@ export default function ThesisDetailPage() {
           }`}
           onClick={() => setActiveTab("history")}
         >
-          Lịch sử hoạt động (UC 3.14)
+          Lịch sử hoạt động
         </button>
       </div>
 
@@ -300,16 +298,16 @@ export default function ThesisDetailPage() {
             <Card className="p-5">
               <h3 className="text-[14px] font-semibold mb-3">Không gian làm việc</h3>
               <div className="flex flex-col gap-2">
-                <Button variant="secondary" className="justify-start" icon={<ListBullets size={18} />} onClick={() => router.push("/milestones")}>
+                <Button variant="secondary" className="justify-start" icon={<ListBullets size={15} />} onClick={() => router.push("/milestones")}>
                   Quản lý Milestone
                 </Button>
-                <Button variant="secondary" className="justify-start" icon={<Files size={18} />} onClick={() => router.push("/documents")}>
+                <Button variant="secondary" className="justify-start" icon={<Files size={15} />} onClick={() => router.push("/documents")}>
                   Kho tài liệu & RAG
                 </Button>
-                <Button variant="secondary" className="justify-start" icon={<Robot size={18} />} onClick={() => router.push("/ai-chat")}>
+                <Button variant="secondary" className="justify-start" icon={<Robot size={15} />} onClick={() => router.push("/ai-chat")}>
                   Hỏi đáp Trợ lý AI
                 </Button>
-                <Button variant="secondary" className="justify-start" icon={<ChatCircleDots size={18} />} onClick={() => router.push("/feedbacks")}>
+                <Button variant="secondary" className="justify-start" icon={<ChatCircleDots size={15} />} onClick={() => router.push("/feedbacks")}>
                   Phản hồi GVHD
                 </Button>
               </div>
@@ -318,7 +316,7 @@ export default function ThesisDetailPage() {
         </div>
       )}
 
-      {/* Tab Content: History Timeline (UC 3.14) */}
+      {/* Tab Content: History Timeline */}
       {activeTab === "history" && (
         <Card className="p-6 max-w-3xl">
           <h2 className="text-base font-semibold mb-4">Lịch sử thay đổi trạng thái đề tài</h2>
@@ -342,7 +340,7 @@ export default function ThesisDetailPage() {
         </Card>
       )}
 
-      {/* Reject Modal (UC 3.7) */}
+      {/* Reject Modal */}
       <Modal
         open={rejectModalOpen}
         onClose={() => setRejectModalOpen(false)}
@@ -367,7 +365,7 @@ export default function ThesisDetailPage() {
         />
       </Modal>
 
-      {/* Edit Modal (UC 3.4) */}
+      {/* Edit Modal */}
       <Modal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
@@ -389,7 +387,7 @@ export default function ThesisDetailPage() {
         </div>
       </Modal>
 
-      {/* Delete Modal (UC 3.5) */}
+      {/* Delete Modal */}
       <Modal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}

@@ -1,111 +1,70 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
+  ArrowRight,
+  CheckCircle,
+  Clock,
+  FileArrowUp,
+  Files,
   GraduationCap,
   Kanban,
-  Files,
-  Clock,
-  TrendUp,
+  Robot,
   Warning,
-  CheckCircle,
-  ArrowRight,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Card, Badge, Button } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Panel,
+  ProgressBar,
+  StatTile,
+  EmptyState,
+  useMounted,
+} from "@/components/ui";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth";
 
-/* ========================================
-   MOCK DATA (will be replaced by API calls)
-   ======================================== */
+/* ==========================================================================
+   MOCK DATA (replaced by API calls)
+   ========================================================================== */
 
-const statsCards = [
-  {
-    label: "Đề tài đang thực hiện",
-    value: "1",
-    icon: <GraduationCap size={20} weight="duotone" />,
-    color: "var(--accent)",
-    bg: "var(--accent-subtle)",
-  },
-  {
-    label: "Milestone hoàn thành",
-    value: "4/12",
-    icon: <CheckCircle size={20} weight="duotone" />,
-    color: "var(--success)",
-    bg: "var(--success-bg)",
-  },
-  {
-    label: "Tài liệu đã tải lên",
-    value: "8",
-    icon: <Files size={20} weight="duotone" />,
-    color: "var(--info)",
-    bg: "var(--info-bg)",
-  },
-  {
-    label: "Sắp đến hạn",
-    value: "2",
-    icon: <Warning size={20} weight="duotone" />,
-    color: "var(--warning)",
-    bg: "var(--warning-bg)",
-  },
-];
+const thesis = {
+  id: 1,
+  title: "Hệ thống quản lý luận văn tích hợp AI",
+  supervisor: "TS. Nguyễn Văn A",
+  status: "ONGOING" as const,
+  milestonesDone: 4,
+  milestonesTotal: 12,
+  documents: 8,
+};
 
 const upcomingMilestones = [
-  {
-    id: 1,
-    name: "Nộp báo cáo đề cương",
-    deadline: "2026-07-25",
-    status: "ONGOING",
-    thesis: "Hệ thống quản lý luận văn tích hợp AI",
-  },
-  {
-    id: 2,
-    name: "Hoàn thiện ERD & Database",
-    deadline: "2026-07-28",
-    status: "NOT_STARTED",
-    thesis: "Hệ thống quản lý luận văn tích hợp AI",
-  },
-  {
-    id: 3,
-    name: "Demo prototype UI",
-    deadline: "2026-08-01",
-    status: "ONGOING",
-    thesis: "Hệ thống quản lý luận văn tích hợp AI",
-  },
+  { id: 1, name: "Nộp báo cáo đề cương", deadline: "2026-07-25", status: "ONGOING" },
+  { id: 2, name: "Hoàn thiện ERD & cơ sở dữ liệu", deadline: "2026-07-28", status: "NOT_STARTED" },
+  { id: 3, name: "Demo bản mẫu giao diện", deadline: "2026-08-01", status: "ONGOING" },
+  { id: 4, name: "Nộp bản thảo chương 1–2", deadline: "2026-07-20", status: "REVISION_REQUIRED" },
 ];
 
 const recentActivities = [
-  {
-    id: 1,
-    action: "đã cập nhật trạng thái milestone",
-    target: "Nộp báo cáo đề cương",
-    time: "2 giờ trước",
-    actor: "Bạn",
-  },
-  {
-    id: 2,
-    action: "đã tải lên tài liệu",
-    target: "tham_khao_AI_RAG.pdf",
-    time: "5 giờ trước",
-    actor: "Bạn",
-  },
-  {
-    id: 3,
-    action: "đã phản hồi milestone",
-    target: "Thiết kế database",
-    time: "1 ngày trước",
-    actor: "TS. Nguyễn Văn A",
-  },
-  {
-    id: 4,
-    action: "đã phê duyệt đề tài",
-    target: "Hệ thống quản lý luận văn tích hợp AI",
-    time: "3 ngày trước",
-    actor: "TS. Nguyễn Văn A",
-  },
+  { id: 1, actor: "Bạn", action: "đã cập nhật mốc", target: "Nộp báo cáo đề cương", time: "2 giờ trước" },
+  { id: 2, actor: "Bạn", action: "đã tải lên", target: "tham_khao_AI_RAG.pdf", time: "5 giờ trước" },
+  { id: 3, actor: "TS. Nguyễn Văn A", action: "đã phản hồi mốc", target: "Thiết kế cơ sở dữ liệu", time: "1 ngày trước" },
+  { id: 4, actor: "TS. Nguyễn Văn A", action: "đã phê duyệt đề tài", target: thesis.title, time: "3 ngày trước" },
 ];
 
-const statusMap: Record<string, { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
+type MilestoneStatus =
+  | "COMPLETED"
+  | "ONGOING"
+  | "NOT_STARTED"
+  | "PENDING_APPROVAL"
+  | "REVISION_REQUIRED";
+
+const STATUS: Record<
+  MilestoneStatus,
+  { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }
+> = {
   COMPLETED: { label: "Hoàn thành", variant: "success" },
   ONGOING: { label: "Đang làm", variant: "info" },
   NOT_STARTED: { label: "Chưa bắt đầu", variant: "neutral" },
@@ -113,242 +72,270 @@ const statusMap: Record<string, { label: string; variant: "success" | "warning" 
   REVISION_REQUIRED: { label: "Cần sửa", variant: "danger" },
 };
 
-/* ========================================
-   PROGRESS BAR COMPONENT
-   ======================================== */
-
-function ProgressBar({ value, max }: { value: number; max: number }) {
-  const percent = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3">
-      <div
-        className="flex-1 h-2 rounded-full overflow-hidden"
-        style={{ background: "var(--bg-hover)" }}
-      >
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${percent}%`,
-            background:
-              percent === 100
-                ? "var(--success)"
-                : percent >= 60
-                  ? "var(--accent)"
-                  : percent >= 30
-                    ? "var(--warning)"
-                    : "var(--danger)",
-          }}
-        />
-      </div>
-      <span
-        className="text-[12px] font-mono font-medium min-w-[36px] text-right"
-        style={{ color: "var(--fg-secondary)" }}
-      >
-        {percent}%
-      </span>
-    </div>
-  );
+/* Days are computed against local midnight so "hôm nay" doesn't flip at an
+   arbitrary hour depending on when the deadline was recorded. */
+function daysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
 
-/* ========================================
-   DASHBOARD PAGE
-   ======================================== */
+function DeadlineLabel({ days }: { days: number }) {
+  if (days < 0)
+    return (
+      <span className="text-danger font-medium">Trễ {Math.abs(days)} ngày</span>
+    );
+  if (days === 0) return <span className="text-danger font-medium">Hôm nay</span>;
+  if (days <= 3) return <span className="text-warning font-medium">Còn {days} ngày</span>;
+  return <span className="text-tertiary">Còn {days} ngày</span>;
+}
+
+/* ==========================================================================
+   PAGE
+   ========================================================================== */
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
 
+  /* Resolved only after hydration: the server's clock and the student's
+     clock disagree, and a time-of-day greeting rendered on the server would
+     mismatch at the boundary hours. */
+  const mounted = useMounted();
   const greeting = React.useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Chào buổi sáng";
-    if (hour < 18) return "Chào buổi chiều";
-    return "Chào buổi tối";
-  }, []);
+    if (!mounted) return "Xin chào";
+    const h = new Date().getHours();
+    return h < 12
+      ? "Chào buổi sáng"
+      : h < 18
+        ? "Chào buổi chiều"
+        : "Chào buổi tối";
+  }, [mounted]);
+
+  const sortedMilestones = React.useMemo(
+    () =>
+      [...upcomingMilestones].sort(
+        (a, b) => daysUntil(a.deadline) - daysUntil(b.deadline)
+      ),
+    []
+  );
+
+  const overdue = sortedMilestones.filter((m) => daysUntil(m.deadline) < 0).length;
+  const dueSoon = sortedMilestones.filter((m) => {
+    const d = daysUntil(m.deadline);
+    return d >= 0 && d <= 7;
+  }).length;
+
+  const firstName = user?.full_name?.trim().split(/\s+/).slice(-1)[0];
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       <PageHeader
-        title={`${greeting}, ${user?.full_name || "bạn"}`}
-        description="Tổng quan tiến độ luận văn và hoạt động gần đây."
+        title={`${greeting}${firstName ? `, ${firstName}` : ""}`}
+        description="Những việc cần chú ý trong tuần này."
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              icon={<FileArrowUp size={15} />}
+              onClick={() => (window.location.href = "/documents")}
+            >
+              Tải tài liệu
+            </Button>
+            <Button
+              variant="primary"
+              icon={<Robot size={15} />}
+              onClick={() => (window.location.href = "/ai-chat")}
+            >
+              Hỏi trợ lý AI
+            </Button>
+          </>
+        }
       />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {statsCards.map((stat) => (
-          <Card key={stat.label} className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span
-                className="text-[12px] font-medium uppercase tracking-wide"
-                style={{ color: "var(--fg-tertiary)" }}
-              >
-                {stat.label}
-              </span>
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: stat.bg, color: stat.color }}
-              >
-                {stat.icon}
-              </div>
-            </div>
-            <p className="text-2xl font-semibold tracking-tight">
-              {stat.value}
-            </p>
-          </Card>
-        ))}
+      {/* Overdue is the one thing worth interrupting for, so it leads. */}
+      {overdue > 0 && (
+        <div
+          className="flex items-start gap-2.5 px-3 py-2.5 rounded-[10px]"
+          style={{
+            background: "var(--danger-bg)",
+            border: "1px solid var(--danger-border)",
+          }}
+          role="alert"
+        >
+          <Warning size={16} weight="fill" className="text-danger flex-shrink-0 mt-px" />
+          <p className="text-[13px] text-secondary flex-1">
+            <strong className="text-danger">
+              {overdue} mốc đã quá hạn.
+            </strong>{" "}
+            Cập nhật trạng thái hoặc xin gia hạn với giảng viên hướng dẫn.
+          </p>
+          <Link
+            href="/milestones"
+            className="text-[12.5px] font-medium text-danger hover:underline whitespace-nowrap"
+          >
+            Xem ngay
+          </Link>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Each tile is the entry point to the screen it summarises — a
+            number you can't act on is just decoration. */}
+        <StatTile
+          label="Đề tài đang thực hiện"
+          value="1"
+          sublabel={thesis.supervisor}
+          icon={<GraduationCap size={15} weight="duotone" />}
+          tone="accent"
+          onClick={() => router.push("/theses")}
+        />
+        <StatTile
+          label="Mốc hoàn thành"
+          value={`${thesis.milestonesDone}/${thesis.milestonesTotal}`}
+          sublabel={`${Math.round((thesis.milestonesDone / thesis.milestonesTotal) * 100)}% tiến độ`}
+          icon={<CheckCircle size={15} weight="duotone" />}
+          tone="success"
+          onClick={() => router.push("/milestones")}
+        />
+        <StatTile
+          label="Tài liệu"
+          value={thesis.documents}
+          sublabel="đã lập chỉ mục"
+          icon={<Files size={15} weight="duotone" />}
+          tone="info"
+          onClick={() => router.push("/documents")}
+        />
+        <StatTile
+          label="Sắp đến hạn"
+          value={dueSoon}
+          sublabel="trong 7 ngày tới"
+          icon={<Clock size={15} weight="duotone" />}
+          tone={dueSoon > 0 ? "warning" : "neutral"}
+          onClick={() => router.push("/milestones")}
+        />
       </div>
 
-      {/* Two column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Progress & Milestones */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Thesis Progress Card */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendUp
-                  size={18}
-                  weight="duotone"
-                  style={{ color: "var(--accent)" }}
-                />
-                <h2 className="text-[15px] font-semibold">
-                  Tiến độ đề tài
-                </h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4 min-w-0">
+          {/* Thesis */}
+          <Panel
+            title="Đề tài của bạn"
+            icon={<GraduationCap size={14} />}
+            actions={
+              <Link href={`/theses/${thesis.id}`} className="btn btn-ghost btn-sm">
+                Chi tiết
+                <ArrowRight size={13} />
+              </Link>
+            }
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <p className="text-[14px] font-medium leading-snug">
+                  {thesis.title}
+                </p>
+                <p className="text-[12.5px] text-tertiary mt-0.5">
+                  Hướng dẫn: {thesis.supervisor}
+                </p>
               </div>
               <Badge variant="info" dot>
                 Đang thực hiện
               </Badge>
             </div>
-            <p
-              className="text-[13px] mb-3"
-              style={{ color: "var(--fg-secondary)" }}
-            >
-              Hệ thống quản lý luận văn tích hợp AI
-            </p>
-            <ProgressBar value={4} max={12} />
-          </Card>
+            <ProgressBar
+              value={thesis.milestonesDone}
+              max={thesis.milestonesTotal}
+            />
+          </Panel>
 
-          {/* Upcoming Milestones */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Kanban
-                  size={18}
-                  weight="duotone"
-                  style={{ color: "var(--accent)" }}
-                />
-                <h2 className="text-[15px] font-semibold">
-                  Milestone sắp đến hạn
-                </h2>
-              </div>
-              <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
-                Xem tất cả
-              </Button>
-            </div>
-
-            <div className="flex flex-col">
-              {upcomingMilestones.map((ms, i) => {
-                const statusInfo = statusMap[ms.status] || statusMap.NOT_STARTED;
-                const deadline = new Date(ms.deadline);
-                const daysLeft = Math.ceil(
-                  (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                );
-
-                return (
-                  <div
-                    key={ms.id}
-                    className="flex items-center justify-between py-3 group cursor-pointer"
-                    style={{
-                      borderBottom:
-                        i < upcomingMilestones.length - 1
-                          ? "1px solid var(--border-secondary)"
-                          : "none",
-                    }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-medium truncate group-hover:text-[var(--accent)] transition-colors">
-                        {ms.name}
-                      </p>
-                      <div
-                        className="flex items-center gap-2 mt-1 text-[12px]"
-                        style={{ color: "var(--fg-tertiary)" }}
-                      >
-                        <Clock size={12} />
-                        <span>
-                          {daysLeft > 0
-                            ? `Còn ${daysLeft} ngày`
-                            : daysLeft === 0
-                              ? "Hôm nay"
-                              : `Trễ ${Math.abs(daysLeft)} ngày`}
-                        </span>
-                      </div>
-                    </div>
-                    <Badge variant={statusInfo.variant}>
-                      {statusInfo.label}
-                    </Badge>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
-
-        {/* Right: Activity Feed */}
-        <div className="lg:col-span-1">
-          <Card className="p-5">
-            <h2 className="text-[15px] font-semibold mb-4">
-              Hoạt động gần đây
-            </h2>
-
-            <div className="flex flex-col">
-              {recentActivities.map((activity, i) => (
-                <div
-                  key={activity.id}
-                  className="flex gap-3 py-3"
-                  style={{
-                    borderBottom:
-                      i < recentActivities.length - 1
-                        ? "1px solid var(--border-secondary)"
-                        : "none",
-                  }}
-                >
-                  {/* Timeline dot */}
-                  <div className="flex flex-col items-center flex-shrink-0 pt-1">
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: "var(--accent)" }}
-                    />
-                    {i < recentActivities.length - 1 && (
-                      <div
-                        className="w-px flex-1 mt-1"
-                        style={{ background: "var(--border-primary)" }}
-                      />
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] leading-snug">
-                      <span className="font-medium">{activity.actor}</span>{" "}
-                      <span style={{ color: "var(--fg-secondary)" }}>
-                        {activity.action}
-                      </span>{" "}
-                      <span
-                        className="font-medium"
-                        style={{ color: "var(--accent)" }}
-                      >
-                        {activity.target}
-                      </span>
-                    </p>
-                    <span
-                      className="text-[11px] mt-0.5 block"
-                      style={{ color: "var(--fg-muted)" }}
+          {/* Milestones */}
+          <Panel
+            title="Mốc sắp đến hạn"
+            icon={<Kanban size={14} />}
+            bodyClassName=""
+            actions={
+              <Link href="/milestones" className="btn btn-ghost btn-sm">
+                Tất cả
+                <ArrowRight size={13} />
+              </Link>
+            }
+          >
+            {sortedMilestones.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<CheckCircle size={16} />}
+                title="Không còn mốc nào đến hạn"
+                description="Mọi việc trong tuần này đã hoàn tất."
+              />
+            ) : (
+              <ul>
+                {sortedMilestones.map((m, i) => {
+                  const days = daysUntil(m.deadline);
+                  const s = STATUS[m.status as MilestoneStatus];
+                  return (
+                    <li
+                      key={m.id}
+                      style={{
+                        borderTop:
+                          i > 0 ? "1px solid var(--border-secondary)" : undefined,
+                        boxShadow:
+                          days < 0 ? "inset 2px 0 0 0 var(--danger)" : undefined,
+                      }}
                     >
-                      {activity.time}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
+                      <Link
+                        href="/milestones"
+                        className="row-hover flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-medium truncate">
+                            {m.name}
+                          </p>
+                          <p className="text-[12px] mt-0.5 flex items-center gap-1.5">
+                            <span className="text-muted tnum">{m.deadline}</span>
+                            <span className="text-muted" aria-hidden="true">·</span>
+                            <DeadlineLabel days={days} />
+                          </p>
+                        </div>
+                        <Badge variant={s.variant}>{s.label}</Badge>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
         </div>
+
+        {/* Activity */}
+        <Panel
+          title="Hoạt động gần đây"
+          icon={<Clock size={14} />}
+          className="lg:col-span-1 h-fit"
+        >
+          <ol className="timeline-rail flex flex-col">
+            {recentActivities.map((a, i) => (
+              <li
+                key={a.id}
+                className="relative pb-3 last:pb-0"
+                style={{ paddingTop: i === 0 ? 0 : undefined }}
+              >
+                <span
+                  className={`timeline-node ${i === 0 ? "timeline-node-active" : ""}`}
+                  aria-hidden="true"
+                />
+                <p className="text-[12.5px] leading-snug">
+                  <span className="font-medium">{a.actor}</span>{" "}
+                  <span className="text-tertiary">{a.action}</span>{" "}
+                  <span className="text-secondary">{a.target}</span>
+                </p>
+                <span className="text-[11.5px] text-muted">{a.time}</span>
+              </li>
+            ))}
+          </ol>
+        </Panel>
       </div>
     </div>
   );

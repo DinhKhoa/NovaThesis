@@ -2,16 +2,12 @@
 
 import React from "react";
 import {
-  ChatCircleDots,
   Paperclip,
   CheckCircle,
   PaperPlaneTilt,
   PencilSimple,
   Trash,
   ArrowElbowDownRight,
-  FileText,
-  Funnel,
-  Clock,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import { Card, Button, Input, Textarea, Badge, Avatar } from "@/components/ui";
@@ -95,6 +91,15 @@ export default function FeedbacksPage() {
   // Edit state (15 min rule UC 7.4)
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [editText, setEditText] = React.useState("");
+
+  /* The 15-minute edit window has to actually expire while the page is open.
+     Reading Date.now() during render never re-evaluates, so a stale "Sửa"
+     button would keep offering an edit the server will reject. */
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // New root comment form
   const [newCommentText, setNewCommentText] = React.useState("");
@@ -206,8 +211,8 @@ export default function FeedbacksPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Trao đổi & Nhận xét GVHD"
-        description="Luồng trao đổi phân cấp (Threaded replies), đánh giá Resolve và đính kèm file (UC 7.1 - 7.8)."
+        title="Phản hồi"
+        description="Nhận xét của giảng viên hướng dẫn theo từng mốc tiến độ và tài liệu."
       />
 
       {/* Post New Comment Box (UC 7.1, 7.2, 7.7) */}
@@ -224,7 +229,7 @@ export default function FeedbacksPage() {
             <div className="flex items-center gap-2">
               <label className="btn-ghost text-tertiary hover:text-accent p-2 rounded-lg cursor-pointer inline-flex items-center gap-1.5 text-[13px]">
                 <Paperclip size={18} />
-                <span>{attachedFileName || "Đính kèm file (UC 7.7)"}</span>
+                <span>{attachedFileName || "Đính kèm file"}</span>
                 <input
                   type="file"
                   className="hidden"
@@ -238,14 +243,14 @@ export default function FeedbacksPage() {
               </label>
             </div>
 
-            <Button variant="primary" type="submit" icon={<PaperPlaneTilt size={18} />}>
+            <Button variant="primary" type="submit" icon={<PaperPlaneTilt size={15} />}>
               Gửi nhận xét
             </Button>
           </div>
         </form>
       </Card>
 
-      {/* Filter Bar (UC 7.8) */}
+      {/* Filter Bar */}
       <div className="flex items-center justify-between mb-4 text-[13px]">
         <span className="text-tertiary">Lịch sử phản hồi ({filteredFeedbacks.length})</span>
 
@@ -272,7 +277,7 @@ export default function FeedbacksPage() {
         </div>
       </div>
 
-      {/* Feedbacks Thread Tree (UC 7.3) */}
+      {/* Feedbacks Thread Tree */}
       <div className="flex flex-col gap-4">
         {filteredFeedbacks.map((f) => (
           <Card key={f.id} className={`p-5 ${f.is_resolved ? "opacity-75" : ""}`}>
@@ -293,7 +298,7 @@ export default function FeedbacksPage() {
                 </div>
               </div>
 
-              {/* GV Resolve Toggle (UC 7.6) */}
+              {/* GV Resolve Toggle */}
               {isLecturer(user) && (
                 <Button
                   variant={f.is_resolved ? "secondary" : "ghost"}
@@ -301,7 +306,7 @@ export default function FeedbacksPage() {
                   icon={<CheckCircle size={16} className={f.is_resolved ? "text-success" : ""} />}
                   onClick={() => handleToggleResolve(f.id)}
                 >
-                  {f.is_resolved ? "Resolved" : "Resolve (UC 7.6)"}
+                  {f.is_resolved ? "Resolved" : "Resolve"}
                 </Button>
               )}
             </div>
@@ -319,7 +324,7 @@ export default function FeedbacksPage() {
               <p className="text-[14px] text-secondary leading-relaxed my-2">{f.content}</p>
             )}
 
-            {/* File Attachment (UC 7.7) */}
+            {/* File Attachment */}
             {f.file_name && (
               <div className="flex items-center gap-2 text-[12px] text-accent bg-[var(--accent-subtle)] p-2 rounded-lg w-fit my-2">
                 <Paperclip size={14} />
@@ -333,11 +338,11 @@ export default function FeedbacksPage() {
                 className="hover:text-accent flex items-center gap-1 font-medium"
                 onClick={() => setReplyingId(replyingId === f.id ? null : f.id)}
               >
-                <ArrowElbowDownRight size={14} /> Trả lời (UC 7.3)
+                <ArrowElbowDownRight size={14} /> Trả lời
               </button>
 
-              {/* Edit within 15 min (UC 7.4) */}
-              {Date.now() - f.created_timestamp < 15 * 60 * 1000 && (
+              {/* Edit window: 15 minutes after posting */}
+              {now - f.created_timestamp < 15 * 60 * 1000 && (
                 <button
                   className="hover:text-primary flex items-center gap-1"
                   onClick={() => { setEditingId(f.id); setEditText(f.content); }}
@@ -354,7 +359,7 @@ export default function FeedbacksPage() {
               </button>
             </div>
 
-            {/* Sub-threads (Level 2 & 3 replies) (UC 7.3) */}
+            {/* Sub-threads (Level 2 & 3 replies) */}
             {f.replies && f.replies.length > 0 && (
               <div className="ml-6 mt-4 pl-4 border-l-2 border-[var(--border-primary)] flex flex-col gap-3">
                 {f.replies.map((r) => (

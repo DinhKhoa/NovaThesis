@@ -5,13 +5,10 @@ import {
   ChartBar,
   FileCsv,
   FileXls,
-  DownloadSimple,
-  TrendUp,
   Robot,
   GraduationCap,
   Users,
   ChartPie,
-  CalendarCheck,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import { Card, Button, Badge } from "@/components/ui";
@@ -42,31 +39,31 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Báo cáo & Thống kê Hệ thống"
-        description="Tổng hợp dữ liệu toàn hệ thống, hiệu suất AI và xuất file Excel/CSV (UC 9.1 - 9.4)."
+        title="Báo cáo"
+        description="Xuất dữ liệu tiến độ, danh sách đề tài và thống kê sử dụng AI."
         actions={
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
-              icon={<FileCsv size={18} />}
+              icon={<FileCsv size={15} />}
               loading={exportingCsv}
               onClick={handleExportCsv}
             >
-              Xuất CSV (UC 9.4)
+              Xuất CSV
             </Button>
             <Button
               variant="primary"
-              icon={<FileXls size={18} />}
+              icon={<FileXls size={15} />}
               loading={exportingExcel}
               onClick={handleExportExcel}
             >
-              Xuất Excel (.xlsx) (UC 9.4)
+              Xuất Excel (.xlsx)
             </Button>
           </div>
         }
       />
 
-      {/* KPI Cards (UC 9.1) */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-2">
@@ -107,11 +104,11 @@ export default function ReportsPage() {
 
       {/* Status Breakdown & AI Analytics (UC 9.2, 9.3) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Thesis Status Distribution (UC 9.2) */}
+        {/* Thesis Status Distribution */}
         <Card className="p-6">
           <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
             <ChartBar size={20} style={{ color: "var(--accent)" }} />
-            Thống kê Đề tài theo Trạng thái (UC 9.2)
+            Thống kê Đề tài theo Trạng thái
           </h2>
 
           <div className="flex flex-col gap-4">
@@ -137,11 +134,11 @@ export default function ReportsPage() {
           </div>
         </Card>
 
-        {/* AI Usage Analytics (UC 9.3) */}
+        {/* AI Usage Analytics */}
         <Card className="p-6">
           <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
             <Robot size={20} style={{ color: "var(--accent)" }} />
-            Thống kê Tần suất Sử dụng AI & Vector Search (UC 9.3)
+            Thống kê Tần suất Sử dụng AI & Vector Search
           </h2>
 
           <div className="flex flex-col gap-3">

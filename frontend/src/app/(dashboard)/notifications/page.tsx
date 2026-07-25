@@ -8,7 +8,6 @@ import {
   Trash,
   Clock,
   Gear,
-  EnvelopeSimple,
   Kanban,
   GraduationCap,
   ChatCircleText,
@@ -119,21 +118,21 @@ export default function NotificationsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
-        title="Trung tâm Thông báo"
-        description="Thông báo thời gian thực, nhắc nhở milestone và cài đặt gửi email (UC 8.1 - 8.8)."
+        title="Thông báo"
+        description="Nhắc hạn, phản hồi của giảng viên và thay đổi trạng thái đề tài."
         actions={
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
-              icon={<Gear size={18} />}
+              icon={<Gear size={15} />}
               onClick={() => setSettingsModalOpen(true)}
             >
-              Cài đặt thông báo (UC 8.7)
+              Cài đặt thông báo
             </Button>
             {unreadCount > 0 && (
               <Button
                 variant="ghost"
-                icon={<Checks size={18} />}
+                icon={<Checks size={15} />}
                 onClick={handleMarkAllRead}
               >
                 Đọc tất cả ({unreadCount})
@@ -143,7 +142,7 @@ export default function NotificationsPage() {
         }
       />
 
-      {/* Filter Tabs (UC 8.3) */}
+      {/* Filter Tabs */}
       <div className="flex items-center gap-2 mb-4">
         <button
           className={`px-3.5 py-1.5 text-[13px] font-medium rounded-lg transition-colors ${
@@ -205,7 +204,7 @@ export default function NotificationsPage() {
                 {!n.is_read && (
                   <button
                     className="btn-ghost p-1.5 rounded-lg text-tertiary hover:text-accent"
-                    title="Đánh dấu đã đọc (UC 8.4)"
+                    title="Đánh dấu đã đọc"
                     onClick={() => handleMarkRead(n.id)}
                   >
                     <Check size={16} />
@@ -213,7 +212,7 @@ export default function NotificationsPage() {
                 )}
                 <button
                   className="btn-ghost p-1.5 rounded-lg text-tertiary hover:text-danger"
-                  title="Xóa thông báo (UC 8.6)"
+                  title="Xóa thông báo"
                   onClick={() => handleDelete(n.id)}
                 >
                   <Trash size={16} />
@@ -228,7 +227,7 @@ export default function NotificationsPage() {
       <Modal
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
-        title="Cài đặt Nhận Thông báo (UC 8.2, 8.7)"
+        title="Cài đặt thông báo"
         footer={
           <>
             <Button variant="ghost" onClick={() => setSettingsModalOpen(false)}>

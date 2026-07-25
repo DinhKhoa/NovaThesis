@@ -17,15 +17,17 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  const [status, setStatus] = React.useState<"loading" | "success" | "expired" | "error">("loading");
-  const [errorMessage, setErrorMessage] = React.useState("");
+  /* A missing token is decided by the URL alone, so it's the initial state
+     rather than something an effect corrects after the first paint. */
+  const [status, setStatus] = React.useState<
+    "loading" | "success" | "expired" | "error"
+  >(() => (token ? "loading" : "error"));
+  const [errorMessage, setErrorMessage] = React.useState(() =>
+    token ? "" : "Mã xác minh không hợp lệ."
+  );
 
   React.useEffect(() => {
-    if (!token) {
-      setStatus("error");
-      setErrorMessage("Mã xác minh không hợp lệ.");
-      return;
-    }
+    if (!token) return;
 
     const verify = async () => {
       try {
@@ -91,7 +93,7 @@ function VerifyEmailContent() {
       {status === "success" && (
         <div>
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            className="w-12 h-12 rounded-[12px] flex items-center justify-center mx-auto mb-4"
             style={{ background: "var(--success-bg)", color: "var(--success)" }}
           >
             <CheckCircle size={32} weight="duotone" />
@@ -111,7 +113,7 @@ function VerifyEmailContent() {
       {status === "expired" && (
         <div>
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            className="w-12 h-12 rounded-[12px] flex items-center justify-center mx-auto mb-4"
             style={{ background: "var(--warning-bg)", color: "var(--warning)" }}
           >
             <Clock size={32} weight="duotone" />
@@ -129,7 +131,7 @@ function VerifyEmailContent() {
       {status === "error" && (
         <div>
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            className="w-12 h-12 rounded-[12px] flex items-center justify-center mx-auto mb-4"
             style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
           >
             <XCircle size={32} weight="duotone" />
@@ -150,7 +152,7 @@ function VerifyEmailContent() {
 export default function VerifyEmailPage() {
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-6"
+      className="min-h-dvh flex items-center justify-center p-6"
       style={{ background: "var(--bg-primary)" }}
     >
       <Suspense fallback={<div className="text-[14px] text-tertiary">Đang xác minh...</div>}>

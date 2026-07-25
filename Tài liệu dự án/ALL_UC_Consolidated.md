@@ -18,6 +18,54 @@
 | [Module 9 – Báo cáo &amp; Thống kê](#module-9-bao-cao-thong-ke)      | 4      |
 | **Tổng**                                                             | **92** |
 
+> 🔴 **CẦN SỬA – Mục lục sai số lượng.** Bảng trên cộng lại đúng 92, nhưng file này
+> **thực tế chỉ chứa 91 UC**. Module 2 khai báo 9 nhưng chỉ có 8 (`grep -c "^### UC 2\."` = 8).
+> Chi tiết ở ghi chú đầu Module 2.
+
+---
+
+> # 🔴 GHI CHÚ RÀ SOÁT (đối chiếu với source code `frontend/src`)
+>
+> Mọi ghi chú bắt đầu bằng **`CẦN SỬA`** — tìm nhanh bằng `grep "CẦN SỬA"`.
+> Xoá các block này sau khi đã cập nhật xong tài liệu.
+>
+> ## A. Lỗi cấu trúc tài liệu
+>
+> | # | Vấn đề | Vị trí |
+> |---|--------|--------|
+> | A1 | **Thiếu hẳn UC 2.7 "Quản lý năm học"** có trong `00_UC_Overview.md`; các UC sau bị dồn số (2.7 ở đây = 2.8 ở overview, 2.8 ở đây = 2.9) | Module 2 |
+> | A2 | Tổng số UC: mục lục ghi 92, thực tế 91 | Mục lục |
+> | A3 | **UC 6.14 trùng hoàn toàn với UC 5.9** – cùng tên "Xem trạng thái xử lý AI của tài liệu" | UC 6.14 |
+> | A4 | Overview đánh số UC 6.8 = "Xoá lịch sử chat", file này UC 6.8 = "Xoá lịch sử hội thoại AI" nhưng comment trong code lại chú `UC 6.8` cho Semantic Search | UC 6.4 / 6.8 |
+>
+> ## B. Chức năng ĐÃ CÀI ĐẶT nhưng CHƯA CÓ UC
+>
+> | # | Chức năng | Nơi cài đặt | Đề xuất |
+> |---|-----------|-------------|---------|
+> | B1 | **Kiểm tra trùng lặp / đạo văn** – nhập đoạn văn, trả về % trùng và danh sách nguồn | `ai-chat/page.tsx` tab "Kiểm tra trùng lặp" | Bổ sung **UC 6.15** hoặc gỡ khỏi giao diện |
+> | B2 | **Kéo–thả Kanban để đổi trạng thái mốc**, có kiểm tra FSM | `milestones/page.tsx` + `lib/milestone-fsm.ts` | Bổ sung vào **UC 4.8** (xem ghi chú tại đó) |
+> | B3 | **Tìm nhanh toàn cục (⌘K)** – nhảy tới trang bất kỳ | `components/layout/index.tsx` | Bổ sung UC nhỏ ở Module 1 hoặc ghi vào Non-functional |
+> | B4 | **Đổi giao diện Sáng/Tối** | `components/layout` + `next-themes` | Ghi vào Non-functional requirement |
+>
+> ## C. Chức năng CÓ UC nhưng CHƯA CÀI ĐẶT ĐƯỢC (thiếu bảng CSDL)
+>
+> | # | UC | Vì sao chưa được | Xem thêm |
+> |---|----|------------------|----------|
+> | C1 | UC 4.7 – Gia hạn deadline | `milestones` thiếu 3 cột `extension_*` | ERD mục 5 |
+> | C2 | UC 4.12 – Lịch sử thay đổi milestone | Thiếu bảng `milestone_history` | ERD mục III.4 |
+> | C3 | UC 5.10 – Chia sẻ tài liệu sang đề tài khác | `documents.thesis_id` là FK đơn trị | ERD mục III.3 |
+> | C4 | UC 6.3 – Ghi chú vào tóm tắt AI | `documents` thiếu `summary_note` | ERD mục 6 |
+> | C5 | UC 6.10–6.13 – Gợi ý lộ trình AI | Thiếu bảng `ai_suggestions` | ERD mục III.6 |
+> | C6 | UC 8.7 – Cài đặt loại thông báo | Thiếu bảng `notification_preferences` | ERD mục III.5 |
+> | C7 | UC 1.4/1.5/1.6 – Xác minh email, quên/đặt lại mật khẩu | `users` thiếu cột token & hạn token | ERD mục 1 |
+>
+> ## D. Ghi chú chung về Non-functional
+>
+> Toàn bộ 91 UC đều **chưa nhắc tới yêu cầu truy cập** (accessibility) dù
+> `Yêu cầu dự án.md` yêu cầu giao diện chất lượng. Giao diện đã cài: thao tác bằng
+> bàn phím cho Kanban, `aria-live` báo trạng thái, bẫy tiêu điểm trong hộp thoại,
+> tôn trọng `prefers-reduced-motion`. Nên đưa vào phần Non-functional chung.
+
 ---
 
 # MODULE 1 – XÁC THỰC & TÀI KHOẢN
@@ -72,6 +120,30 @@ graph LR
 
 ### UC 1.1 – Đăng nhập
 
+> 🔴 **CẦN SỬA – UC 1.1**
+>
+> **1. Main flow bước 1–2 đã lỗi thời.** Tài liệu ghi *"Người dùng truy cập **trang**
+> Đăng nhập"*. Giao diện hiện tại **không còn trang `/login` riêng**: đăng nhập là
+> một **bảng trượt (side sheet) toàn chiều cao, mở từ mép phải** ngay trên trang chủ.
+> URL `/login` vẫn còn nhưng chỉ chuyển hướng (307) sang `/?auth=login`.
+> → Viết lại bước 1–2: *"Người dùng bấm 'Đăng nhập' ở trang chủ. Hệ thống mở bảng
+> đăng nhập trượt từ phải, giữ nguyên nội dung trang phía sau."*
+>
+> **2. Thiếu Alternative flow chuyển đổi Đăng nhập ⇄ Đăng ký.** Người dùng đổi qua
+> lại giữa 2 biểu mẫu **ngay trong bảng trượt**, không tải lại trang; email đã nhập
+> được giữ lại. Cần bổ sung luồng này.
+>
+> **3. Mâu thuẫn độ dài mật khẩu.** UC 1.2 quy định tối thiểu **8 ký tự**, nhưng khi
+> đăng nhập, code chỉ kiểm tra tối thiểu **6 ký tự** (`auth-sheet.tsx` →
+> `validateLogin`). → Thống nhất một ngưỡng, hoặc ghi rõ vì sao khác nhau.
+>
+> **4. Exception 5b (khoá 15 phút) chưa cài đặt được ở backend.** Frontend chỉ đếm
+> trong bộ nhớ, F5 là mất. `users` chưa có `failed_login_attempts` / `locked_until`
+> (xem ERD mục 1). **Đây là lỗ hổng bảo mật nếu để nguyên.**
+>
+> **5. Exception 5c (chưa xác minh email) chưa có dữ liệu chống lưng** — `users`
+> chưa có `email_verified_at`.
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 1.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -90,6 +162,26 @@ graph LR
 
 ### UC 1.2 – Đăng ký tài khoản
 
+> 🔴 **CẦN SỬA – UC 1.2**
+>
+> **1. Main flow bước 1–2 sai so với cài đặt** (giống UC 1.1): không còn trang
+> `/register`, mà là bảng trượt phải; `/register` chuyển hướng sang `/?auth=register`.
+>
+> **2. Danh sách trường trong form KHÔNG khớp.** Tài liệu ghi 5 trường:
+> *"Họ tên, **Mã SV**, Email, Mật khẩu, Xác nhận mật khẩu"*.
+> Form thực tế (`components/auth-sheet.tsx`) chỉ có **4 trường — không có ô Mã SV**.
+> → Kéo theo 2 mâu thuẫn:
+> - Exception **4b** *"Email hoặc **Mã SV** đã tồn tại"* không thể xảy ra.
+> - `students.student_code` khai báo **NOT NULL** trong ERD nhưng không có đường nào
+>   để nhập → **không tạo được bản ghi sinh viên**.
+>
+> → Chọn 1: (a) thêm ô "Mã số sinh viên" vào form, hoặc (b) bỏ khỏi UC và cho
+> `student_code` nullable, bổ sung sau ở trang Hồ sơ. Sửa đồng bộ cả ERD.
+>
+> **3. Business rule 2 mô tả nhẹ hơn cài đặt thực tế.** Tài liệu: *"tối thiểu 8 ký
+> tự, gồm chữ và số"*. Code kiểm tra chặt hơn: **bắt buộc có chữ HOA, chữ thường và
+> chữ số** (`/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/`). → Cập nhật lại business rule cho khớp.
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 1.2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -107,6 +199,12 @@ graph LR
 | **Non-functional requirement** | Gửi email xác minh ngay lập tức (dưới 3s) thông qua Nodemailer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### UC 1.3 – Đăng xuất
+
+> 🟡 **CẦN SỬA – UC 1.3:** cần ghi rõ hành vi khi **chưa đăng nhập**. Giao diện hiện
+> tại: thanh bên hiện liên kết "Đăng nhập" thay cho khối tài khoản. Ngoài ra bố cục
+> dashboard **chưa chặn truy cập khi không có phiên** — người chưa đăng nhập vẫn mở
+> được `/dashboard`. Cần bổ sung Business rule: *"Mọi route trong nhóm dashboard phải
+> chuyển hướng về trang chủ nếu chưa xác thực."*
 
 | Field                          | Content                                                                                                                                                                                                                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -269,6 +367,26 @@ graph LR
 
 ### UC 2.1 – Xem danh sách tài khoản người dùng
 
+> 🔴 **CẦN SỬA – TOÀN BỘ MODULE 2: ĐÁNH SỐ LỆCH & THIẾU 1 UC**
+>
+> `00_UC_Overview.md` khai báo Module 2 có **9 UC**, file này chỉ có **8**:
+>
+> | Overview | File này | Trạng thái |
+> |---|---|---|
+> | 2.1–2.6 | 2.1–2.6 | ✅ khớp |
+> | **2.7 Quản lý năm học** | *(không có)* | 🔴 **THIẾU HẲN** |
+> | 2.8 Xem log | **2.7** Xem log | ⚠️ lệch số |
+> | 2.9 Cấu hình hệ thống | **2.8** Cấu hình | ⚠️ lệch số |
+>
+> → Cần: (a) **viết bổ sung UC 2.7 "Quản lý năm học"**, (b) đánh số lại 2.8/2.9,
+> (c) thêm bảng `academic_years` vào ERD (xem ERD mục III.2).
+> Nếu quyết định **bỏ** chức năng năm học thì phải sửa `00_UC_Overview.md` và tổng
+> số UC 92 → 91.
+>
+> **Riêng UC 2.1:** danh sách tài khoản trong code (`admin/users/page.tsx`) có
+> **sắp xếp theo cột, phân trang 20 dòng/trang, lọc theo vai trò + trạng thái**.
+> Main flow hiện chưa mô tả các thao tác này.
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Use case ID**                | 2.1                                                                                                                                                                                                                                                                                                                                                                |
@@ -286,6 +404,11 @@ graph LR
 | **Non-functional requirement** | Thời gian tải danh sách không vượt quá 2 giây.                                                                                                                                                                                                                                                                                                                     |
 
 ### UC 2.2 – Tạo tài khoản người dùng mới
+
+> 🟡 **CẦN SỬA – UC 2.2:** giao diện chỉ cài đặt **tạo tài khoản Giảng viên**
+> (nút ghi rõ "Thêm giảng viên", form gồm Họ tên / MSGV / Email / Bộ môn / Số SV tối
+> đa). Tên UC là "Tạo tài khoản người dùng **mới**" (chung chung) → cần nói rõ Admin
+> tạo được những vai trò nào, và tài khoản Sinh viên do SV tự đăng ký (UC 1.2).
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -678,6 +801,12 @@ graph LR
 
 ### UC 3.14 – Tìm kiếm / Lọc đề tài
 
+> 🟡 **CẦN SỬA – UC 3.14:** cần ghi rõ **lọc/sắp xếp ở phía server hay client**.
+> Hiện code lọc trên mảng đã tải sẵn (`theses/page.tsx`), chỉ chạy được với dữ liệu
+> nhỏ. Ngoài ra sắp xếp dùng `localeCompare(…, "vi")` để "Đ" đứng sau "D" đúng chuẩn
+> tiếng Việt — backend phải dùng collation `vi_VN` tương ứng, nếu không thứ tự hai
+> bên sẽ khác nhau.
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Use case ID**                | 3.14                                                                                                                                                                                                                                                                                                                                                   |
@@ -857,6 +986,16 @@ graph LR
 
 ### UC 4.7 – Gia hạn deadline milestone
 
+> 🔴 **CẦN SỬA – UC 4.7: KHÔNG CÓ CHỖ LƯU DỮ LIỆU**
+>
+> Giao diện đã có form xin gia hạn và hiển thị chip *"Xin gia hạn → 2026-08-20"*,
+> nhưng bảng `milestones` trong ERD **thiếu cả 3 cột**: `extension_requested`,
+> `extension_reason`, `extension_new_deadline` (xem ERD mục 5).
+>
+> Ngoài ra UC **chưa mô tả bước giảng viên duyệt/từ chối** yêu cầu gia hạn. Code chỉ
+> có cờ boolean "đã gửi yêu cầu", không lưu được kết quả → cần thêm
+> `extension_status` (`PENDING`/`APPROVED`/`REJECTED`) và bổ sung luồng GV phản hồi.
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 4.7                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -874,6 +1013,40 @@ graph LR
 | **Non-functional requirement** | Gửi thông báo email và notification realtime cho Giảng viên khi sinh viên xin gia hạn.                                                                                                                                                                                                                                                                                                                                                  |
 
 ### UC 4.8 – Cập nhật trạng thái milestone
+
+> 🔴 **CẦN SỬA – UC 4.8: THIẾU TOÀN BỘ BẢNG CHUYỂN TRẠNG THÁI (FSM)**
+>
+> Đây là UC quan trọng nhất cần bổ sung, vì `Yêu cầu dự án.md` §2.4 yêu cầu:
+> > *"Mọi sự chuyển đổi trạng thái đều phải được kiểm tra điều kiện nghiêm ngặt
+> > giống như FSM trong hệ thống nhúng."*
+>
+> **1. Đã cài đặt kéo–thả Kanban** để đổi trạng thái (`milestones/page.tsx`), UC chưa
+> hề nhắc tới. Có cả thao tác bằng bàn phím (Space nhấc thẻ, ←/→ chọn cột, Space thả,
+> Esc huỷ).
+>
+> **2. Bảng chuyển tiếp hợp lệ đã cài tại `lib/milestone-fsm.ts` — cần đưa vào UC:**
+>
+> | Từ | Sang | Ai được phép | Điều kiện |
+> |---|---|---|---|
+> | NOT_STARTED | ONGOING | Mọi vai trò | – |
+> | ONGOING | NOT_STARTED | Mọi vai trò | – |
+> | ONGOING | PENDING_APPROVAL | Mọi vai trò | **Phải có file minh chứng** |
+> | PENDING_APPROVAL | ONGOING | Mọi vai trò | SV thu hồi bài nộp |
+> | PENDING_APPROVAL | COMPLETED | **Chỉ GV/Admin** | – |
+> | PENDING_APPROVAL | REVISION_REQUIRED | **Chỉ GV/Admin** | – |
+> | REVISION_REQUIRED | ONGOING | Mọi vai trò | – |
+> | REVISION_REQUIRED | PENDING_APPROVAL | Mọi vai trò | **Phải có file minh chứng** |
+> | COMPLETED | REVISION_REQUIRED | **Chỉ GV/Admin** | Mở lại mốc đã duyệt |
+>
+> Mọi cặp không có trong bảng đều bị từ chối (VD: `ONGOING → COMPLETED` bị chặn vì
+> **bỏ qua bước duyệt**).
+>
+> **3. Cần thêm Business rule + Exception flow** tương ứng 3 loại từ chối:
+> (a) không tồn tại đường chuyển, (b) sai vai trò, (c) chưa thoả điều kiện (thiếu
+> minh chứng).
+>
+> **4. Ghi rõ Non-functional:** kiểm tra ở client **chỉ để tránh thao tác nhầm, không
+> phải hàng rào bảo mật** — backend bắt buộc kiểm tra lại toàn bộ bảng trên.
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -947,6 +1120,10 @@ graph LR
 
 ### UC 4.12 – Xem lịch sử thay đổi milestone
 
+> 🟠 **CẦN SỬA – UC 4.12:** chưa có bảng lưu lịch sử (`milestone_history`, xem ERD
+> mục III.4) và **chưa được cài đặt trên giao diện**. Cần quyết định: làm hay gỡ khỏi
+> phạm vi. Nếu làm, nên ghi log ngay tại điểm chuyển trạng thái của FSM ở UC 4.8.
+
 | Field                          | Content                                                                                                                                                                                                               |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 4.12                                                                                                                                                                                                                  |
@@ -1000,6 +1177,11 @@ graph LR
 | **Non-functional requirement** | Load dữ liệu tổng hợp lớn (aggregation) một cách tối ưu.                                                                                                                                                                                                                                                                                                    |
 
 ### UC 4.15 – Xuất báo cáo tiến độ (PDF)
+
+> 🟡 **CẦN SỬA – UC 4.15:** hiện mới là **giả lập** (`setTimeout` rồi hiện thông báo
+> thành công, không sinh tệp thật). UC cần ghi rõ: xuất ở server hay client, thư viện
+> nào, và Exception flow khi sinh tệp thất bại. Trùng lặp một phần với **UC 9.1** —
+> cần phân định rõ 4.15 (một đề tài) vs 9.1 (toàn hệ thống).
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1208,6 +1390,14 @@ graph LR
 
 ### UC 5.9 – Xem trạng thái xử lý AI của tài liệu
 
+> 🟠 **CẦN SỬA – UC 5.9:** **trùng hoàn toàn với UC 6.14** (cùng tên, cùng nội dung).
+> → Giữ một, xoá một, và cập nhật lại tổng số UC.
+>
+> Ngoài ra nhãn trạng thái trong tài liệu là thuật ngữ kỹ thuật, còn giao diện đã đổi
+> sang ngôn ngữ người dùng — nên thống nhất theo giao diện:
+> `PENDING` → "Chờ xử lý" · `PROCESSING` → "Đang xử lý" · `DONE` → "Đã lập chỉ mục" ·
+> `ERROR` → "Lỗi xử lý".
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                    |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 5.9                                                                                                                                                                                                                                                                                                                        |
@@ -1225,6 +1415,17 @@ graph LR
 | **Non-functional requirement** | Có thể dùng Socket.io để push trạng thái cập nhật realtime, hoặc polling định kỳ nếu đang ở trang danh sách.                                                                                                                                                                                                               |
 
 ### UC 5.10 – Chia sẻ tài liệu với đề tài khác
+
+> 🔴 **CẦN SỬA – UC 5.10: THIẾT KẾ CSDL HIỆN TẠI KHÔNG CHO PHÉP**
+>
+> `documents.thesis_id` là khoá ngoại **đơn trị** → một tài liệu chỉ thuộc đúng một
+> đề tài, không thể chia sẻ. Cần bảng `document_shares` (ERD mục III.3).
+>
+> ⚠️ **Cảnh báo bảo mật cần ghi vào UC:** khi tài liệu được chia sẻ, phạm vi tìm kiếm
+> RAG (UC 6.4, 6.5) cũng mở rộng theo. Truy vấn `document_chunks` phải xét **cả**
+> `documents.thesis_id` **lẫn** bảng chia sẻ. Bỏ sót sẽ vi phạm yêu cầu Tenant
+> Isolation ở §2.1 `Yêu cầu dự án.md` — tức là **làm lộ nội dung luận văn của sinh
+> viên khác**.
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                            |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1350,6 +1551,12 @@ graph LR
 
 ### UC 6.5 – Hỏi đáp học thuật qua RAG
 
+> 🟡 **CẦN SỬA – UC 6.5:** bổ sung 2 điểm đã cài đặt nhưng chưa được đặc tả:
+> - **Trả lời dạng streaming** (chữ hiện dần) kèm **nút "Dừng trả lời"** — cần mô tả
+>   trạng thái câu trả lời bị dừng giữa chừng (xem ERD, `ai_chat_messages`).
+> - **Phạm vi truy vấn:** ghi rõ RAG chỉ tìm trong tài liệu người dùng có quyền đọc
+>   (Tenant Isolation) — hiện UC chưa nêu.
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 6.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -1367,6 +1574,14 @@ graph LR
 | **Non-functional requirement** | Sử dụng luồng (streaming) để trả lời từng phần chữ giống ChatGPT nhằm tối ưu UX.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ### UC 6.6 – Xem nguồn tài liệu tham chiếu (RAG citations)
+
+> 🟠 **CẦN SỬA – UC 6.6:** cấu trúc trích dẫn thực tế có **4 trường**, tài liệu và
+> ERD mới mô tả 3:
+> `doc_title` (tên tài liệu) · `page` (số trang) · `score` (độ tương đồng) ·
+> **`snippet` (đoạn trích nguyên văn — còn thiếu)**.
+> Giao diện cho bấm mở từng nguồn để đối chiếu nguyên văn.
+> Ngoài ra `document_chunks` **chưa có cột `page_number`** nên hiện chưa dẫn được tới
+> trang (xem ERD mục 7).
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                             |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1512,6 +1727,14 @@ graph LR
 
 ### UC 6.14 – Xem trạng thái xử lý AI của tài liệu
 
+> 🔴 **CẦN SỬA – UC 6.14: TRÙNG LẶP, ĐỀ NGHỊ XOÁ.**
+> UC này **giống hệt UC 5.9** (cùng tên, cùng mô tả). Giữ UC 5.9 ở Module 5 (đúng
+> ngữ cảnh quản lý tài liệu) và **xoá UC 6.14**, sau đó cập nhật số UC của Module 6
+> từ 14 → 13 và tổng số ở mục lục.
+>
+> 💡 **Gợi ý:** dùng chỗ trống này cho **UC 6.15 – Kiểm tra trùng lặp/đạo văn**, là
+> chức năng đã có giao diện nhưng chưa có UC nào mô tả (xem ghi chú B1 ở đầu file).
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Use case ID**                | 6.14                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -1625,6 +1848,10 @@ graph LR
 | **Non-functional requirement** | UI hiển thị dạng cây (tree-view) rõ ràng.                                                                                                                                                                                                                                                                                                                                                                              |
 
 ### UC 7.4 – Chỉnh sửa phản hồi / bình luận
+
+> 🟡 **CẦN SỬA – UC 7.4:** cần ghi rõ **giới hạn thời gian sửa là 15 phút** kể từ khi
+> đăng (đã cài trong `feedbacks/page.tsx`, nút "Sửa" tự ẩn sau 15 phút). Backend phải
+> kiểm tra lại bằng `created_at` — kiểm tra ở client không có giá trị bảo mật.
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1793,6 +2020,14 @@ graph LR
 
 ### UC 8.3 – Xem danh sách thông báo
 
+> 🟠 **CẦN SỬA – UC 8.3:** giao diện lọc thông báo theo **loại**
+> (`MILESTONE` / `THESIS` / `FEEDBACK` / `SYSTEM`) nhưng bảng `notifications` trong
+> ERD **không có cột `type`** (xem ERD mục 11). Cần bổ sung cột và mô tả bộ lọc này
+> trong Main flow.
+>
+> Ngoài ra cần thêm: **bấm vào thông báo phải điều hướng tới đối tượng liên quan** —
+> hiện `notifications` chưa có `link`/`target_id` nên không làm được.
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 8.3                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -1864,6 +2099,10 @@ graph LR
 | **Non-functional requirement** | Thao tác xóa cần phản hồi nhanh trên UI.                                                                                                                                                                                                                                                                                                                                                               |
 
 ### UC 8.7 – Cài đặt loại thông báo muốn nhận
+
+> 🟠 **CẦN SỬA – UC 8.7:** giao diện đã có hộp thoại cài đặt, nhưng **không có bảng
+> nào lưu tuỳ chọn** → tắt/bật xong tải lại trang là mất. Cần bảng
+> `notification_preferences` (ERD mục III.5).
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1966,6 +2205,11 @@ graph LR
 
 ### UC 9.3 – Xem thống kê hoạt động AI
 
+> 🟡 **CẦN SỬA – UC 9.3:** cần liệt kê rõ các chỉ số thống kê và **nguồn dữ liệu** của
+> từng chỉ số. Hiện `ai_chat_messages` chưa có `tokens_used` / `model_name`, và
+> `citations` là kiểu TEXT nên không thống kê được "tài liệu được trích dẫn nhiều
+> nhất" (xem ERD mục 9).
+
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Use case ID**                | 9.3                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -1983,6 +2227,11 @@ graph LR
 | **Non-functional requirement** | Biểu đồ hiển thị phải trực quan (dùng chart.js hoặc thư viện tương đương). Dữ liệu thống kê được cập nhật theo thời gian thực hoặc độ trễ không quá 5 phút.                                                                                                                                                                                                                                                                                                         |
 
 ### UC 9.4 – Xem biểu đồ Gantt tiến độ
+
+> 🟡 **CẦN SỬA – UC 9.4:** **chưa được cài đặt** trên giao diện (không có trang/biểu
+> đồ Gantt nào). Cần quyết định làm hay gỡ khỏi phạm vi. Nếu làm: `milestones` cần
+> thêm `start_date` (hiện chỉ có `deadline`, không vẽ được thanh Gantt) và
+> `order_index` để thứ tự hiển thị ổn định.
 
 | Field                          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

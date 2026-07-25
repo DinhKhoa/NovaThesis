@@ -1,22 +1,44 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Be_Vietnam_Pro, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+/*
+ * Geist ships no `vietnamese` subset, so every tone mark (ệ, ữ, ạ) fell back
+ * to a system face and the UI rendered in two typefaces at once. Be Vietnam Pro
+ * is drawn for Vietnamese diacritics and keeps stacked marks from clipping at
+ * the 12–13px sizes this UI leans on.
+ */
+const sans = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+/* Reserved for IDs, hashes, file sizes and timestamps — anything meant to be
+   compared vertically down a column. */
+const mono = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "NovaThesis – Quản lý Luận văn & Nghiên cứu",
+  title: {
+    default: "NovaThesis",
+    template: "%s · NovaThesis",
+  },
   description:
-    "Hệ thống quản lý luận văn, đề tài nghiên cứu tích hợp AI hỗ trợ học thuật cho sinh viên và giảng viên.",
+    "Hệ thống quản lý luận văn và đề tài nghiên cứu của Trường Đại học Kinh tế – Đại học Đà Nẵng.",
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f6f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0d12" },
+  ],
 };
 
 export default function RootLayout({
@@ -25,8 +47,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+    /*
+     * No height constraint on `html`/`body`: `globals.css` already gives the
+     * body a `100dvh` minimum, and pinning both to 100% makes the modal's
+     * `overflow: hidden` scroll lock clip page content instead of just
+     * freezing it.
+     */
+    <html lang="vi" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
+      <body>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

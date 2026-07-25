@@ -2,17 +2,13 @@
 
 import React from "react";
 import {
-  ChartBar,
   GraduationCap,
   Users,
   Robot,
-  Files,
-  CheckCircle,
   TrendUp,
-  Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Card, Badge } from "@/components/ui";
+import { Card } from "@/components/ui";
 
 const adminMetrics = [
   { label: "Tổng số sinh viên", value: "142", icon: <Users size={20} />, color: "var(--info)" },
@@ -32,8 +28,8 @@ export default function AdminStatisticsPage() {
   return (
     <div>
       <PageHeader
-        title="Thống kê toàn hệ thống"
-        description="Báo cáo tổng quan số lượng đề tài, người dùng và tần suất sử dụng AI (UC 2.1, 2.8, 2.9)."
+        title="Thống kê"
+        description="Số liệu người dùng, đề tài và mức sử dụng AI trong năm học hiện tại."
       />
 
       {/* KPI Cards */}
@@ -59,7 +55,7 @@ export default function AdminStatisticsPage() {
         <Card className="p-5">
           <h2 className="text-[15px] font-semibold mb-4 flex items-center gap-2">
             <GraduationCap size={18} style={{ color: "var(--accent)" }} />
-            Phân bố trạng thái đề tài (UC 2.8, 2.9)
+            Phân bố trạng thái đề tài
           </h2>
 
           <div className="flex flex-col gap-4">

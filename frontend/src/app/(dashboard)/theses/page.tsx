@@ -7,18 +7,19 @@ import {
   GraduationCap,
   Plus,
   MagnifyingGlass,
-  Funnel,
-  Clock,
-  UserCheck,
-  CheckCircle,
-  XCircle,
-  ArrowRight,
-  BookmarkSimple,
-  SlidersHorizontal,
 } from "@phosphor-icons/react";
-import { PageHeader } from "@/components/layout";
-import { Card, Button, Input, Badge, Dropdown, DropdownItem } from "@/components/ui";
-import { useAuthStore, isLecturer, isStudent } from "@/lib/auth";
+import { PageHeader, Toolbar } from "@/components/layout";
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Select,
+  Table,
+} from "@/components/ui";
+import { useAuthStore, isLecturer } from "@/lib/auth";
 
 /* ========================================
    TYPES (ERD Theses Table)
@@ -141,122 +142,160 @@ export default function ThesesListPage() {
   return (
     <div>
       <PageHeader
-        title="Quản lý Đề tài Nghiên cứu"
-        description="Danh sách tất cả đề tài luận văn, ý tưởng nghiên cứu và đăng ký (UC 3.2, 3.13)."
+        title="Đề tài"
+        description="Trạng thái duyệt, giảng viên hướng dẫn và tiến độ của từng đề tài."
         actions={
           <Link href="/theses/new">
-            <Button variant="primary" icon={<Plus size={18} />}>
+            <Button variant="primary" icon={<Plus size={15} />}>
               {isLecturer(user) ? "Đề xuất đề tài mới" : "Đề xuất đề tài"}
             </Button>
           </Link>
         }
       />
 
-      {/* Search & Filter Bar (UC 3.13) */}
-      <Card className="p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="w-full md:w-96">
-          <Input
-            placeholder="Tìm theo tên đề tài, mô tả, GVHD..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            icon={<MagnifyingGlass size={18} />}
-          />
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Status Filter */}
-          <select
-            className="input-base text-[13px] py-2 w-full md:w-40"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="PENDING">Chờ duyệt</option>
-            <option value="ONGOING">Đang thực hiện</option>
-            <option value="COMPLETED">Hoàn thành</option>
-            <option value="REJECTED">Bị từ chối</option>
-            <option value="DRAFT">Nháp / Đề xuất</option>
-          </select>
-
-          {/* Field Filter */}
-          <select
-            className="input-base text-[13px] py-2 w-full md:w-48"
-            value={fieldFilter}
-            onChange={(e) => setFieldFilter(e.target.value)}
-          >
-            <option value="ALL">Tất cả lĩnh vực</option>
-            {fields.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </div>
-      </Card>
-
-      {/* Thesis Cards Grid (UC 3.2) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredTheses.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-tertiary">
-            Không tìm thấy đề tài nào phù hợp với bộ lọc.
+      <Card hoverable={false} className="overflow-hidden">
+        <Toolbar>
+          <div className="flex-1 min-w-0 max-w-sm">
+            <Input
+              placeholder="Tìm theo tên đề tài, mô tả hoặc giảng viên…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              icon={<MagnifyingGlass size={14} />}
+              aria-label="Tìm đề tài"
+            />
           </div>
-        ) : (
-          filteredTheses.map((thesis) => {
-            const st = statusMap[thesis.status];
 
-            return (
-              <Card
-                key={thesis.id}
-                hoverable
-                className="p-5 flex flex-col justify-between"
-                onClick={() => router.push(`/theses/${thesis.id}`)}
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <Badge variant={st.variant} dot>
-                      {st.label}
-                    </Badge>
-                    <span className="text-[11px] font-mono text-tertiary">
-                      {thesis.created_at}
-                    </span>
-                  </div>
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-auto"
+              aria-label="Lọc theo trạng thái"
+            >
+              <option value="ALL">Mọi trạng thái</option>
+              <option value="DRAFT">Nháp</option>
+              <option value="PENDING">Chờ duyệt</option>
+              <option value="ONGOING">Đang thực hiện</option>
+              <option value="COMPLETED">Hoàn thành</option>
+              <option value="REJECTED">Bị từ chối</option>
+            </Select>
 
-                  <h2 className="text-[15px] font-semibold tracking-tight mb-2 leading-snug hover:text-accent transition-colors line-clamp-2">
-                    {thesis.title}
-                  </h2>
+            <Select
+              value={fieldFilter}
+              onChange={(e) => setFieldFilter(e.target.value)}
+              className="w-auto"
+              aria-label="Lọc theo lĩnh vực"
+            >
+              <option value="ALL">Mọi lĩnh vực</option>
+              {fields.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </Toolbar>
 
-                  <p className="text-[13px] text-tertiary line-clamp-2 mb-4 leading-relaxed">
-                    {thesis.description}
+        <Table
+          data={filteredTheses}
+          keyExtractor={(t) => String(t.id)}
+          pageSize={15}
+          onRowClick={(t) => router.push(`/theses/${t.id}`)}
+          rowAccent={(t) => (t.status === "REJECTED" ? "danger" : undefined)}
+          emptyState={
+            <EmptyState
+              compact
+              icon={<GraduationCap size={18} />}
+              title="Không tìm thấy đề tài nào"
+              description="Thử từ khóa khác hoặc bỏ bớt điều kiện lọc."
+            />
+          }
+          columns={[
+            {
+              key: "title",
+              header: "Đề tài",
+              sortValue: (t) => t.title,
+              render: (t) => (
+                <div className="min-w-0 py-0.5">
+                  <p className="text-[13px] font-medium truncate max-w-[30rem]">
+                    {t.title}
+                  </p>
+                  {/* One line of the abstract is enough to tell two similarly
+                      titled theses apart without doubling the row height. */}
+                  <p className="text-[12px] text-tertiary truncate max-w-[34rem]">
+                    {t.description}
                   </p>
                 </div>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-3 text-[12px] text-secondary">
-                    <BookmarkSimple size={16} className="text-accent" />
-                    <span className="font-medium">{thesis.field}</span>
-                  </div>
-
-                  <div className="pt-3 border-t border-[var(--border-secondary)] flex items-center justify-between text-[12px] text-tertiary">
-                    <span className="flex items-center gap-1.5">
-                      <GraduationCap size={16} />
-                      GVHD: <strong className="text-primary font-medium">{thesis.lecturer_name}</strong>
-                    </span>
-
-                    {thesis.student_names && thesis.student_names.length > 0 ? (
-                      <span className="flex items-center gap-1.5 text-accent font-medium">
-                        <UserCheck size={16} />
-                        {thesis.student_names.join(", ")}
-                      </span>
-                    ) : (
-                      <span className="text-muted italic">Chưa có SV</span>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })
-        )}
-      </div>
+              ),
+            },
+            {
+              key: "field",
+              header: "Lĩnh vực",
+              width: "1%",
+              hideOnMobile: true,
+              sortValue: (t) => t.field,
+              render: (t) => (
+                <span className="chip whitespace-nowrap">{t.field}</span>
+              ),
+            },
+            {
+              key: "lecturer_name",
+              header: "Hướng dẫn",
+              width: "1%",
+              hideOnMobile: true,
+              sortValue: (t) => t.lecturer_name,
+              render: (t) => (
+                <span className="flex items-center gap-1.5 whitespace-nowrap">
+                  <Avatar name={t.lecturer_name} size="xs" />
+                  <span className="text-[12.5px] text-secondary">
+                    {t.lecturer_name}
+                  </span>
+                </span>
+              ),
+            },
+            {
+              key: "students",
+              header: "Sinh viên",
+              width: "1%",
+              hideOnMobile: true,
+              render: (t) =>
+                t.student_names?.length ? (
+                  <span className="text-[12.5px] text-secondary whitespace-nowrap">
+                    {t.student_names.join(", ")}
+                  </span>
+                ) : (
+                  <span className="text-[12.5px] text-muted italic">Chưa có</span>
+                ),
+            },
+            {
+              key: "status",
+              header: "Trạng thái",
+              width: "1%",
+              sortValue: (t) => t.status,
+              render: (t) => {
+                const st = statusMap[t.status];
+                return (
+                  <Badge variant={st.variant} dot={t.status === "PENDING"}>
+                    {st.label}
+                  </Badge>
+                );
+              },
+            },
+            {
+              key: "created_at",
+              header: "Ngày tạo",
+              width: "1%",
+              hideOnMobile: true,
+              sortValue: (t) => t.created_at,
+              render: (t) => (
+                <span className="text-[12.5px] text-tertiary tnum whitespace-nowrap">
+                  {t.created_at}
+                </span>
+              ),
+            },
+          ]}
+        />
+      </Card>
     </div>
   );
 }

@@ -2,317 +2,742 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
-  House,
-  GraduationCap,
-  Kanban,
-  Files,
-  Robot,
-  ChatCircleDots,
   Bell,
-  Gear,
-  ChartBar,
-  Users,
-  CaretLeft,
+  BookOpen,
   CaretRight,
-  SignOut,
+  ChartBar,
+  ChatCircleDots,
+  Files,
+  Gear,
+  GraduationCap,
+  House,
+  Kanban,
+  List,
+  MagnifyingGlass,
+  Moon,
   Notebook,
-  ClipboardText,
-  Sparkle,
+  Robot,
+  SignOut,
+  Sun,
+  UserCircle,
+  Users,
+  X,
 } from "@phosphor-icons/react";
-import { useAuthStore } from "@/lib/auth";
-import { Avatar, Dropdown, DropdownItem, DropdownSeparator } from "@/components/ui";
+import { useAuthStore, type UserRole } from "@/lib/auth";
+import {
+  Avatar,
+  Dropdown,
+  DropdownItem,
+  DropdownLabel,
+  DropdownSeparator,
+  IconButton,
+  useMounted,
+} from "@/components/ui";
 
-/* ========================================
-   NAVIGATION ITEMS
-   ======================================== */
+/* ==========================================================================
+   NAVIGATION MODEL
+   Grouped by what the user is trying to do, not by which module built it.
+   Twelve flat links is a list; four labelled groups is a map.
+   ========================================================================== */
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  roles?: ("ADMIN" | "LECTURER" | "STUDENT")[];
+  roles?: UserRole[];
 }
 
-const navItems: NavItem[] = [
-  { label: "Tổng quan", href: "/dashboard", icon: <House size={18} weight="duotone" /> },
+interface NavSection {
+  label?: string;
+  items: NavItem[];
+  roles?: UserRole[];
+}
+
+const navSections: NavSection[] = [
   {
-    label: "Đề tài",
-    href: "/theses",
-    icon: <GraduationCap size={18} weight="duotone" />,
+    items: [
+      { label: "Tổng quan", href: "/dashboard", icon: <House size={16} /> },
+    ],
+  },
+  {
+    label: "Nghiên cứu",
     roles: ["STUDENT", "LECTURER"],
+    items: [
+      {
+        label: "Đề tài",
+        href: "/theses",
+        icon: <GraduationCap size={16} />,
+        roles: ["STUDENT", "LECTURER"],
+      },
+      {
+        label: "Tiến độ",
+        href: "/milestones",
+        icon: <Kanban size={16} />,
+        roles: ["STUDENT", "LECTURER"],
+      },
+      {
+        label: "Tài liệu",
+        href: "/documents",
+        icon: <Files size={16} />,
+        roles: ["STUDENT", "LECTURER"],
+      },
+      {
+        label: "Trợ lý AI",
+        href: "/ai-chat",
+        icon: <Robot size={16} />,
+        roles: ["STUDENT", "LECTURER"],
+      },
+    ],
   },
   {
-    label: "Tiến độ",
-    href: "/milestones",
-    icon: <Kanban size={18} weight="duotone" />,
-    roles: ["STUDENT", "LECTURER"],
+    label: "Trao đổi",
+    items: [
+      {
+        label: "Phản hồi",
+        href: "/feedbacks",
+        icon: <ChatCircleDots size={16} />,
+        roles: ["STUDENT", "LECTURER"],
+      },
+      { label: "Thông báo", href: "/notifications", icon: <Bell size={16} /> },
+      { label: "Báo cáo", href: "/reports", icon: <BookOpen size={16} /> },
+    ],
   },
   {
-    label: "Tài liệu",
-    href: "/documents",
-    icon: <Files size={18} weight="duotone" />,
-    roles: ["STUDENT", "LECTURER"],
-  },
-  {
-    label: "Trợ lý AI",
-    href: "/ai-chat",
-    icon: <Robot size={18} weight="duotone" />,
-    roles: ["STUDENT", "LECTURER"],
-  },
-  {
-    label: "Phản hồi",
-    href: "/feedbacks",
-    icon: <ChatCircleDots size={18} weight="duotone" />,
-    roles: ["STUDENT", "LECTURER"],
-  },
-  {
-    label: "Thông báo",
-    href: "/notifications",
-    icon: <Bell size={18} weight="duotone" />,
-  },
-  {
-    label: "Báo cáo",
-    href: "/reports",
-    icon: <ClipboardText size={18} weight="duotone" />,
-  },
-  // Admin-only
-  {
-    label: "Quản lý Users",
-    href: "/admin/users",
-    icon: <Users size={18} weight="duotone" />,
+    label: "Quản trị",
     roles: ["ADMIN"],
-  },
-  {
-    label: "Nhật ký Logs",
-    href: "/admin/logs",
-    icon: <Notebook size={18} weight="duotone" />,
-    roles: ["ADMIN"],
-  },
-  {
-    label: "Thống kê System",
-    href: "/admin/statistics",
-    icon: <ChartBar size={18} weight="duotone" />,
-    roles: ["ADMIN"],
-  },
-  {
-    label: "Cấu hình",
-    href: "/admin/settings",
-    icon: <Gear size={18} weight="duotone" />,
-    roles: ["ADMIN"],
+    items: [
+      { label: "Người dùng", href: "/admin/users", icon: <Users size={16} />, roles: ["ADMIN"] },
+      { label: "Nhật ký", href: "/admin/logs", icon: <Notebook size={16} />, roles: ["ADMIN"] },
+      { label: "Thống kê", href: "/admin/statistics", icon: <ChartBar size={16} />, roles: ["ADMIN"] },
+      { label: "Cấu hình", href: "/admin/settings", icon: <Gear size={16} />, roles: ["ADMIN"] },
+    ],
   },
 ];
 
-/* ========================================
-   SIDEBAR COMPONENT (HIGH-END FLOATING GLASS)
-   ======================================== */
+/* Route → breadcrumb label. Detail routes fall back to the parent segment. */
+const ROUTE_TITLES: Record<string, string> = {
+  "/dashboard": "Tổng quan",
+  "/theses": "Đề tài",
+  "/theses/new": "Tạo đề tài",
+  "/milestones": "Tiến độ",
+  "/documents": "Tài liệu",
+  "/ai-chat": "Trợ lý AI",
+  "/feedbacks": "Phản hồi",
+  "/notifications": "Thông báo",
+  "/reports": "Báo cáo",
+  "/profile": "Hồ sơ",
+  "/admin/users": "Người dùng",
+  "/admin/logs": "Nhật ký hệ thống",
+  "/admin/statistics": "Thống kê",
+  "/admin/settings": "Cấu hình",
+};
 
-export function Sidebar() {
+const ROLE_LABELS: Record<UserRole, string> = {
+  ADMIN: "Quản trị viên",
+  LECTURER: "Giảng viên",
+  STUDENT: "Sinh viên",
+};
+
+function visibleFor(role: UserRole | undefined, allowed?: UserRole[]) {
+  if (!allowed) return true;
+  if (!role) return true;
+  return allowed.includes(role);
+}
+
+function useIsActive() {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
-  const [collapsed, setCollapsed] = React.useState(false);
+  return React.useCallback(
+    (href: string) =>
+      pathname === href || pathname.startsWith(href + "/"),
+    [pathname]
+  );
+}
 
-  const filteredItems = navItems.filter((item) => {
-    if (!item.roles) return true;
-    if (!user) return true;
-    return item.roles.includes(user.role);
-  });
+/* ==========================================================================
+   BRAND
+   ========================================================================== */
+
+function BrandMark({ compact = false }: { compact?: boolean }) {
+  return (
+    <Link
+      href="/dashboard"
+      className="flex items-center gap-2.5 min-w-0 group"
+      aria-label="NovaThesis — về trang tổng quan"
+    >
+      <span
+        className="w-7 h-7 rounded-[7px] flex items-center justify-center flex-shrink-0"
+        style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
+      >
+        <GraduationCap size={16} weight="fill" />
+      </span>
+      {!compact && (
+        <span className="flex flex-col min-w-0 leading-tight">
+          <span className="text-[13.5px] font-semibold tracking-tight truncate">
+            NovaThesis
+          </span>
+          <span className="text-[10px] text-tertiary truncate">
+            ĐH Kinh tế – ĐH Đà Nẵng
+          </span>
+        </span>
+      )}
+    </Link>
+  );
+}
+
+/* ==========================================================================
+   SIDEBAR
+   ========================================================================== */
+
+export function Sidebar({
+  collapsed,
+  onToggleCollapsed,
+  mobileOpen,
+  onCloseMobile,
+}: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}) {
+  const { user, logout } = useAuthStore();
+  const isActive = useIsActive();
+
+  const sections = navSections
+    .filter((s) => visibleFor(user?.role, s.roles))
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => visibleFor(user?.role, i.roles)),
+    }))
+    .filter((s) => s.items.length > 0);
 
   return (
-    <aside
-      className="fixed left-4 top-4 bottom-4 flex flex-col z-40 transition-all duration-400 double-bezel-shell"
-      style={{
-        width: collapsed ? "4.5rem" : "15.5rem",
-      }}
-    >
-      <div className="double-bezel-core flex flex-col h-full p-2 overflow-hidden bg-[var(--bg-secondary)]/90 backdrop-blur-3xl">
-        {/* Logo */}
-        <div className="flex items-center gap-3 h-14 px-3 flex-shrink-0 border-b border-white/10 mb-2">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-[var(--accent)]/20"
-            style={{
-              background: "var(--accent)",
-              color: "var(--accent-fg)",
-            }}
+    <>
+      {/* Mobile scrim */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden fade-in"
+          style={{ background: "rgb(8 12 18 / 0.5)" }}
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col transition-transform duration-200 lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={{
+          width: collapsed ? "var(--sidebar-width-collapsed)" : "var(--sidebar-width)",
+          background: "var(--bg-surface)",
+          borderRight: "1px solid var(--border-primary)",
+          transitionProperty: "transform, width",
+          /* Named so it becomes its own view-transition group and can opt out
+             of the page animation — a sidebar that crossfades on every
+             navigation destroys the one fixed reference point on screen. */
+          viewTransitionName: "app-sidebar",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="h-[var(--topbar-height)] flex items-center justify-between px-3 flex-shrink-0"
+          style={{ borderBottom: "1px solid var(--border-secondary)" }}
+        >
+          <BrandMark compact={collapsed} />
+          <IconButton
+            label="Đóng menu"
+            size="sm"
+            className="lg:hidden"
+            onClick={onCloseMobile}
           >
-            <GraduationCap size={20} weight="bold" />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="font-semibold text-[15px] tracking-tight text-white flex items-center gap-1.5">
-                NovaThesis
-                <Sparkle size={12} weight="fill" className="text-[var(--accent)]" />
-              </span>
-              <span className="text-[10px] uppercase tracking-widest text-[var(--accent)]/80 font-mono">
-                Academic AI
-              </span>
-            </div>
-          )}
+            <X size={16} />
+          </IconButton>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 overflow-y-auto py-2 px-1">
-          <div className="flex flex-col gap-1">
-            {filteredItems.map((item) => {
-              const isActive =
-                pathname === item.href || pathname.startsWith(item.href + "/");
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2">
+          {sections.map((section, si) => (
+            <div key={section.label ?? si} className={si > 0 ? "mt-4" : ""}>
+              {section.label && !collapsed && (
+                <div className="eyebrow px-2 pb-1.5">{section.label}</div>
+              )}
+              {section.label && collapsed && si > 0 && (
+                <div
+                  className="mx-2 mb-2 h-px"
+                  style={{ background: "var(--border-secondary)" }}
+                />
+              )}
+              <ul className="flex flex-col gap-px">
+                {section.items.map((item) => {
+                  const active = isActive(item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        title={collapsed ? item.label : undefined}
+                        onClick={onCloseMobile}
+                        className={`nav-item group relative flex items-center gap-2.5 h-8 rounded-[7px] text-[13px] ${
+                          active ? "is-active" : ""
+                        } ${collapsed ? "justify-center px-0" : "px-2"} ${
+                          active
+                            ? "text-primary font-medium"
+                            : "text-secondary hover:text-primary"
+                        }`}
+                        style={{
+                          background: active ? "var(--bg-active)" : "transparent",
+                        }}
+                      >
+                        {/* Active rail — reads at a glance even when collapsed. */}
+                        {active && (
+                          <span
+                            className="nav-rail absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full"
+                            style={{ background: "var(--accent)" }}
+                            aria-hidden="true"
+                          />
+                        )}
+                        <span
+                          className="nav-icon flex-shrink-0 flex"
+                          style={{
+                            color: active ? "var(--accent)" : "var(--fg-tertiary)",
+                          }}
+                        >
+                          {item.icon}
+                        </span>
+                        {!collapsed && <span className="truncate">{item.label}</span>}
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group relative ${
-                    collapsed ? "justify-center" : ""
-                  }`}
-                  style={{
-                    background: isActive
-                      ? "rgba(52, 211, 153, 0.12)"
-                      : "transparent",
-                    color: isActive ? "#34d399" : "var(--fg-secondary)",
-                    border: isActive ? "1px solid rgba(52, 211, 153, 0.2)" : "1px solid transparent",
-                  }}
-                >
-                  <span className="flex-shrink-0 transition-transform group-hover:scale-110">{item.icon}</span>
-                  {!collapsed && <span>{item.label}</span>}
-
-                  {collapsed && (
-                    <span
-                      className="absolute left-full ml-3 px-3 py-1.5 text-[12px] font-medium rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 bg-[#121215] border border-white/10 shadow-2xl text-white"
-                    >
-                      {item.label}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+                        {collapsed && (
+                          <span
+                            className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md text-[12px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 card"
+                            style={{ boxShadow: "var(--shadow-md)" }}
+                          >
+                            {item.label}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
 
-        {/* Collapse toggle button */}
-        <div className="px-1 py-1">
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[12px] text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
-            aria-label={collapsed ? "Mở rộng" : "Thu gọn"}
-          >
-            {collapsed ? (
-              <CaretRight size={16} />
-            ) : (
-              <>
-                <CaretLeft size={14} />
-                <span>Thu gọn Menu</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* User profile dropdown */}
-        <div className="flex-shrink-0 pt-2 border-t border-white/10">
+        {/* Footer: identity + collapse */}
+        <div
+          className="flex-shrink-0 p-2"
+          style={{ borderTop: "1px solid var(--border-secondary)" }}
+        >
+          {user ? (
           <Dropdown
             align="left"
+            width="min-w-[200px]"
             trigger={
               <button
-                className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-white/5 ${
-                  collapsed ? "justify-center" : ""
+                className={`w-full flex items-center gap-2 h-10 rounded-[7px] transition-colors hover:bg-[var(--bg-hover)] ${
+                  collapsed ? "justify-center px-0" : "px-1.5"
                 }`}
+                aria-label="Tài khoản"
               >
-                <Avatar
-                  name={user?.full_name || "Admin Nova"}
-                  src={user?.avatar_url}
-                  size="sm"
-                />
+                <Avatar name={user.full_name} src={user.avatar_url} size="sm" />
                 {!collapsed && (
-                  <div className="flex flex-col items-start overflow-hidden text-left">
-                    <span className="text-[13px] font-medium truncate w-full text-white">
-                      {user?.full_name || "Admin Nova"}
+                  <span className="flex flex-col items-start min-w-0 flex-1 text-left leading-tight">
+                    <span className="text-[12.5px] font-medium truncate w-full">
+                      {user.full_name}
                     </span>
-                    <span className="text-[10px] font-mono truncate w-full text-zinc-500">
-                      {user?.role || "ADMIN"}
+                    <span className="text-[10.5px] text-tertiary truncate w-full">
+                      {ROLE_LABELS[user.role]}
                     </span>
-                  </div>
+                  </span>
                 )}
               </button>
             }
           >
+            <DropdownLabel>{user.email}</DropdownLabel>
             <DropdownItem
+              icon={<UserCircle size={15} />}
               onClick={() => {
                 window.location.href = "/profile";
               }}
-              icon={<Gear size={16} />}
             >
               Hồ sơ cá nhân
             </DropdownItem>
             <DropdownSeparator />
-            <DropdownItem onClick={logout} danger icon={<SignOut size={16} />}>
+            <DropdownItem danger icon={<SignOut size={15} />} onClick={logout}>
               Đăng xuất
             </DropdownItem>
           </Dropdown>
+          ) : (
+            <Link
+              href="/login"
+              className={`w-full flex items-center gap-2 h-10 rounded-[7px] text-[12.5px] text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-primary ${
+                collapsed ? "justify-center px-0" : "px-1.5"
+              }`}
+              title="Đăng nhập"
+            >
+              <SignOut size={15} className="rotate-180 flex-shrink-0" />
+              {!collapsed && <span>Đăng nhập</span>}
+            </Link>
+          )}
+
+          <button
+            onClick={onToggleCollapsed}
+            className="hidden lg:flex w-full items-center justify-center gap-1.5 h-7 mt-1 rounded-[7px] text-[11.5px] text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] transition-colors"
+            aria-label={collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+          >
+            <CaretRight
+              size={13}
+              className={`transition-transform ${collapsed ? "" : "rotate-180"}`}
+            />
+            {!collapsed && <span>Thu gọn</span>}
+          </button>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
-/* ========================================
-   TOPBAR COMPONENT (HIGH-END FLOATING ISLAND)
-   ======================================== */
+/* ==========================================================================
+   COMMAND PALETTE
+   Twelve destinations behind ⌘K beats twelve links you have to aim at.
+   ========================================================================== */
 
-export function Topbar() {
+/* Mounted only while open (see the caller), so its state starts fresh every
+   time instead of needing effects to reset the query and cursor. */
+function CommandPalette({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
   const { user } = useAuthStore();
+  const [query, setQuery] = React.useState("");
+  const [cursor, setCursor] = React.useState(0);
+
+  const entries = React.useMemo(
+    () =>
+      navSections
+        .filter((s) => visibleFor(user?.role, s.roles))
+        .flatMap((s) =>
+          s.items
+            .filter((i) => visibleFor(user?.role, i.roles))
+            .map((i) => ({ ...i, section: s.label }))
+        ),
+    [user?.role]
+  );
+
+  const results = React.useMemo(() => {
+    const q = query
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (!q) return entries;
+    // Match on the accent-stripped label so "de tai" finds "Đề tài" — nobody
+    // types diacritics into a search box.
+    return entries.filter((e) =>
+      e.label
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .includes(q.replace(/đ/g, "d"))
+    );
+  }, [entries, query]);
+
+  const go = (href: string) => {
+    router.push(href);
+    onClose();
+  };
 
   return (
-    <header className="sticky top-4 z-30 mx-6 mb-6">
-      <div className="nav-floating-island flex items-center justify-between px-6 py-3 border border-white/10 shadow-2xl">
-        <div id="topbar-title" className="text-sm font-medium tracking-tight text-white" />
+    <div className="fixed inset-0 z-[80] flex items-start justify-center pt-[12vh] px-4">
+      <div
+        className="fixed inset-0 fade-in"
+        style={{ background: "rgb(8 12 18 / 0.5)" }}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className="relative w-full max-w-md card overflow-hidden pop-in"
+        style={{ boxShadow: "var(--shadow-lg)" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tìm nhanh"
+      >
+        <div
+          className="flex items-center gap-2 px-3 h-11"
+          style={{ borderBottom: "1px solid var(--border-secondary)" }}
+        >
+          <MagnifyingGlass size={15} className="text-muted flex-shrink-0" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setCursor(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") onClose();
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setCursor((c) => Math.min(results.length - 1, c + 1));
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setCursor((c) => Math.max(0, c - 1));
+              }
+              if (e.key === "Enter" && results[cursor]) go(results[cursor].href);
+            }}
+            placeholder="Đi tới trang…"
+            className="flex-1 bg-transparent border-0 outline-none text-[13.5px] placeholder:text-[var(--fg-muted)]"
+            aria-label="Tìm trang"
+          />
+          <kbd className="kbd">Esc</kbd>
+        </div>
 
-        <div className="flex items-center gap-4">
-          <Link
-            href="/notifications"
-            className="relative p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
-            aria-label="Thông báo"
-          >
-            <Bell size={18} />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
-          </Link>
-
-          <Link href="/profile" className="flex items-center gap-2.5 pl-2 border-l border-white/10">
-            <span className="text-[13px] font-medium text-zinc-300 hidden md:block">
-              {user?.full_name || "Admin Nova"}
-            </span>
-            <Avatar name={user?.full_name || "Admin Nova"} src={user?.avatar_url} size="sm" />
-          </Link>
+        <div className="max-h-72 overflow-y-auto p-1.5">
+          {results.length === 0 ? (
+            <p className="text-[12.5px] text-tertiary text-center py-6">
+              Không tìm thấy trang phù hợp.
+            </p>
+          ) : (
+            results.map((r, i) => (
+              <button
+                key={r.href}
+                onMouseEnter={() => setCursor(i)}
+                onClick={() => go(r.href)}
+                className="row-hover w-full flex items-center gap-2.5 px-2 h-9 rounded-md text-[13px] text-left"
+                style={{
+                  background: i === cursor ? "var(--bg-hover)" : "transparent",
+                  color: i === cursor ? "var(--fg-primary)" : "var(--fg-secondary)",
+                }}
+              >
+                <span className="text-tertiary flex-shrink-0 flex">{r.icon}</span>
+                <span className="flex-1 truncate">{r.label}</span>
+                {r.section && (
+                  <span className="text-[11px] text-muted">{r.section}</span>
+                )}
+              </button>
+            ))
+          )}
         </div>
       </div>
-    </header>
+    </div>
   );
 }
 
-/* ========================================
-   PAGE HEADER COMPONENT
-   ======================================== */
+/* ==========================================================================
+   THEME TOGGLE
+   ========================================================================== */
 
-interface PageHeaderProps {
+function ThemeSwitch() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const mounted = useMounted();
+
+  // Renders a same-size placeholder pre-hydration; swapping icons on mount
+  // would otherwise shift the toolbar.
+  if (!mounted) return <span className="w-8 h-8" aria-hidden="true" />;
+
+  const dark = resolvedTheme === "dark";
+  return (
+    <IconButton
+      label={dark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+      onClick={() => setTheme(dark ? "light" : "dark")}
+    >
+      {dark ? <Sun size={16} /> : <Moon size={16} />}
+    </IconButton>
+  );
+}
+
+/* ==========================================================================
+   TOPBAR
+   ========================================================================== */
+
+export function Topbar({
+  onOpenMobileNav,
+  unreadCount = 0,
+}: {
+  onOpenMobileNav: () => void;
+  unreadCount?: number;
+}) {
+  const pathname = usePathname();
+  const { user } = useAuthStore();
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const crumbs = React.useMemo(() => {
+    const exact = ROUTE_TITLES[pathname];
+    if (exact) return [exact];
+
+    // Detail route (/theses/12): show parent then a generic leaf.
+    const segments = pathname.split("/").filter(Boolean);
+    const parent = "/" + segments.slice(0, 1).join("/");
+    const parentTitle = ROUTE_TITLES[parent];
+    if (parentTitle && segments.length > 1) return [parentTitle, "Chi tiết"];
+    return [parentTitle ?? "NovaThesis"];
+  }, [pathname]);
+
+  return (
+    <>
+      <header
+        className="sticky top-0 z-30 h-[var(--topbar-height)] flex items-center gap-2 px-3 sm:px-4 flex-shrink-0"
+        style={{
+          background: "var(--bg-surface)",
+          borderBottom: "1px solid var(--border-primary)",
+          viewTransitionName: "app-topbar",
+        }}
+      >
+        <IconButton
+          label="Mở menu"
+          className="lg:hidden"
+          onClick={onOpenMobileNav}
+        >
+          <List size={17} />
+        </IconButton>
+
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 min-w-0">
+          {crumbs.map((c, i) => (
+            <React.Fragment key={c}>
+              {i > 0 && (
+                <CaretRight size={11} className="text-muted flex-shrink-0" />
+              )}
+              <span
+                className={`text-[13px] truncate ${
+                  i === crumbs.length - 1
+                    ? "font-medium text-primary"
+                    : "text-tertiary"
+                }`}
+              >
+                {c}
+              </span>
+            </React.Fragment>
+          ))}
+        </nav>
+
+        <div className="flex-1" />
+
+        {/* Search affordance: full control on desktop, icon on mobile. */}
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="hidden sm:flex items-center gap-2 h-8 pl-2.5 pr-1.5 rounded-[8px] text-[12.5px] text-tertiary transition-colors hover:text-secondary hover:border-[var(--border-strong)] w-52"
+          style={{
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-primary)",
+          }}
+        >
+          <MagnifyingGlass size={14} className="flex-shrink-0" />
+          <span className="flex-1 text-left">Tìm nhanh…</span>
+          <kbd className="kbd">⌘K</kbd>
+        </button>
+        <IconButton
+          label="Tìm nhanh"
+          className="sm:hidden"
+          onClick={() => setPaletteOpen(true)}
+        >
+          <MagnifyingGlass size={16} />
+        </IconButton>
+
+        <ThemeSwitch />
+
+        <Link
+          href="/notifications"
+          className="btn-icon relative"
+          aria-label={
+            unreadCount > 0
+              ? `Thông báo, ${unreadCount} chưa đọc`
+              : "Thông báo"
+          }
+        >
+          <Bell size={16} />
+          {unreadCount > 0 && (
+            <span
+              className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center tnum"
+              style={{ background: "var(--danger)", color: "#fff" }}
+            >
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Link>
+
+        <Link
+          href="/profile"
+          className="flex items-center ml-0.5"
+          aria-label="Hồ sơ cá nhân"
+        >
+          <Avatar name={user?.full_name} src={user?.avatar_url} size="sm" />
+        </Link>
+      </header>
+
+      {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+    </>
+  );
+}
+
+/* ==========================================================================
+   PAGE HEADER
+   Title, one line of purpose, and the actions. No badges announcing that the
+   product is a platform.
+   ========================================================================== */
+
+export function PageHeader({
+  title,
+  description,
+  actions,
+  meta,
+  className = "",
+}: {
   title: string;
   description?: string;
+  /** Inline status chips or counts that qualify the title. */
+  meta?: React.ReactNode;
   actions?: React.ReactNode;
-}
-
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-      <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono uppercase tracking-widest bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 mb-2">
-          <Sparkle size={12} weight="fill" /> NovaThesis Intelligence Platform
+    <div
+      className={`flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4 ${className}`}
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h1 className="text-[17px] font-semibold tracking-tight">{title}</h1>
+          {meta}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-white">{title}</h1>
         {description && (
-          <p className="text-[13px] mt-1 text-zinc-400">
+          <p className="text-[12.5px] text-tertiary mt-0.5 max-w-2xl">
             {description}
           </p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-3 flex-shrink-0">{actions}</div>}
+      {actions && (
+        <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>
+      )}
+    </div>
+  );
+}
+
+/* Toolbar strip that sits above a table: search on the left, filters right. */
+export function Toolbar({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 ${className}`}
+      style={{ borderBottom: "1px solid var(--border-secondary)" }}
+    >
+      {children}
     </div>
   );
 }
