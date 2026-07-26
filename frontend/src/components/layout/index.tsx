@@ -10,6 +10,9 @@ import {
 	CaretRight,
 	ChartBar,
 	ChatCircleDots,
+	ChatCircleText,
+	Checks,
+	Clock,
 	Files,
 	Gear,
 	GraduationCap,
@@ -307,14 +310,16 @@ export function Sidebar({
 														aria-hidden="true"
 													/>
 												)}
-												<span
-													className="nav-icon flex-shrink-0 flex"
-													style={{
-														color: active
-															? "var(--accent)"
-															: "var(--fg-tertiary)",
-													}}>
-													{item.icon}
+												<span className="icon-card icon-card-sm flex-shrink-0">
+													<span
+														className="icon-box flex items-center justify-center"
+														style={{
+															color: active
+																? "var(--accent)"
+																: "var(--fg-tertiary)",
+														}}>
+														{item.icon}
+													</span>
 												</span>
 												{!collapsed && (
 													<span className="truncate">{item.label}</span>
@@ -565,6 +570,190 @@ function ThemeSwitch() {
 }
 
 /* ==========================================================================
+   NOTIFICATION DROPDOWN
+   ========================================================================== */
+
+interface NotificationItem {
+	id: number;
+	title: string;
+	content: string;
+	is_read: boolean;
+	type: "MILESTONE" | "THESIS" | "FEEDBACK" | "SYSTEM";
+	created_at: string;
+}
+
+const mockNotifications: NotificationItem[] = [
+	{
+		id: 1,
+		title: "Nhắc nhở: Milestone sắp đến hạn!",
+		content: "Milestone 'Nộp Báo cáo Đề cương Luận văn' còn 6 ngày nữa là đến hạn.",
+		is_read: false,
+		type: "MILESTONE",
+		created_at: "Hôm nay, 08:30",
+	},
+	{
+		id: 2,
+		title: "Giảng viên đã nhận xét bài báo cáo",
+		content: "TS. Nguyễn Văn A đã để lại bình luận trên milestone 'Thiết kế ERD'.",
+		is_read: false,
+		type: "FEEDBACK",
+		created_at: "Hôm qua, 16:45",
+	},
+	{
+		id: 3,
+		title: "Đề tài đã được phê duyệt!",
+		content: "Đề tài 'Hệ thống NovaThesis tích hợp AI' đã chuyển sang trạng thái Đang thực hiện.",
+		is_read: true,
+		type: "THESIS",
+		created_at: "15/07, 10:30",
+	},
+	{
+		id: 4,
+		title: "Cập nhật hệ thống AI pgvector",
+		content: "Hệ thống đã nâng cấp mô hình Vector Search giúp tăng 30% tốc độ RAG.",
+		is_read: true,
+		type: "SYSTEM",
+		created_at: "10/07, 12:00",
+	},
+];
+
+const typeIconMap: Record<string, React.ReactNode> = {
+	MILESTONE: <Kanban size={14} className="text-warning" />,
+	FEEDBACK: <ChatCircleText size={14} className="text-info" />,
+	THESIS: <GraduationCap size={14} className="text-success" />,
+	SYSTEM: <Bell size={14} className="text-accent" />,
+};
+
+function NotificationDropdown({ unreadCount }: { unreadCount: number }) {
+	const [open, setOpen] = React.useState(false);
+	const ref = React.useRef<HTMLDivElement>(null);
+	const router = useRouter();
+
+	React.useEffect(() => {
+		if (!open) return;
+		const onPointerDown = (e: MouseEvent) => {
+			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") setOpen(false);
+		};
+		document.addEventListener("mousedown", onPointerDown);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("mousedown", onPointerDown);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open]);
+
+	const latestNotifications = mockNotifications.slice(0, 4);
+
+	return (
+		<div ref={ref} className="relative inline-flex">
+			<button
+				onClick={() => setOpen((v) => !v)}
+				className="btn-icon relative"
+				aria-label={
+					unreadCount > 0 ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"
+				}
+				aria-haspopup="menu"
+				aria-expanded={open}>
+				<Bell size={16} />
+				{unreadCount > 0 && (
+					<span
+						className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center tnum"
+						style={{ background: "var(--danger)", color: "#fff" }}>
+						{unreadCount > 9 ? "9+" : unreadCount}
+					</span>
+				)}
+			</button>
+
+			{open && (
+				<div
+					role="menu"
+					className="absolute top-full right-0 mt-1.5 z-50 w-[340px] card p-0 pop-in overflow-hidden"
+					style={{ boxShadow: "var(--shadow-lg)" }}>
+					{/* Header */}
+					<div className="flex items-center justify-between px-3.5 py-2.5 border-b border-[var(--border-secondary)]">
+						<span className="text-[13px] font-semibold text-primary">Thông báo</span>
+						{unreadCount > 0 && (
+							<span
+								className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
+								style={{
+									background: "var(--accent-subtle)",
+									color: "var(--accent)",
+								}}>
+								{unreadCount} chưa đọc
+							</span>
+						)}
+					</div>
+
+					{/* Notification list */}
+					<div className="max-h-[320px] overflow-y-auto">
+						{latestNotifications.length === 0 ? (
+							<div className="px-4 py-8 text-center text-[13px] text-tertiary">
+								Không có thông báo nào.
+							</div>
+						) : (
+							latestNotifications.map((n) => (
+								<button
+									key={n.id}
+									type="button"
+									role="menuitem"
+									className={`w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)] ${
+										!n.is_read ? "bg-[var(--bg-secondary)]" : ""
+									}`}>
+									<div className="mt-0.5 flex-shrink-0 p-1.5 rounded-lg bg-[var(--bg-subtle)]">
+										{typeIconMap[n.type]}
+									</div>
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-1.5">
+											<span
+												className={`text-[12.5px] truncate ${
+													!n.is_read
+														? "font-semibold text-primary"
+														: "font-medium text-secondary"
+												}`}>
+												{n.title}
+											</span>
+											{!n.is_read && (
+												<span
+													className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+													style={{ background: "var(--accent)" }}
+												/>
+											)}
+										</div>
+										<p className="text-[11.5px] text-tertiary leading-snug mt-0.5 line-clamp-2">
+											{n.content}
+										</p>
+										<span className="text-[10.5px] text-muted mt-1 flex items-center gap-1">
+											<Clock size={10} /> {n.created_at}
+										</span>
+									</div>
+								</button>
+							))
+						)}
+					</div>
+
+					{/* Footer */}
+					<div className="border-t border-[var(--border-secondary)]">
+						<button
+							type="button"
+							onClick={() => {
+								setOpen(false);
+								router.push("/notifications");
+							}}
+							className="w-full px-3.5 py-2.5 text-[12.5px] font-medium text-center transition-colors hover:bg-[var(--bg-hover)]"
+							style={{ color: "var(--accent)" }}>
+							Xem tất cả thông báo
+						</button>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
+/* ==========================================================================
    TOPBAR
    ========================================================================== */
 
@@ -661,21 +850,7 @@ export function Topbar({
 
 				<ThemeSwitch />
 
-				<Link
-					href="/notifications"
-					className="btn-icon relative"
-					aria-label={
-						unreadCount > 0 ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"
-					}>
-					<Bell size={16} />
-					{unreadCount > 0 && (
-						<span
-							className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center tnum"
-							style={{ background: "var(--danger)", color: "#fff" }}>
-							{unreadCount > 9 ? "9+" : unreadCount}
-						</span>
-					)}
-				</Link>
+				<NotificationDropdown unreadCount={unreadCount} />
 
 				<Link
 					href="/profile"

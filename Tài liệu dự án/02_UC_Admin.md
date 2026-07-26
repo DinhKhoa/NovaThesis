@@ -13,6 +13,7 @@ graph LR
     Admin --> UC2.4(2.4: Vô hiệu hóa / Khôi phục tài khoản)
     Admin --> UC2.5(2.5: Phân quyền vai trò)
     Admin --> UC2.6(2.6: Xem thống kê tổng quan)
+    Admin --> UC2.7(2.7: Quản lý năm học)
     Admin --> UC2.8(2.8: Xem log hoạt động)
     Admin --> UC2.9(2.9: Cấu hình tham số)
 ```
@@ -248,11 +249,50 @@ graph LR
 
 ---
 
-### UC 2.7 – Xem log hoạt động hệ thống
+### UC 2.7 – Quản lý năm học
+
+| Field | Content |
+|-------|---------|
+| **Use case ID** | 2.7 |
+| **Use case name** | Quản lý năm học |
+| **Description** | Admin tạo, chỉnh sửa và quản lý các năm học (academic year) trong hệ thống. Mỗi năm học có thời gian bắt đầu/kết thúc và trạng thái aktiv. |
+| **Actors** | Admin |
+| **Priority** | Trung bình |
+| **Triggers** | Admin truy cập menu "Quản lý năm học". |
+| **Pre-conditions** | Admin đã đăng nhập. |
+| **Post-conditions** | Năm học mới được tạo hoặc chỉnh sửa, được sử dụng để lọc đề tài theo khóa. |
+| **Business rules** | 1. Chỉ có tối đa 1 năm học ở trạng thái "Đang aktiv" tại một thời điểm. 2. Tên năm học phải duy nhất (VD: "2025-2026"). |
+| **Non-functional requirement** | Dữ liệu năm học được cache để tránh truy vấn nhiều lần khi lọc đề tài. |
+
+**Main flow:**
+
+| Bước | Thao tác |
+|------|---------|
+| 1 | Admin chọn "Quản lý năm học". |
+| 2 | Hệ thống hiển thị danh sách các năm học đã tạo. |
+| 3 | Admin nhấn "Tạo năm học mới" và nhập thông tin (Tên, Ngày bắt đầu, Ngày kết thúc). |
+| 4 | Hệ thống kiểm tra tính hợp lệ (ngày bắt đầu < ngày kết thúc, tên duy nhất). |
+| 5 | Hệ thống lưu năm học mới và thông báo thành công. |
+
+**Alternative flows:**
+
+| Luồng | Điều kiện | Xử lý |
+|-------|-----------|-------|
+| 3a | Admin chỉnh sửa năm học cũ | Hiển thị form với dữ liệu hiện tại, Admin thay đổi và lưu. |
+
+**Exception flows:**
+
+| Luồng | Điều kiện | Xử lý |
+|-------|-----------|-------|
+| 4a | Ngày không hợp lệ hoặc tên trùng | Hệ thống báo lỗi tại trường tương ứng. |
+
+---
+
+### UC 2.8 – Xem log hoạt động hệ thống
 
 | Field                          | Content                                                                                                                                         |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Use case ID**                | 2.7                                                                                                                                             |
+| **Use case ID**                | 2.8                                                                                                                                             |
 | **Use case name**              | Xem log hoạt động hệ thống                                                                                                                      |
 | **Description**                | Admin xem lịch sử các hành động quan trọng đã diễn ra trên hệ thống để phục vụ việc audit và hỗ trợ kỹ thuật.                                   |
 | **Actors**                     | Admin                                                                                                                                           |
@@ -281,11 +321,11 @@ graph LR
 
 ---
 
-### UC 2.8 – Cấu hình tham số hệ thống
+### UC 2.9 – Cấu hình tham số hệ thống
 
 | Field                          | Content                                                                                                                                                                                                    |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Use case ID**                | 2.8                                                                                                                                                                                                        |
+| **Use case ID**                | 2.9                                                                                                                                                                                                        |
 | **Use case name**              | Cấu hình tham số hệ thống                                                                                                                                                                                  |
 | **Description**                | Admin cài đặt các thông số kỹ thuật, hạn mức vận hành cho toàn hệ thống (AI, giới hạn file, thời gian thông báo).                                                                                          |
 | **Actors**                     | Admin                                                                                                                                                                                                      |

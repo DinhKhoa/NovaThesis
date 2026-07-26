@@ -38,9 +38,7 @@ graph TB
         UC15["1.5 Quên mật khẩu"]
         UC16["1.6 Đặt lại mật khẩu"]
         UC17["1.7 Đổi mật khẩu"]
-        UC18["1.8 Xem hồ sơ"]
-        UC19["1.9 Chỉnh sửa hồ sơ"]
-        UC110["1.10 Cập nhật ảnh đại diện"]
+        UC18["1.8 Quản lý hồ sơ cá nhân"]
     end
 
     subgraph M2["👑 Module 2: Quản trị Admin"]
@@ -114,10 +112,7 @@ graph TB
         UC68["6.8 Xóa lịch sử chat"]
         UC69["6.9 Đánh giá AI"]
         UC610["6.10 Đề xuất lộ trình"]
-        UC611["6.11 Chấp nhận gợi ý AI"]
-        UC612["6.12 Từ chối/Sửa gợi ý"]
-        UC613["6.13 Re-generate gợi ý"]
-        UC614["6.14 Xem trạng thái AI"]
+        UC611["6.11 Xử lý gợi ý lộ trình AI"]
     end
 
     subgraph M7["💬 Module 7: Trao đổi & Phản hồi"]
@@ -184,16 +179,16 @@ graph TB
 
 | Module | Số UC | Files |
 |--------|-------|-------|
-| 🔐 Module 1 – Xác thực & Tài khoản | 10 | [01_UC_Authentication.md](./01_UC_Authentication.md) |
+| 🔐 Module 1 – Xác thực & Tài khoản | 8 | [01_UC_Authentication.md](./01_UC_Authentication.md) |
 | 👑 Module 2 – Quản trị Admin | 9 | [02_UC_Admin.md](./02_UC_Admin.md) |
 | 📁 Module 3 – Quản lý Đề tài | 14 | [03_UC_Thesis.md](./03_UC_Thesis.md) |
 | 📅 Module 4 – Quản lý Milestone | 15 | [04_UC_Milestone.md](./04_UC_Milestone.md) |
 | 📄 Module 5 – Quản lý Tài liệu | 10 | [05_UC_Document.md](./05_UC_Document.md) |
-| 🤖 Module 6 – Hỗ trợ AI | 14 | [06_UC_AI.md](./06_UC_AI.md) |
+| 🤖 Module 6 – Hỗ trợ AI | 11 | [06_UC_AI.md](./06_UC_AI.md) |
 | 💬 Module 7 – Trao đổi & Phản hồi | 8 | [07_UC_Feedback.md](./07_UC_Feedback.md) |
 | 🔔 Module 8 – Thông báo | 8 | [08_UC_Notification.md](./08_UC_Notification.md) |
 | 📊 Module 9 – Báo cáo & Thống kê | 4 | [09_UC_Report.md](./09_UC_Report.md) |
-| **Tổng** | **92** | |
+| **Tổng** | **87** | |
 
 ---
 
@@ -201,10 +196,10 @@ graph TB
 
 | Actor | Các UC liên quan |
 |-------|-----------------|
-| **Sinh viên** | 1.1–1.10, 3.1–3.7, 3.4, 3.14, 4.1–4.9, 4.12–4.13, 4.15, 5.1–5.10, 6.1–6.14, 7.3–7.5, 7.7–7.8, 8.1–8.7, 9.1, 9.4 |
-| **Giảng viên hướng dẫn** | 1.1–1.10, 3.3–3.4, 3.8–3.14, 4.2–4.3, 4.6–4.7, 4.10–4.15, 5.2–5.4, 6.4–6.9, 7.1–7.2, 7.4–7.8, 8.1–8.7, 9.1–9.2, 9.4 |
-| **Admin** | 1.1–1.3, 2.1–2.9, 3.12–3.14, 8.1–8.7, 9.1–9.3 |
-| **Hệ thống AI** | 6.1, 6.4, 6.5, 6.10 |
+| **Sinh viên** | 1.1–1.8, 3.1–3.7, 3.4, 3.14, 4.1–4.9, 4.12–4.13, 4.15, 5.1–5.10, 6.1–6.11, 7.3–7.5, 7.7–7.8, 8.1–8.7, 9.1, 9.4 |
+| **Giảng viên hướng dẫn** | 1.1–1.8, 3.3–3.4, 3.8–3.14, 4.2–4.3, 4.6–4.7, 4.10–4.15, 5.2–5.4, 6.4–6.9, 7.1–7.2, 7.4–7.8, 8.1–8.7, 9.1–9.2, 9.4 |
+| **Admin** | 1.1–1.3, 1.7–1.8, 2.1–2.9, 3.12–3.14, 8.1–8.7, 9.1–9.3 |
+| **Hệ thống AI** | 6.1, 6.4, 6.5, 6.10–6.11 |
 | **Scheduler** | 8.8 |
 | **Email Service** | 1.2, 1.4, 1.5, 8.2 |
 

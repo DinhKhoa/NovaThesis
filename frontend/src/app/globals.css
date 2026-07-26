@@ -366,6 +366,53 @@
     color: var(--fg-tertiary);
   }
 
+  /* ---------- Icon Card (dashed border hover) ---------- */
+
+  .icon-card {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    width: fit-content;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: border-color var(--dur-hover) var(--ease-hover);
+  }
+
+  .icon-card:hover,
+  .group:hover > .icon-card {
+    border-style: dashed;
+    border-width: 2px;
+    border-color: var(--accent);
+  }
+
+  .icon-card .icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: background-color var(--dur-hover) var(--ease-hover),
+      color var(--dur-hover) var(--ease-hover);
+  }
+
+  .icon-card:hover .icon-box,
+  .group:hover > .icon-card .icon-box {
+    background-color: var(--accent) !important;
+    color: var(--accent-fg) !important;
+  }
+
+  /* Smaller variant for sidebar nav items */
+  .icon-card-sm {
+    padding: 2px;
+    border-radius: 6px;
+  }
+
+  .icon-card-sm .icon-box {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+  }
+
   /* ---------- Form controls ---------- */
 
   .input-base {
@@ -416,15 +463,41 @@
 
   select.input-base {
     appearance: none;
-    padding-right: 1.75rem;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7684' stroke-width='2.5' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7684' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 10l5 5 5-5'/></svg>");
     background-repeat: no-repeat;
     background-position: right 0.5rem center;
+    background-size: 14px;
     cursor: pointer;
+    transition: border-color var(--dur-hover) var(--ease-hover),
+      box-shadow var(--dur-hover) var(--ease-hover),
+      background-color var(--dur-hover) var(--ease-hover);
+  }
+
+  select.input-base:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    background-color: var(--bg-subtle);
+  }
+
+  select.input-base:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-subtle);
+    background-color: var(--bg-surface);
+  }
+
+  select.input-base:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--bg-subtle);
   }
 
   .dark select.input-base {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237d8798' stroke-width='2.5' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237d8798' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 10l5 5 5-5'/></svg>");
+  }
+
+  .dark select.input-base:hover:not(:disabled) {
+    background-color: var(--bg-hover);
   }
 
   .field-label {
@@ -1233,6 +1306,40 @@
 }
 .sheet-scrim[data-state="closing"] {
   animation: fade-in 180ms ease both reverse;
+}
+
+/* ==========================================================================
+   HERO — DOTTED GRID BACKGROUND
+   A subtle dot-grid pattern behind the hero section, theme-aware via
+   CSS custom properties. Radial-gradient keeps it crisp at any scale
+   without an image request.
+   ========================================================================== */
+
+.hero-dots {
+  position: relative;
+  background-color: var(--bg-canvas);
+  background-image: radial-gradient(
+    circle,
+    var(--fg-muted) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* Fade the dots out toward the bottom so the transition to the next
+   section feels seamless rather than abruptly cut off. */
+.hero-dots::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 60%,
+    var(--bg-canvas) 100%
+  );
 }
 
 /* The slide is the one piece of large-area motion in the app. Reduced motion

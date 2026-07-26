@@ -111,7 +111,8 @@ function LandingContent() {
 
 			<main className="flex-1">
 				{/* ---------- Hero ---------- */}
-				<section className="mx-auto max-w-5xl px-5 pt-16 pb-14">
+				<section className="hero-dots min-h-[80dvh] flex items-center">
+					<div className="mx-auto max-w-5xl px-5 py-16 w-full relative z-[1]">
 					<p className="eyebrow mb-3">Tích hợp AI hỗ trợ học thuật</p>
 					<h1 className="text-[32px] sm:text-[40px] font-semibold tracking-[-0.025em] leading-[1.15] max-w-2xl">
 						HỆ THỐNG QUẢN LÝ LUẬN VĂN VÀ ĐỀ TÀI NGHIÊN CỨU
@@ -132,6 +133,7 @@ function LandingContent() {
 							Đăng ký tài khoản
 						</button>
 					</div>
+					</div>
 				</section>
 
 				{/* ---------- Capabilities ---------- */}
@@ -144,16 +146,18 @@ function LandingContent() {
 					<div className="mx-auto max-w-5xl px-5 py-12">
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-8">
 							{CAPABILITIES.map((c) => (
-								<div key={c.title} className="flex gap-3">
-									<span
-										className="w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0"
-										style={{
-											background: "var(--accent-subtle)",
-											color: "var(--accent)",
-										}}
-										aria-hidden="true">
-										{c.icon}
-									</span>
+								<div key={c.title} className="group flex gap-3">
+									<div className="icon-card flex-shrink-0">
+										<span
+											className="icon-box w-8 h-8"
+											style={{
+												background: "var(--accent-subtle)",
+												color: "var(--accent)",
+											}}
+											aria-hidden="true">
+											{c.icon}
+										</span>
+									</div>
 									<div className="min-w-0">
 										<h2 className="text-[14px] font-semibold mb-1">
 											{c.title}
