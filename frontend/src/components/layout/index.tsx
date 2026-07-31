@@ -349,6 +349,7 @@ export function Sidebar({
 					{user ? (
 						<Dropdown
 							align="left"
+							position="right"
 							width="min-w-[200px]"
 							trigger={
 								<button
@@ -811,8 +812,13 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 	const { user } = useAuthStore();
 	const [paletteOpen, setPaletteOpen] = React.useState(false);
 	const unreadCount = useUnreadCount(Boolean(user));
+	const [shortcutKey, setShortcutKey] = React.useState("⌘K");
 
 	React.useEffect(() => {
+		if (typeof navigator !== "undefined" && /Win|Linux/.test(navigator.platform || navigator.userAgent)) {
+			setShortcutKey("Ctrl K");
+		}
+
 		const onKey = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
 				e.preventDefault();
@@ -883,7 +889,7 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 					}}>
 					<MagnifyingGlass size={14} className="flex-shrink-0" />
 					<span className="flex-1 text-left">Tìm nhanh…</span>
-					<kbd className="kbd">⌘K</kbd>
+					<kbd className="kbd">{shortcutKey}</kbd>
 				</button>
 				<IconButton
 					label="Tìm nhanh"

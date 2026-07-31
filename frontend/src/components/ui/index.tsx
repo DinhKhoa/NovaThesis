@@ -1021,11 +1021,13 @@ export function Dropdown({
   trigger,
   children,
   align = "right",
+  position = "bottom",
   width = "min-w-[190px]",
 }: {
   trigger: React.ReactNode;
   children: React.ReactNode;
   align?: "left" | "right";
+  position?: "top" | "bottom" | "right";
   width?: string;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -1059,8 +1061,12 @@ export function Dropdown({
       {open && (
         <div
           role="menu"
-          className={`absolute top-full mt-1 ${
-            align === "right" ? "right-0" : "left-0"
+          className={`absolute ${
+            position === "top"
+              ? `bottom-full mb-1 ${align === "right" ? "right-0" : "left-0"}`
+              : position === "right"
+              ? "left-full ml-2 bottom-0"
+              : `top-full mt-1 ${align === "right" ? "right-0" : "left-0"}`
           } z-50 ${width} card p-1 pop-in`}
           style={{ boxShadow: "var(--shadow-md)" }}
           onClick={() => setOpen(false)}

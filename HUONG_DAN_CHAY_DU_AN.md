@@ -6,11 +6,11 @@ Hệ thống quản lý luận văn tích hợp AI — **Next.js 16 + Node.js/Ex
 
 ## 1. Yêu cầu môi trường
 
-| Thành phần | Phiên bản | Ghi chú |
-|---|---|---|
-| Node.js | ≥ 20 (khuyến nghị 22 hoặc 24) | `node -v` để kiểm tra |
-| npm | ≥ 10 | đi kèm Node |
-| Docker Desktop | bất kỳ bản hiện hành | dùng để chạy PostgreSQL + pgvector |
+| Thành phần   | Phiên bản                       | Ghi chú                               |
+| -------------- | --------------------------------- | -------------------------------------- |
+| Node.js        | ≥ 20 (khuyến nghị 22 hoặc 24) | `node -v` để kiểm tra             |
+| npm            | ≥ 10                             | đi kèm Node                          |
+| Docker Desktop | bất kỳ bản hiện hành         | dùng để chạy PostgreSQL + pgvector |
 
 > **Không muốn dùng Docker?** Xem [mục 7](#7-chạy-không-dùng-docker) để cài PostgreSQL trực tiếp.
 
@@ -34,9 +34,9 @@ docker compose up -d
 
 Lệnh này dựng hai container:
 
-| Container | Cổng | Vai trò |
-|---|---|---|
-| `novathesis-db` | **5433** | PostgreSQL 16 kèm sẵn extension `pgvector` |
+| Container           | Cổng          | Vai trò                                                      |
+| ------------------- | -------------- | ------------------------------------------------------------- |
+| `novathesis-db`   | **5433** | PostgreSQL 16 kèm sẵn extension`pgvector`                 |
 | `novathesis-mail` | **8025** | Mailpit — hộp thư giả, bắt mọi email hệ thống gửi ra |
 
 > Cổng **5433** (không phải 5432) là cố ý, để không đụng PostgreSQL bạn đã cài sẵn trên máy.
@@ -95,7 +95,7 @@ Thấy dòng này là thành công:
 NovaThesis API đang chạy tại http://localhost:8000
 ```
 
-Kiểm tra: mở <http://localhost:8000/api/v1/health> → phải trả `{"status":"NOMINAL",...}`
+Kiểm tra: mở [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health) → phải trả `{"status":"NOMINAL",...}`
 
 > Lần chạy đầu, backend tự động lập chỉ mục 3 tài liệu mẫu (chia đoạn → sinh vector → lưu pgvector). Quá trình mất khoảng 5–15 giây và chạy ngầm; xem log để theo dõi.
 
@@ -110,7 +110,7 @@ npm install
 npm run dev
 ```
 
-Mở <http://localhost:3000> và đăng nhập.
+Mở [http://localhost:3000](http://localhost:3000) và đăng nhập.
 
 ---
 
@@ -118,12 +118,12 @@ Mở <http://localhost:3000> và đăng nhập.
 
 Mật khẩu chung: **`Admin@123456`** (đổi được ở `SEED_PASSWORD` trong `backend/.env`).
 
-| Vai trò | Email | Xem được gì |
-|---|---|---|
-| **Quản trị viên** | `admin@novathesis.edu.vn` | Quản lý người dùng, nhật ký, cấu hình, thống kê toàn hệ thống |
-| **Giảng viên** | `nguyen.vana@novathesis.edu.vn` | Duyệt đề tài, phê duyệt mốc, nhận xét, dashboard hướng dẫn |
-| **Giảng viên** | `tran.thib@novathesis.edu.vn` | (hướng dẫn đề tài IoT) |
-| **Sinh viên** | `student@novathesis.edu.vn` | Đề tài NovaThesis, 6 mốc tiến độ, 3 tài liệu, trợ lý AI |
+| Vai trò                   | Email                             | Xem được gì                                                             |
+| -------------------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| **Quản trị viên** | `admin@novathesis.edu.vn`       | Quản lý người dùng, nhật ký, cấu hình, thống kê toàn hệ thống |
+| **Giảng viên**     | `nguyen.vana@novathesis.edu.vn` | Duyệt đề tài, phê duyệt mốc, nhận xét, dashboard hướng dẫn      |
+| **Giảng viên**     | `tran.thib@novathesis.edu.vn`   | (hướng dẫn đề tài IoT)                                                |
+| **Sinh viên**       | `student@novathesis.edu.vn`     | Đề tài NovaThesis, 6 mốc tiến độ, 3 tài liệu, trợ lý AI          |
 
 ---
 
@@ -135,13 +135,13 @@ Mật khẩu chung: **`Admin@123456`** (đổi được ở `SEED_PASSWORD` tron
 
 Vào **Trợ lý AI → tab "Tìm kiếm ngữ nghĩa"**, thử các câu sau. Đây là tìm kiếm **lai**: hợp nhất xếp hạng vector (pgvector/HNSW) với xếp hạng toàn văn có trọng số IDF, bằng Reciprocal Rank Fusion.
 
-| Gõ câu này | Kết quả mong đợi | Thời gian đo được |
-|---|---|---|
-| `đánh đổi giữa tốc độ và độ chính xác khi lập chỉ mục` | Bài về HNSW/IVFFlat, dù câu hỏi không chứa hai từ đó | ~16 ms |
-| `làm sao để tác vụ nền không bị treo vĩnh viễn` | Bài về Watchdog Timer | ~8 ms |
-| `chống rò rỉ dữ liệu giữa các sinh viên` | Bài về Tenant Isolation | ~7 ms |
-| `HNSW khác IVFFlat ở điểm nào?` | Đúng bài so sánh hai thuật toán | ~19 ms |
-| `Món phở bò nấu thế nào?` | Không có kết quả — hệ thống nói thẳng là không tìm thấy | — |
+| Gõ câu này                                                            | Kết quả mong đợi                                                 | Thời gian đo được |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------- | ---------------------- |
+| `đánh đổi giữa tốc độ và độ chính xác khi lập chỉ mục` | Bài về HNSW/IVFFlat, dù câu hỏi không chứa hai từ đó       | ~16 ms                 |
+| `làm sao để tác vụ nền không bị treo vĩnh viễn`              | Bài về Watchdog Timer                                              | ~8 ms                  |
+| `chống rò rỉ dữ liệu giữa các sinh viên`                       | Bài về Tenant Isolation                                            | ~7 ms                  |
+| `HNSW khác IVFFlat ở điểm nào?`                                   | Đúng bài so sánh hai thuật toán                                | ~19 ms                 |
+| `Món phở bò nấu thế nào?`                                        | Không có kết quả — hệ thống nói thẳng là không tìm thấy | —                     |
 
 > **Vì sao phải lai hai kỹ thuật?** Đo trên chính kho tài liệu mẫu: với câu hỏi ngắn chứa thuật ngữ hiếm, cosine cho câu đúng chủ đề là **0,101** còn câu hoàn toàn lạc đề là **0,089** — không ngưỡng nào tách được hai con số đó. Nguyên nhân là cosine trên vector túi-từ không có IDF: câu hỏi 6 từ khớp 2 thuật ngữ hiếm trong đoạn 350 từ vẫn cho điểm thấp. PostgreSQL có sẵn IDF, nên nhánh toàn văn bù đúng vào chỗ vector yếu, và ngược lại vector bắt được cách diễn đạt khác từ mà toàn văn bỏ lỡ. Chi tiết trong `backend/src/services/ai/vector.repository.ts`.
 
@@ -181,7 +181,7 @@ Trả về CPU, RAM, độ trễ CSDL, độ sâu hàng đợi worker, số lầ
 
 ### 4.6. Email hệ thống
 
-Mọi email (xác minh tài khoản, đặt lại mật khẩu, nhắc deadline) được Mailpit bắt lại. Mở <http://localhost:8025> để đọc.
+Mọi email (xác minh tài khoản, đặt lại mật khẩu, nhắc deadline) được Mailpit bắt lại. Mở [http://localhost:8025](http://localhost:8025) để đọc.
 
 Thử: **Đăng xuất → Quên mật khẩu →** nhập `student@novathesis.edu.vn` → mở Mailpit xem thư.
 
@@ -191,32 +191,32 @@ Thử: **Đăng xuất → Quên mật khẩu →** nhập `student@novathesis.e
 
 ### Backend (`cd backend`)
 
-| Lệnh | Tác dụng |
-|---|---|
-| `npm run dev` | Chạy chế độ phát triển, tự nạp lại khi sửa mã |
-| `npm run build && npm start` | Build và chạy bản production |
-| `npm test` | Chạy 25 test đơn vị cho FSM, vector hoá, chia đoạn, chống prompt injection |
-| `npm run typecheck` | Kiểm tra kiểu TypeScript |
-| `npm run db:studio` | Mở Prisma Studio để xem/sửa dữ liệu trực quan |
-| `npm run db:seed` | Nạp lại dữ liệu mẫu (chạy lại được nhiều lần) |
-| `npm run db:reset` | **Xoá sạch** CSDL rồi migrate + seed lại |
+| Lệnh                          | Tác dụng                                                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| `npm run dev`                | Chạy chế độ phát triển, tự nạp lại khi sửa mã                           |
+| `npm run build && npm start` | Build và chạy bản production                                                    |
+| `npm test`                   | Chạy 25 test đơn vị cho FSM, vector hoá, chia đoạn, chống prompt injection |
+| `npm run typecheck`          | Kiểm tra kiểu TypeScript                                                         |
+| `npm run db:studio`          | Mở Prisma Studio để xem/sửa dữ liệu trực quan                               |
+| `npm run db:seed`            | Nạp lại dữ liệu mẫu (chạy lại được nhiều lần)                          |
+| `npm run db:reset`           | **Xoá sạch** CSDL rồi migrate + seed lại                                 |
 
 ### Frontend (`cd frontend`)
 
-| Lệnh | Tác dụng |
-|---|---|
-| `npm run dev` | Chạy chế độ phát triển |
-| `npm run build` | Build production |
-| `npm run lint` | Kiểm tra ESLint |
+| Lệnh             | Tác dụng                   |
+| ----------------- | ---------------------------- |
+| `npm run dev`   | Chạy chế độ phát triển |
+| `npm run build` | Build production             |
+| `npm run lint`  | Kiểm tra ESLint             |
 
 ### Docker (thư mục gốc)
 
-| Lệnh | Tác dụng |
-|---|---|
-| `docker compose up -d` | Bật CSDL và Mailpit |
-| `docker compose stop` | Tạm dừng (giữ nguyên dữ liệu) |
-| `docker compose down` | Xoá container (vẫn giữ dữ liệu trong volume) |
-| `docker compose down -v` | **Xoá cả dữ liệu** |
+| Lệnh                      | Tác dụng                                        |
+| -------------------------- | ------------------------------------------------- |
+| `docker compose up -d`   | Bật CSDL và Mailpit                             |
+| `docker compose stop`    | Tạm dừng (giữ nguyên dữ liệu)               |
+| `docker compose down`    | Xoá container (vẫn giữ dữ liệu trong volume) |
+| `docker compose down -v` | **Xoá cả dữ liệu**                      |
 
 ---
 
@@ -263,7 +263,7 @@ sudo -u postgres createdb novathesis
 sudo -u postgres psql novathesis -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
-**Windows:** cài PostgreSQL 16 từ trang chủ, sau đó cài `pgvector` theo hướng dẫn tại <https://github.com/pgvector/pgvector#windows>.
+**Windows:** cài PostgreSQL 16 từ trang chủ, sau đó cài `pgvector` theo hướng dẫn tại [https://github.com/pgvector/pgvector#windows](https://github.com/pgvector/pgvector#windows).
 
 Rồi sửa `DATABASE_URL` trong `backend/.env` cho khớp (cổng mặc định là `5432`):
 
@@ -303,19 +303,19 @@ Hỗ trợ: `openai`, `anthropic`, `gemini`, `local`.
 
 ## 9. Xử lý sự cố
 
-| Triệu chứng | Nguyên nhân & cách xử lý |
-|---|---|
-| `Cấu hình môi trường không hợp lệ` khi khởi động | Chưa thay `JWT_SECRET` / `FILE_URL_SECRET` trong `.env`. Xem [Bước 2](#bước-2--cấu-hình-backend). |
-| `Không kết nối được PostgreSQL` | Container chưa chạy → `docker compose up -d`, chờ `healthy`. |
-| `Extension pgvector chưa được cài` | Đang dùng PostgreSQL thường thay vì ảnh `pgvector/pgvector`. Chạy `docker compose down -v && docker compose up -d`. |
-| Port 5433 đã bị chiếm | Sửa cổng trong `docker-compose.yml` và `DATABASE_URL` cho khớp. |
-| Tài liệu kẹt ở `Đang xử lý` | Watchdog tự đưa lại hàng đợi sau ~4 phút. Kiểm tra `/api/v1/health/diagnostics` mục `worker`. |
-| Tài liệu báo `Lỗi xử lý` | Tệp PDF là bản quét ảnh hoặc có mật khẩu → không trích được văn bản. Mở chi tiết tài liệu để xem lý do cụ thể. |
-| Báo cáo PDF bị lỗi dấu tiếng Việt | Chưa tải font → `npm run setup` trong `backend/`. |
-| Frontend gọi API bị lỗi CORS | `CORS_ORIGINS` trong `backend/.env` phải chứa đúng `http://localhost:3000`. |
-| Đăng nhập báo khoá tài khoản | Đã sai mật khẩu 5 lần → chờ 15 phút, hoặc `npm run db:seed` để đặt lại. |
-| Không nhận được email | Kiểm tra Mailpit tại <http://localhost:8025>. Ở chế độ dev, email **không** gửi ra Internet thật. |
-| Repo có ~4000 tệp thừa (`venv/`, `.next/`) | Chúng được commit từ trước khi có `.gitignore` đầy đủ. Gỡ khỏi chỉ mục git (giữ nguyên tệp trên đĩa): `git rm -r --cached backend-legacy-fastapi/venv frontend/.next --quiet` |
+| Triệu chứng                                                 | Nguyên nhân & cách xử lý                                                                                                                                                                          |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Cấu hình môi trường không hợp lệ` khi khởi động | Chưa thay`JWT_SECRET` / `FILE_URL_SECRET` trong `.env`. Xem [Bước 2](#bước-2--cấu-hình-backend).                                                                                           |
+| `Không kết nối được PostgreSQL`                       | Container chưa chạy →`docker compose up -d`, chờ `healthy`.                                                                                                                                    |
+| `Extension pgvector chưa được cài`                     | Đang dùng PostgreSQL thường thay vì ảnh`pgvector/pgvector`. Chạy `docker compose down -v && docker compose up -d`.                                                                          |
+| Port 5433 đã bị chiếm                                     | Sửa cổng trong`docker-compose.yml` và `DATABASE_URL` cho khớp.                                                                                                                                 |
+| Tài liệu kẹt ở`Đang xử lý`                           | Watchdog tự đưa lại hàng đợi sau ~4 phút. Kiểm tra`/api/v1/health/diagnostics` mục `worker`.                                                                                             |
+| Tài liệu báo`Lỗi xử lý`                               | Tệp PDF là bản quét ảnh hoặc có mật khẩu → không trích được văn bản. Mở chi tiết tài liệu để xem lý do cụ thể.                                                               |
+| Báo cáo PDF bị lỗi dấu tiếng Việt                      | Chưa tải font →`npm run setup` trong `backend/`.                                                                                                                                                |
+| Frontend gọi API bị lỗi CORS                               | `CORS_ORIGINS` trong `backend/.env` phải chứa đúng `http://localhost:3000`.                                                                                                                  |
+| Đăng nhập báo khoá tài khoản                           | Đã sai mật khẩu 5 lần → chờ 15 phút, hoặc`npm run db:seed` để đặt lại.                                                                                                                 |
+| Không nhận được email                                    | Kiểm tra Mailpit tại[http://localhost:8025](http://localhost:8025). Ở chế độ dev, email **không** gửi ra Internet thật.                                                                  |
+| Repo có ~4000 tệp thừa (`venv/`, `.next/`)             | Chúng được commit từ trước khi có`.gitignore` đầy đủ. Gỡ khỏi chỉ mục git (giữ nguyên tệp trên đĩa): `git rm -r --cached backend-legacy-fastapi/venv frontend/.next --quiet` |
 
 Xem log chi tiết:
 

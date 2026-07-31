@@ -141,7 +141,7 @@ milestonesRouter.get(
   requireRole("LECTURER", "ADMIN"),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
-    res.json({ data: await lecturerDashboard(user) });
+    res.json(await lecturerDashboard(user));
   })
 );
 
