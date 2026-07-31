@@ -5,37 +5,40 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  Bell,
-  BookOpen,
-  CaretRight,
-  ChartBar,
-  ChatCircleDots,
-  Files,
-  Gear,
-  GraduationCap,
-  House,
-  Kanban,
-  List,
-  MagnifyingGlass,
-  Moon,
-  Notebook,
-  Robot,
-  SignOut,
-  Sun,
-  UserCircle,
-  Users,
-  X,
+	Bell,
+	BookOpen,
+	CaretRight,
+	ChartBar,
+	ChatCircleDots,
+	ChatCircleText,
+	Checks,
+	Clock,
+	Files,
+	Gear,
+	GraduationCap,
+	House,
+	Kanban,
+	List,
+	MagnifyingGlass,
+	Moon,
+	Notebook,
+	Robot,
+	SignOut,
+	Sun,
+	UserCircle,
+	Users,
+	X,
 } from "@phosphor-icons/react";
 import { useAuthStore, type UserRole } from "@/lib/auth";
 import { notificationsApi } from "@/lib/services";
 import {
-  Avatar,
-  Dropdown,
-  DropdownItem,
-  DropdownLabel,
-  DropdownSeparator,
-  IconButton,
-  useMounted,
+	Avatar,
+	Dropdown,
+	DropdownItem,
+	DropdownLabel,
+	DropdownSeparator,
+	IconButton,
+	useMounted,
 } from "@/components/ui";
 
 /* ==========================================================================
@@ -45,116 +48,135 @@ import {
    ========================================================================== */
 
 interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-  roles?: UserRole[];
+	label: string;
+	href: string;
+	icon: React.ReactNode;
+	roles?: UserRole[];
 }
 
 interface NavSection {
-  label?: string;
-  items: NavItem[];
-  roles?: UserRole[];
+	label?: string;
+	items: NavItem[];
+	roles?: UserRole[];
 }
 
 const navSections: NavSection[] = [
-  {
-    items: [
-      { label: "Tổng quan", href: "/dashboard", icon: <House size={16} /> },
-    ],
-  },
-  {
-    label: "Nghiên cứu",
-    roles: ["STUDENT", "LECTURER"],
-    items: [
-      {
-        label: "Đề tài",
-        href: "/theses",
-        icon: <GraduationCap size={16} />,
-        roles: ["STUDENT", "LECTURER"],
-      },
-      {
-        label: "Tiến độ",
-        href: "/milestones",
-        icon: <Kanban size={16} />,
-        roles: ["STUDENT", "LECTURER"],
-      },
-      {
-        label: "Tài liệu",
-        href: "/documents",
-        icon: <Files size={16} />,
-        roles: ["STUDENT", "LECTURER"],
-      },
-      {
-        label: "Trợ lý AI",
-        href: "/ai-chat",
-        icon: <Robot size={16} />,
-        roles: ["STUDENT", "LECTURER"],
-      },
-    ],
-  },
-  {
-    label: "Trao đổi",
-    items: [
-      {
-        label: "Phản hồi",
-        href: "/feedbacks",
-        icon: <ChatCircleDots size={16} />,
-        roles: ["STUDENT", "LECTURER"],
-      },
-      { label: "Thông báo", href: "/notifications", icon: <Bell size={16} /> },
-      { label: "Báo cáo", href: "/reports", icon: <BookOpen size={16} /> },
-    ],
-  },
-  {
-    label: "Quản trị",
-    roles: ["ADMIN"],
-    items: [
-      { label: "Người dùng", href: "/admin/users", icon: <Users size={16} />, roles: ["ADMIN"] },
-      { label: "Nhật ký", href: "/admin/logs", icon: <Notebook size={16} />, roles: ["ADMIN"] },
-      { label: "Thống kê", href: "/admin/statistics", icon: <ChartBar size={16} />, roles: ["ADMIN"] },
-      { label: "Cấu hình", href: "/admin/settings", icon: <Gear size={16} />, roles: ["ADMIN"] },
-    ],
-  },
+	{
+		items: [
+			{ label: "Tổng quan", href: "/dashboard", icon: <House size={16} /> },
+		],
+	},
+	{
+		label: "Nghiên cứu",
+		roles: ["STUDENT", "LECTURER"],
+		items: [
+			{
+				label: "Đề tài",
+				href: "/theses",
+				icon: <GraduationCap size={16} />,
+				roles: ["STUDENT", "LECTURER"],
+			},
+			{
+				label: "Tiến độ",
+				href: "/milestones",
+				icon: <Kanban size={16} />,
+				roles: ["STUDENT", "LECTURER"],
+			},
+			{
+				label: "Tài liệu",
+				href: "/documents",
+				icon: <Files size={16} />,
+				roles: ["STUDENT", "LECTURER"],
+			},
+			{
+				label: "Trợ lý AI",
+				href: "/ai-chat",
+				icon: <Robot size={16} />,
+				roles: ["STUDENT", "LECTURER"],
+			},
+		],
+	},
+	{
+		label: "Trao đổi",
+		items: [
+			{
+				label: "Phản hồi",
+				href: "/feedbacks",
+				icon: <ChatCircleDots size={16} />,
+				roles: ["STUDENT", "LECTURER"],
+			},
+			{ label: "Thông báo", href: "/notifications", icon: <Bell size={16} /> },
+			{ label: "Báo cáo", href: "/reports", icon: <BookOpen size={16} /> },
+		],
+	},
+	{
+		label: "Quản trị",
+		roles: ["ADMIN"],
+		items: [
+			{
+				label: "Người dùng",
+				href: "/admin/users",
+				icon: <Users size={16} />,
+				roles: ["ADMIN"],
+			},
+			{
+				label: "Nhật ký",
+				href: "/admin/logs",
+				icon: <Notebook size={16} />,
+				roles: ["ADMIN"],
+			},
+			{
+				label: "Thống kê",
+				href: "/admin/statistics",
+				icon: <ChartBar size={16} />,
+				roles: ["ADMIN"],
+			},
+			{
+				label: "Cấu hình",
+				href: "/admin/settings",
+				icon: <Gear size={16} />,
+				roles: ["ADMIN"],
+			},
+		],
+	},
 ];
 
 /* Route → breadcrumb label. Detail routes fall back to the parent segment. */
 const ROUTE_TITLES: Record<string, string> = {
-  "/dashboard": "Tổng quan",
-  "/theses": "Đề tài",
-  "/theses/new": "Tạo đề tài",
-  "/milestones": "Tiến độ",
-  "/documents": "Tài liệu",
-  "/ai-chat": "Trợ lý AI",
-  "/feedbacks": "Phản hồi",
-  "/notifications": "Thông báo",
-  "/reports": "Báo cáo",
-  "/profile": "Hồ sơ",
-  "/admin/users": "Người dùng",
-  "/admin/logs": "Nhật ký hệ thống",
-  "/admin/statistics": "Thống kê",
-  "/admin/settings": "Cấu hình",
+	"/dashboard": "Tổng quan",
+	"/theses": "Đề tài",
+	"/theses/new": "Tạo đề tài",
+	"/milestones": "Tiến độ",
+	"/documents": "Tài liệu",
+	"/ai-chat": "Trợ lý AI",
+	"/feedbacks": "Phản hồi",
+	"/notifications": "Thông báo",
+	"/reports": "Báo cáo",
+	"/profile": "Hồ sơ",
+	"/admin/users": "Người dùng",
+	"/admin/logs": "Nhật ký hệ thống",
+	"/admin/statistics": "Thống kê",
+	"/admin/settings": "Cấu hình",
 };
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: "Quản trị viên",
-  LECTURER: "Giảng viên",
-  STUDENT: "Sinh viên",
+	ADMIN: "Quản trị viên",
+	LECTURER: "Giảng viên",
+	STUDENT: "Sinh viên",
 };
 
 function visibleFor(role: UserRole | undefined, allowed?: UserRole[]) {
-  if (!allowed) return true;
-  if (!role) return true;
-  return allowed.includes(role);
+	if (!allowed) return true;
+	if (!role) return true;
+	return allowed.includes(role);
 }
 
 function useIsActive() {
-  const pathname = usePathname();
-  return React.useCallback(
-    (href: string) =>
-      pathname === href || pathname.startsWith(href + "/"),
-    [pathname]
-  );
+	const pathname = usePathname();
+	return React.useCallback(
+		(href: string) => pathname === href || pathname.startsWith(href + "/"),
+		[pathname],
+	);
 }
 
 /* ==========================================================================
@@ -162,30 +184,20 @@ function useIsActive() {
    ========================================================================== */
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
-  return (
-    <Link
-      href="/dashboard"
-      className="flex items-center gap-2.5 min-w-0 group"
-      aria-label="NovaThesis — về trang tổng quan"
-    >
-      <span
-        className="w-7 h-7 rounded-[7px] flex items-center justify-center flex-shrink-0"
-        style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
-      >
-        <GraduationCap size={16} weight="fill" />
-      </span>
-      {!compact && (
-        <span className="flex flex-col min-w-0 leading-tight">
-          <span className="text-[13.5px] font-semibold tracking-tight truncate">
-            NovaThesis
-          </span>
-          <span className="text-[10px] text-tertiary truncate">
-            ĐH Kinh tế – ĐH Đà Nẵng
-          </span>
-        </span>
-      )}
-    </Link>
-  );
+	return (
+		<Link
+			href="/dashboard"
+			className="flex items-center min-w-0 group"
+			aria-label="NovaThesis — về trang tổng quan">
+			{!compact && (
+				<img
+					src="/LogoNovaThesis.png"
+					alt="NovaThesis"
+					className="h-10 w-auto object-contain"
+				/>
+			)}
+		</Link>
+	);
 }
 
 /* ==========================================================================
@@ -193,211 +205,220 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
    ========================================================================== */
 
 export function Sidebar({
-  collapsed,
-  onToggleCollapsed,
-  mobileOpen,
-  onCloseMobile,
+	collapsed,
+	onToggleCollapsed,
+	mobileOpen,
+	onCloseMobile,
 }: {
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-  mobileOpen: boolean;
-  onCloseMobile: () => void;
+	collapsed: boolean;
+	onToggleCollapsed: () => void;
+	mobileOpen: boolean;
+	onCloseMobile: () => void;
 }) {
-  const { user, logout } = useAuthStore();
-  const isActive = useIsActive();
+	const { user, logout } = useAuthStore();
+	const isActive = useIsActive();
 
-  const sections = navSections
-    .filter((s) => visibleFor(user?.role, s.roles))
-    .map((s) => ({
-      ...s,
-      items: s.items.filter((i) => visibleFor(user?.role, i.roles)),
-    }))
-    .filter((s) => s.items.length > 0);
+	const sections = navSections
+		.filter((s) => visibleFor(user?.role, s.roles))
+		.map((s) => ({
+			...s,
+			items: s.items.filter((i) => visibleFor(user?.role, i.roles)),
+		}))
+		.filter((s) => s.items.length > 0);
 
-  return (
-    <>
-      {/* Mobile scrim */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 lg:hidden fade-in"
-          style={{ background: "rgb(8 12 18 / 0.5)" }}
-          onClick={onCloseMobile}
-          aria-hidden="true"
-        />
-      )}
+	return (
+		<>
+			{/* Mobile scrim */}
+			{mobileOpen && (
+				<div
+					className="fixed inset-0 z-40 lg:hidden fade-in"
+					style={{ background: "rgb(8 12 18 / 0.5)" }}
+					onClick={onCloseMobile}
+					aria-hidden="true"
+				/>
+			)}
 
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col transition-transform duration-200 lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-        style={{
-          width: collapsed ? "var(--sidebar-width-collapsed)" : "var(--sidebar-width)",
-          background: "var(--bg-surface)",
-          borderRight: "1px solid var(--border-primary)",
-          transitionProperty: "transform, width",
-          /* Named so it becomes its own view-transition group and can opt out
+			<aside
+				className={`fixed inset-y-0 left-0 z-50 flex flex-col transition-transform duration-200 lg:translate-x-0 ${
+					mobileOpen ? "translate-x-0" : "-translate-x-full"
+				}`}
+				style={{
+					width: collapsed
+						? "var(--sidebar-width-collapsed)"
+						: "var(--sidebar-width)",
+					background: "var(--bg-surface)",
+					borderRight: "1px solid var(--border-primary)",
+					transitionProperty: "transform, width",
+					/* Named so it becomes its own view-transition group and can opt out
              of the page animation — a sidebar that crossfades on every
              navigation destroys the one fixed reference point on screen. */
-          viewTransitionName: "app-sidebar",
-        }}
-      >
-        {/* Header */}
-        <div
-          className="h-[var(--topbar-height)] flex items-center justify-between px-3 flex-shrink-0"
-          style={{ borderBottom: "1px solid var(--border-secondary)" }}
-        >
-          <BrandMark compact={collapsed} />
-          <IconButton
-            label="Đóng menu"
-            size="sm"
-            className="lg:hidden"
-            onClick={onCloseMobile}
-          >
-            <X size={16} />
-          </IconButton>
-        </div>
+					viewTransitionName: "app-sidebar",
+				}}>
+				{/* Header */}
+				<div
+					className="h-[var(--topbar-height)] flex items-center justify-between px-3 flex-shrink-0"
+					style={{ borderBottom: "1px solid var(--border-secondary)" }}>
+					<BrandMark compact={collapsed} />
+					<IconButton
+						label="Đóng menu"
+						size="sm"
+						className="lg:hidden"
+						onClick={onCloseMobile}>
+						<X size={16} />
+					</IconButton>
+				</div>
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2">
-          {sections.map((section, si) => (
-            <div key={section.label ?? si} className={si > 0 ? "mt-4" : ""}>
-              {section.label && !collapsed && (
-                <div className="eyebrow px-2 pb-1.5">{section.label}</div>
-              )}
-              {section.label && collapsed && si > 0 && (
-                <div
-                  className="mx-2 mb-2 h-px"
-                  style={{ background: "var(--border-secondary)" }}
-                />
-              )}
-              <ul className="flex flex-col gap-px">
-                {section.items.map((item) => {
-                  const active = isActive(item.href);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        aria-current={active ? "page" : undefined}
-                        title={collapsed ? item.label : undefined}
-                        onClick={onCloseMobile}
-                        className={`nav-item group relative flex items-center gap-2.5 h-8 rounded-[7px] text-[13px] ${
-                          active ? "is-active" : ""
-                        } ${collapsed ? "justify-center px-0" : "px-2"} ${
-                          active
-                            ? "text-primary font-medium"
-                            : "text-secondary hover:text-primary"
-                        }`}
-                        style={{
-                          background: active ? "var(--bg-active)" : "transparent",
-                        }}
-                      >
-                        {/* Active rail — reads at a glance even when collapsed. */}
-                        {active && (
-                          <span
-                            className="nav-rail absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full"
-                            style={{ background: "var(--accent)" }}
-                            aria-hidden="true"
-                          />
-                        )}
-                        <span
-                          className="nav-icon flex-shrink-0 flex"
-                          style={{
-                            color: active ? "var(--accent)" : "var(--fg-tertiary)",
-                          }}
-                        >
-                          {item.icon}
-                        </span>
-                        {!collapsed && <span className="truncate">{item.label}</span>}
+				{/* Nav */}
+				<nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2">
+					{sections.map((section, si) => (
+						<div key={section.label ?? si} className={si > 0 ? "mt-4" : ""}>
+							{section.label && !collapsed && (
+								<div className="eyebrow px-2 pb-1.5">{section.label}</div>
+							)}
+							{section.label && collapsed && si > 0 && (
+								<div
+									className="mx-2 mb-2 h-px"
+									style={{ background: "var(--border-secondary)" }}
+								/>
+							)}
+							<ul className="flex flex-col gap-px">
+								{section.items.map((item) => {
+									const active = isActive(item.href);
+									return (
+										<li key={item.href}>
+											<Link
+												href={item.href}
+												aria-current={active ? "page" : undefined}
+												title={collapsed ? item.label : undefined}
+												onClick={onCloseMobile}
+												className={`nav-item group relative flex items-center gap-2.5 h-8 rounded-[7px] text-[13px] ${
+													active ? "is-active" : ""
+												} ${collapsed ? "justify-center px-0" : "px-2"} ${
+													active
+														? "text-primary font-medium"
+														: "text-secondary hover:text-primary"
+												}`}
+												style={{
+													background: active
+														? "var(--bg-active)"
+														: "transparent",
+												}}>
+												{/* Active rail — reads at a glance even when collapsed. */}
+												{active && (
+													<span
+														className="nav-rail absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full"
+														style={{ background: "var(--accent)" }}
+														aria-hidden="true"
+													/>
+												)}
+												<span className="icon-card icon-card-sm flex-shrink-0">
+													<span
+														className="icon-box flex items-center justify-center"
+														style={{
+															color: active
+																? "var(--accent)"
+																: "var(--fg-tertiary)",
+														}}>
+														{item.icon}
+													</span>
+												</span>
+												{!collapsed && (
+													<span className="truncate">{item.label}</span>
+												)}
 
-                        {collapsed && (
-                          <span
-                            className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md text-[12px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 card"
-                            style={{ boxShadow: "var(--shadow-md)" }}
-                          >
-                            {item.label}
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </nav>
+												{collapsed && (
+													<span
+														className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md text-[12px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 card"
+														style={{ boxShadow: "var(--shadow-md)" }}>
+														{item.label}
+													</span>
+												)}
+											</Link>
+										</li>
+									);
+								})}
+							</ul>
+						</div>
+					))}
+				</nav>
 
-        {/* Footer: identity + collapse */}
-        <div
-          className="flex-shrink-0 p-2"
-          style={{ borderTop: "1px solid var(--border-secondary)" }}
-        >
-          {user ? (
-          <Dropdown
-            align="left"
-            width="min-w-[200px]"
-            trigger={
-              <button
-                className={`w-full flex items-center gap-2 h-10 rounded-[7px] transition-colors hover:bg-[var(--bg-hover)] ${
-                  collapsed ? "justify-center px-0" : "px-1.5"
-                }`}
-                aria-label="Tài khoản"
-              >
-                <Avatar name={user.full_name} src={user.avatar_url} size="sm" />
-                {!collapsed && (
-                  <span className="flex flex-col items-start min-w-0 flex-1 text-left leading-tight">
-                    <span className="text-[12.5px] font-medium truncate w-full">
-                      {user.full_name}
-                    </span>
-                    <span className="text-[10.5px] text-tertiary truncate w-full">
-                      {ROLE_LABELS[user.role]}
-                    </span>
-                  </span>
-                )}
-              </button>
-            }
-          >
-            <DropdownLabel>{user.email}</DropdownLabel>
-            <DropdownItem
-              icon={<UserCircle size={15} />}
-              onClick={() => {
-                window.location.href = "/profile";
-              }}
-            >
-              Hồ sơ cá nhân
-            </DropdownItem>
-            <DropdownSeparator />
-            <DropdownItem danger icon={<SignOut size={15} />} onClick={logout}>
-              Đăng xuất
-            </DropdownItem>
-          </Dropdown>
-          ) : (
-            <Link
-              href="/login"
-              className={`w-full flex items-center gap-2 h-10 rounded-[7px] text-[12.5px] text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-primary ${
-                collapsed ? "justify-center px-0" : "px-1.5"
-              }`}
-              title="Đăng nhập"
-            >
-              <SignOut size={15} className="rotate-180 flex-shrink-0" />
-              {!collapsed && <span>Đăng nhập</span>}
-            </Link>
-          )}
+				{/* Footer: identity + collapse */}
+				<div
+					className="flex-shrink-0 p-2"
+					style={{ borderTop: "1px solid var(--border-secondary)" }}>
+					{user ? (
+						<Dropdown
+							align="left"
+							width="min-w-[200px]"
+							trigger={
+								<button
+									className={`w-full flex items-center gap-2 h-10 rounded-[7px] transition-colors hover:bg-[var(--bg-hover)] ${
+										collapsed ? "justify-center px-0" : "px-1.5"
+									}`}
+									aria-label="Tài khoản">
+									<Avatar
+										name={user.full_name}
+										src={user.avatar_url}
+										size="sm"
+									/>
+									{!collapsed && (
+										<span className="flex flex-col items-start min-w-0 flex-1 text-left leading-tight">
+											<span className="text-[12.5px] font-medium truncate w-full">
+												{user.full_name}
+											</span>
+											<span className="text-[10.5px] text-tertiary truncate w-full">
+												{ROLE_LABELS[user.role]}
+											</span>
+										</span>
+									)}
+								</button>
+							}>
+							<DropdownLabel>{user.email}</DropdownLabel>
+							<DropdownItem
+								icon={<UserCircle size={15} />}
+								onClick={() => {
+									window.location.href = "/profile";
+								}}>
+								Hồ sơ cá nhân
+							</DropdownItem>
+							<DropdownSeparator />
+							<DropdownItem
+								danger
+								icon={<SignOut size={15} />}
+								onClick={logout}>
+								Đăng xuất
+							</DropdownItem>
+						</Dropdown>
+					) : (
+						<Link
+							href="/login"
+							className={`w-full flex items-center gap-2 h-10 rounded-[7px] text-[12.5px] text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-primary ${
+								collapsed ? "justify-center px-0" : "px-1.5"
+							}`}
+							title="Đăng nhập">
+							<SignOut size={15} className="rotate-180 flex-shrink-0" />
+							{!collapsed && <span>Đăng nhập</span>}
+						</Link>
+					)}
 
-          <button
-            onClick={onToggleCollapsed}
-            className="hidden lg:flex w-full items-center justify-center gap-1.5 h-7 mt-1 rounded-[7px] text-[11.5px] text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] transition-colors"
-            aria-label={collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
-          >
-            <CaretRight
-              size={13}
-              className={`transition-transform ${collapsed ? "" : "rotate-180"}`}
-            />
-            {!collapsed && <span>Thu gọn</span>}
-          </button>
-        </div>
-      </aside>
-    </>
-  );
+					<button
+						onClick={onToggleCollapsed}
+						className="hidden lg:flex w-full items-center justify-center gap-1.5 h-7 mt-1 rounded-[7px] text-[11.5px] text-tertiary hover:text-primary hover:bg-[var(--bg-hover)] transition-colors"
+						aria-label={
+							collapsed
+								? "Mở rộng thanh điều hướng"
+								: "Thu gọn thanh điều hướng"
+						}>
+						<CaretRight
+							size={13}
+							className={`transition-transform ${collapsed ? "" : "rotate-180"}`}
+						/>
+						{!collapsed && <span>Thu gọn</span>}
+					</button>
+				</div>
+			</aside>
+		</>
+	);
 }
 
 /* ==========================================================================
@@ -408,122 +429,123 @@ export function Sidebar({
 /* Mounted only while open (see the caller), so its state starts fresh every
    time instead of needing effects to reset the query and cursor. */
 function CommandPalette({ onClose }: { onClose: () => void }) {
-  const router = useRouter();
-  const { user } = useAuthStore();
-  const [query, setQuery] = React.useState("");
-  const [cursor, setCursor] = React.useState(0);
+	const router = useRouter();
+	const { user } = useAuthStore();
+	const [query, setQuery] = React.useState("");
+	const [cursor, setCursor] = React.useState(0);
 
-  const entries = React.useMemo(
-    () =>
-      navSections
-        .filter((s) => visibleFor(user?.role, s.roles))
-        .flatMap((s) =>
-          s.items
-            .filter((i) => visibleFor(user?.role, i.roles))
-            .map((i) => ({ ...i, section: s.label }))
-        ),
-    [user?.role]
-  );
+	const entries = React.useMemo(
+		() =>
+			navSections
+				.filter((s) => visibleFor(user?.role, s.roles))
+				.flatMap((s) =>
+					s.items
+						.filter((i) => visibleFor(user?.role, i.roles))
+						.map((i) => ({ ...i, section: s.label })),
+				),
+		[user?.role],
+	);
 
-  const results = React.useMemo(() => {
-    const q = query
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-    if (!q) return entries;
-    // Match on the accent-stripped label so "de tai" finds "Đề tài" — nobody
-    // types diacritics into a search box.
-    return entries.filter((e) =>
-      e.label
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/đ/g, "d")
-        .includes(q.replace(/đ/g, "d"))
-    );
-  }, [entries, query]);
+	const results = React.useMemo(() => {
+		const q = query
+			.trim()
+			.toLowerCase()
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "");
+		if (!q) return entries;
+		// Match on the accent-stripped label so "de tai" finds "Đề tài" — nobody
+		// types diacritics into a search box.
+		return entries.filter((e) =>
+			e.label
+				.toLowerCase()
+				.normalize("NFD")
+				.replace(/[\u0300-\u036f]/g, "")
+				.replace(/đ/g, "d")
+				.includes(q.replace(/đ/g, "d")),
+		);
+	}, [entries, query]);
 
-  const go = (href: string) => {
-    router.push(href);
-    onClose();
-  };
+	const go = (href: string) => {
+		router.push(href);
+		onClose();
+	};
 
-  return (
-    <div className="fixed inset-0 z-[80] flex items-start justify-center pt-[12vh] px-4">
-      <div
-        className="fixed inset-0 fade-in"
-        style={{ background: "rgb(8 12 18 / 0.5)" }}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        className="relative w-full max-w-md card overflow-hidden pop-in"
-        style={{ boxShadow: "var(--shadow-lg)" }}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Tìm nhanh"
-      >
-        <div
-          className="flex items-center gap-2 px-3 h-11"
-          style={{ borderBottom: "1px solid var(--border-secondary)" }}
-        >
-          <MagnifyingGlass size={15} className="text-muted flex-shrink-0" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setCursor(0);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") onClose();
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setCursor((c) => Math.min(results.length - 1, c + 1));
-              }
-              if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setCursor((c) => Math.max(0, c - 1));
-              }
-              if (e.key === "Enter" && results[cursor]) go(results[cursor].href);
-            }}
-            placeholder="Đi tới trang…"
-            className="flex-1 bg-transparent border-0 outline-none text-[13.5px] placeholder:text-[var(--fg-muted)]"
-            aria-label="Tìm trang"
-          />
-          <kbd className="kbd">Esc</kbd>
-        </div>
+	return (
+		<div className="fixed inset-0 z-[80] flex items-start justify-center pt-[12vh] px-4">
+			<div
+				className="fixed inset-0 fade-in"
+				style={{ background: "rgb(8 12 18 / 0.5)" }}
+				onClick={onClose}
+				aria-hidden="true"
+			/>
+			<div
+				className="relative w-full max-w-md card overflow-hidden pop-in"
+				style={{ boxShadow: "var(--shadow-lg)" }}
+				role="dialog"
+				aria-modal="true"
+				aria-label="Tìm nhanh">
+				<div
+					className="flex items-center gap-2 px-3 h-11"
+					style={{ borderBottom: "1px solid var(--border-secondary)" }}>
+					<MagnifyingGlass size={15} className="text-muted flex-shrink-0" />
+					<input
+						autoFocus
+						value={query}
+						onChange={(e) => {
+							setQuery(e.target.value);
+							setCursor(0);
+						}}
+						onKeyDown={(e) => {
+							if (e.key === "Escape") onClose();
+							if (e.key === "ArrowDown") {
+								e.preventDefault();
+								setCursor((c) => Math.min(results.length - 1, c + 1));
+							}
+							if (e.key === "ArrowUp") {
+								e.preventDefault();
+								setCursor((c) => Math.max(0, c - 1));
+							}
+							if (e.key === "Enter" && results[cursor])
+								go(results[cursor].href);
+						}}
+						placeholder="Đi tới trang…"
+						className="flex-1 bg-transparent border-0 outline-none text-[13.5px] placeholder:text-[var(--fg-muted)]"
+						aria-label="Tìm trang"
+					/>
+					<kbd className="kbd">Esc</kbd>
+				</div>
 
-        <div className="max-h-72 overflow-y-auto p-1.5">
-          {results.length === 0 ? (
-            <p className="text-[12.5px] text-tertiary text-center py-6">
-              Không tìm thấy trang phù hợp.
-            </p>
-          ) : (
-            results.map((r, i) => (
-              <button
-                key={r.href}
-                onMouseEnter={() => setCursor(i)}
-                onClick={() => go(r.href)}
-                className="row-hover w-full flex items-center gap-2.5 px-2 h-9 rounded-md text-[13px] text-left"
-                style={{
-                  background: i === cursor ? "var(--bg-hover)" : "transparent",
-                  color: i === cursor ? "var(--fg-primary)" : "var(--fg-secondary)",
-                }}
-              >
-                <span className="text-tertiary flex-shrink-0 flex">{r.icon}</span>
-                <span className="flex-1 truncate">{r.label}</span>
-                {r.section && (
-                  <span className="text-[11px] text-muted">{r.section}</span>
-                )}
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
+				<div className="max-h-72 overflow-y-auto p-1.5">
+					{results.length === 0 ? (
+						<p className="text-[12.5px] text-tertiary text-center py-6">
+							Không tìm thấy trang phù hợp.
+						</p>
+					) : (
+						results.map((r, i) => (
+							<button
+								key={r.href}
+								onMouseEnter={() => setCursor(i)}
+								onClick={() => go(r.href)}
+								className="row-hover w-full flex items-center gap-2.5 px-2 h-9 rounded-md text-[13px] text-left"
+								style={{
+									background: i === cursor ? "var(--bg-hover)" : "transparent",
+									color:
+										i === cursor ? "var(--fg-primary)" : "var(--fg-secondary)",
+								}}>
+								<span className="text-tertiary flex-shrink-0 flex">
+									{r.icon}
+								</span>
+								<span className="flex-1 truncate">{r.label}</span>
+								{r.section && (
+									<span className="text-[11px] text-muted">{r.section}</span>
+								)}
+							</button>
+						))
+					)}
+				</div>
+			</div>
+		</div>
+	);
 }
 
 /* ==========================================================================
@@ -531,22 +553,205 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
    ========================================================================== */
 
 function ThemeSwitch() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const mounted = useMounted();
+	const { resolvedTheme, setTheme } = useTheme();
+	const mounted = useMounted();
 
-  // Renders a same-size placeholder pre-hydration; swapping icons on mount
-  // would otherwise shift the toolbar.
-  if (!mounted) return <span className="w-8 h-8" aria-hidden="true" />;
+	// Renders a same-size placeholder pre-hydration; swapping icons on mount
+	// would otherwise shift the toolbar.
+	if (!mounted) return <span className="w-8 h-8" aria-hidden="true" />;
 
-  const dark = resolvedTheme === "dark";
-  return (
-    <IconButton
-      label={dark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
-      onClick={() => setTheme(dark ? "light" : "dark")}
-    >
-      {dark ? <Sun size={16} /> : <Moon size={16} />}
-    </IconButton>
-  );
+	const dark = resolvedTheme === "dark";
+	return (
+		<IconButton
+			label={dark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+			onClick={() => setTheme(dark ? "light" : "dark")}>
+			{dark ? <Sun size={16} /> : <Moon size={16} />}
+		</IconButton>
+	);
+}
+
+/* ==========================================================================
+   NOTIFICATION DROPDOWN
+   ========================================================================== */
+
+interface NotificationItem {
+	id: number;
+	title: string;
+	content: string;
+	is_read: boolean;
+	type: "MILESTONE" | "THESIS" | "FEEDBACK" | "SYSTEM";
+	created_at: string;
+}
+
+const mockNotifications: NotificationItem[] = [
+	{
+		id: 1,
+		title: "Nhắc nhở: Milestone sắp đến hạn!",
+		content: "Milestone 'Nộp Báo cáo Đề cương Luận văn' còn 6 ngày nữa là đến hạn.",
+		is_read: false,
+		type: "MILESTONE",
+		created_at: "Hôm nay, 08:30",
+	},
+	{
+		id: 2,
+		title: "Giảng viên đã nhận xét bài báo cáo",
+		content: "TS. Nguyễn Văn A đã để lại bình luận trên milestone 'Thiết kế ERD'.",
+		is_read: false,
+		type: "FEEDBACK",
+		created_at: "Hôm qua, 16:45",
+	},
+	{
+		id: 3,
+		title: "Đề tài đã được phê duyệt!",
+		content: "Đề tài 'Hệ thống NovaThesis tích hợp AI' đã chuyển sang trạng thái Đang thực hiện.",
+		is_read: true,
+		type: "THESIS",
+		created_at: "15/07, 10:30",
+	},
+	{
+		id: 4,
+		title: "Cập nhật hệ thống AI pgvector",
+		content: "Hệ thống đã nâng cấp mô hình Vector Search giúp tăng 30% tốc độ RAG.",
+		is_read: true,
+		type: "SYSTEM",
+		created_at: "10/07, 12:00",
+	},
+];
+
+const typeIconMap: Record<string, React.ReactNode> = {
+	MILESTONE: <Kanban size={14} className="text-warning" />,
+	FEEDBACK: <ChatCircleText size={14} className="text-info" />,
+	THESIS: <GraduationCap size={14} className="text-success" />,
+	SYSTEM: <Bell size={14} className="text-accent" />,
+};
+
+function NotificationDropdown({ unreadCount }: { unreadCount: number }) {
+	const [open, setOpen] = React.useState(false);
+	const ref = React.useRef<HTMLDivElement>(null);
+	const router = useRouter();
+
+	React.useEffect(() => {
+		if (!open) return;
+		const onPointerDown = (e: MouseEvent) => {
+			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") setOpen(false);
+		};
+		document.addEventListener("mousedown", onPointerDown);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("mousedown", onPointerDown);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open]);
+
+	const latestNotifications = mockNotifications.slice(0, 4);
+
+	return (
+		<div ref={ref} className="relative inline-flex">
+			<button
+				onClick={() => setOpen((v) => !v)}
+				className="btn-icon relative"
+				aria-label={
+					unreadCount > 0 ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"
+				}
+				aria-haspopup="menu"
+				aria-expanded={open}>
+				<Bell size={16} />
+				{unreadCount > 0 && (
+					<span
+						className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center tnum"
+						style={{ background: "var(--danger)", color: "#fff" }}>
+						{unreadCount > 9 ? "9+" : unreadCount}
+					</span>
+				)}
+			</button>
+
+			{open && (
+				<div
+					role="menu"
+					className="absolute top-full right-0 mt-1.5 z-50 w-[340px] card p-0 pop-in overflow-hidden"
+					style={{ boxShadow: "var(--shadow-lg)" }}>
+					{/* Header */}
+					<div className="flex items-center justify-between px-3.5 py-2.5 border-b border-[var(--border-secondary)]">
+						<span className="text-[13px] font-semibold text-primary">Thông báo</span>
+						{unreadCount > 0 && (
+							<span
+								className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
+								style={{
+									background: "var(--accent-subtle)",
+									color: "var(--accent)",
+								}}>
+								{unreadCount} chưa đọc
+							</span>
+						)}
+					</div>
+
+					{/* Notification list */}
+					<div className="max-h-[320px] overflow-y-auto">
+						{latestNotifications.length === 0 ? (
+							<div className="px-4 py-8 text-center text-[13px] text-tertiary">
+								Không có thông báo nào.
+							</div>
+						) : (
+							latestNotifications.map((n) => (
+								<button
+									key={n.id}
+									type="button"
+									role="menuitem"
+									className={`w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)] ${
+										!n.is_read ? "bg-[var(--bg-secondary)]" : ""
+									}`}>
+									<div className="mt-0.5 flex-shrink-0 p-1.5 rounded-lg bg-[var(--bg-subtle)]">
+										{typeIconMap[n.type]}
+									</div>
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-1.5">
+											<span
+												className={`text-[12.5px] truncate ${
+													!n.is_read
+														? "font-semibold text-primary"
+														: "font-medium text-secondary"
+												}`}>
+												{n.title}
+											</span>
+											{!n.is_read && (
+												<span
+													className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+													style={{ background: "var(--accent)" }}
+												/>
+											)}
+										</div>
+										<p className="text-[11.5px] text-tertiary leading-snug mt-0.5 line-clamp-2">
+											{n.content}
+										</p>
+										<span className="text-[10.5px] text-muted mt-1 flex items-center gap-1">
+											<Clock size={10} /> {n.created_at}
+										</span>
+									</div>
+								</button>
+							))
+						)}
+					</div>
+
+					{/* Footer */}
+					<div className="border-t border-[var(--border-secondary)]">
+						<button
+							type="button"
+							onClick={() => {
+								setOpen(false);
+								router.push("/notifications");
+							}}
+							className="w-full px-3.5 py-2.5 text-[12.5px] font-medium text-center transition-colors hover:bg-[var(--bg-hover)]"
+							style={{ color: "var(--accent)" }}>
+							Xem tất cả thông báo
+						</button>
+					</div>
+				</div>
+			)}
+		</div>
+	);
 }
 
 /* ==========================================================================
@@ -602,128 +807,106 @@ function useUnreadCount(enabled: boolean): number {
    ========================================================================== */
 
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
-  const pathname = usePathname();
-  const { user } = useAuthStore();
-  const [paletteOpen, setPaletteOpen] = React.useState(false);
-  const unreadCount = useUnreadCount(Boolean(user));
+	const pathname = usePathname();
+	const { user } = useAuthStore();
+	const [paletteOpen, setPaletteOpen] = React.useState(false);
+	const unreadCount = useUnreadCount(Boolean(user));
 
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPaletteOpen((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+	React.useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+				e.preventDefault();
+				setPaletteOpen((v) => !v);
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
 
-  const crumbs = React.useMemo(() => {
-    const exact = ROUTE_TITLES[pathname];
-    if (exact) return [exact];
+	const crumbs = React.useMemo(() => {
+		const exact = ROUTE_TITLES[pathname];
+		if (exact) return [exact];
 
-    // Detail route (/theses/12): show parent then a generic leaf.
-    const segments = pathname.split("/").filter(Boolean);
-    const parent = "/" + segments.slice(0, 1).join("/");
-    const parentTitle = ROUTE_TITLES[parent];
-    if (parentTitle && segments.length > 1) return [parentTitle, "Chi tiết"];
-    return [parentTitle ?? "NovaThesis"];
-  }, [pathname]);
+		// Detail route (/theses/12): show parent then a generic leaf.
+		const segments = pathname.split("/").filter(Boolean);
+		const parent = "/" + segments.slice(0, 1).join("/");
+		const parentTitle = ROUTE_TITLES[parent];
+		if (parentTitle && segments.length > 1) return [parentTitle, "Chi tiết"];
+		return [parentTitle ?? "NovaThesis"];
+	}, [pathname]);
 
-  return (
-    <>
-      <header
-        className="sticky top-0 z-30 h-[var(--topbar-height)] flex items-center gap-2 px-3 sm:px-4 flex-shrink-0"
-        style={{
-          background: "var(--bg-surface)",
-          borderBottom: "1px solid var(--border-primary)",
-          viewTransitionName: "app-topbar",
-        }}
-      >
-        <IconButton
-          label="Mở menu"
-          className="lg:hidden"
-          onClick={onOpenMobileNav}
-        >
-          <List size={17} />
-        </IconButton>
+	return (
+		<>
+			<header
+				className="sticky top-0 z-30 h-[var(--topbar-height)] flex items-center gap-2 px-3 sm:px-4 flex-shrink-0"
+				style={{
+					background: "var(--bg-surface)",
+					borderBottom: "1px solid var(--border-primary)",
+					viewTransitionName: "app-topbar",
+				}}>
+				<IconButton
+					label="Mở menu"
+					className="lg:hidden"
+					onClick={onOpenMobileNav}>
+					<List size={17} />
+				</IconButton>
 
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 min-w-0">
-          {crumbs.map((c, i) => (
-            <React.Fragment key={c}>
-              {i > 0 && (
-                <CaretRight size={11} className="text-muted flex-shrink-0" />
-              )}
-              <span
-                className={`text-[13px] truncate ${
-                  i === crumbs.length - 1
-                    ? "font-medium text-primary"
-                    : "text-tertiary"
-                }`}
-              >
-                {c}
-              </span>
-            </React.Fragment>
-          ))}
-        </nav>
+				<nav
+					aria-label="Breadcrumb"
+					className="flex items-center gap-1.5 min-w-0">
+					{crumbs.map((c, i) => (
+						<React.Fragment key={c}>
+							{i > 0 && (
+								<CaretRight size={11} className="text-muted flex-shrink-0" />
+							)}
+							<span
+								className={`text-[13px] truncate ${
+									i === crumbs.length - 1
+										? "font-medium text-primary"
+										: "text-tertiary"
+								}`}>
+								{c}
+							</span>
+						</React.Fragment>
+					))}
+				</nav>
 
-        <div className="flex-1" />
+				<div className="flex-1" />
 
-        {/* Search affordance: full control on desktop, icon on mobile. */}
-        <button
-          onClick={() => setPaletteOpen(true)}
-          className="hidden sm:flex items-center gap-2 h-8 pl-2.5 pr-1.5 rounded-[8px] text-[12.5px] text-tertiary transition-colors hover:text-secondary hover:border-[var(--border-strong)] w-52"
-          style={{
-            background: "var(--bg-subtle)",
-            border: "1px solid var(--border-primary)",
-          }}
-        >
-          <MagnifyingGlass size={14} className="flex-shrink-0" />
-          <span className="flex-1 text-left">Tìm nhanh…</span>
-          <kbd className="kbd">⌘K</kbd>
-        </button>
-        <IconButton
-          label="Tìm nhanh"
-          className="sm:hidden"
-          onClick={() => setPaletteOpen(true)}
-        >
-          <MagnifyingGlass size={16} />
-        </IconButton>
+				{/* Search affordance: full control on desktop, icon on mobile. */}
+				<button
+					onClick={() => setPaletteOpen(true)}
+					className="hidden sm:flex items-center gap-2 h-8 pl-2.5 pr-1.5 rounded-[8px] text-[12.5px] text-tertiary transition-colors hover:text-secondary hover:border-[var(--border-strong)] w-52"
+					style={{
+						background: "var(--bg-subtle)",
+						border: "1px solid var(--border-primary)",
+					}}>
+					<MagnifyingGlass size={14} className="flex-shrink-0" />
+					<span className="flex-1 text-left">Tìm nhanh…</span>
+					<kbd className="kbd">⌘K</kbd>
+				</button>
+				<IconButton
+					label="Tìm nhanh"
+					className="sm:hidden"
+					onClick={() => setPaletteOpen(true)}>
+					<MagnifyingGlass size={16} />
+				</IconButton>
 
-        <ThemeSwitch />
+				<ThemeSwitch />
 
-        <Link
-          href="/notifications"
-          className="btn-icon relative"
-          aria-label={
-            unreadCount > 0
-              ? `Thông báo, ${unreadCount} chưa đọc`
-              : "Thông báo"
-          }
-        >
-          <Bell size={16} />
-          {unreadCount > 0 && (
-            <span
-              className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center tnum"
-              style={{ background: "var(--danger)", color: "#fff" }}
-            >
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </Link>
+				<NotificationDropdown unreadCount={unreadCount} />
 
-        <Link
-          href="/profile"
-          className="flex items-center ml-0.5"
-          aria-label="Hồ sơ cá nhân"
-        >
-          <Avatar name={user?.full_name} src={user?.avatar_url} size="sm" />
-        </Link>
-      </header>
+				<Link
+					href="/profile"
+					className="flex items-center ml-0.5"
+					aria-label="Hồ sơ cá nhân">
+					<Avatar name={user?.full_name} src={user?.avatar_url} size="sm" />
+				</Link>
+			</header>
 
-      {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
-    </>
-  );
+			{paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+		</>
+	);
 }
 
 /* ==========================================================================
@@ -733,55 +916,53 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
    ========================================================================== */
 
 export function PageHeader({
-  title,
-  description,
-  actions,
-  meta,
-  className = "",
+	title,
+	description,
+	actions,
+	meta,
+	className = "",
 }: {
-  title: string;
-  description?: string;
-  /** Inline status chips or counts that qualify the title. */
-  meta?: React.ReactNode;
-  actions?: React.ReactNode;
-  className?: string;
+	title: string;
+	description?: string;
+	/** Inline status chips or counts that qualify the title. */
+	meta?: React.ReactNode;
+	actions?: React.ReactNode;
+	className?: string;
 }) {
-  return (
-    <div
-      className={`flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4 ${className}`}
-    >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-[17px] font-semibold tracking-tight">{title}</h1>
-          {meta}
-        </div>
-        {description && (
-          <p className="text-[12.5px] text-tertiary mt-0.5 max-w-2xl">
-            {description}
-          </p>
-        )}
-      </div>
-      {actions && (
-        <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>
-      )}
-    </div>
-  );
+	return (
+		<div
+			className={`flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4 ${className}`}>
+			<div className="min-w-0">
+				<div className="flex items-center gap-2 flex-wrap">
+					<h1 className="text-[17px] font-semibold tracking-tight">{title}</h1>
+					{meta}
+				</div>
+				{description && (
+					<p className="text-[12.5px] text-tertiary mt-0.5 max-w-2xl">
+						{description}
+					</p>
+				)}
+			</div>
+			{actions && (
+				<div className="flex items-center gap-2 flex-shrink-0">{actions}</div>
+			)}
+		</div>
+	);
 }
 
 /* Toolbar strip that sits above a table: search on the left, filters right. */
 export function Toolbar({
-  children,
-  className = "",
+	children,
+	className = "",
 }: {
-  children: React.ReactNode;
-  className?: string;
+	children: React.ReactNode;
+	className?: string;
 }) {
-  return (
-    <div
-      className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 ${className}`}
-      style={{ borderBottom: "1px solid var(--border-secondary)" }}
-    >
-      {children}
-    </div>
-  );
+	return (
+		<div
+			className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 ${className}`}
+			style={{ borderBottom: "1px solid var(--border-secondary)" }}>
+			{children}
+		</div>
+	);
 }

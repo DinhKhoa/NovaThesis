@@ -23,10 +23,7 @@ graph LR
     SV --> UC6_8(6.8: Xóa lịch sử hội thoại AI)
     SV --> UC6_9(6.9: Đánh giá chất lượng câu trả lời AI)
     SV --> UC6_10(6.10: Đề xuất nhiệm vụ/lộ trình)
-    SV --> UC6_11(6.11: Chấp nhận gợi ý AI tạo milestone)
-    SV --> UC6_12(6.12: Từ chối/Chỉnh sửa gợi ý AI)
-    SV --> UC6_13(6.13: Tái tạo gợi ý AI)
-    SV --> UC6_14(6.14: Xem trạng thái xử lý AI của tài liệu)
+    SV --> UC6_11(6.11: Xử lý gợi ý lộ trình AI)
     
     AI -.-> UC6_1
     AI -.-> UC6_4
@@ -423,98 +420,55 @@ graph LR
 
 ---
 
-### UC 6.11 – Chấp nhận gợi ý AI để tạo milestone
+### UC 6.11 – Xử lý gợi ý lộ trình AI (Chấp nhận / Từ chối / Chỉnh sửa / Tái tạo)
 
 | Field | Content |
 |-------|---------|
 | **Use case ID** | 6.11 |
-| **Use case name** | Chấp nhận gợi ý AI để tạo milestone |
-| **Description** | Sinh viên duyệt và đồng ý với một hoặc nhiều nhiệm vụ do AI gợi ý để biến chúng thành milestone chính thức. |
-| **Actors** | Sinh viên |
+| **Use case name** | Xử lý gợi ý lộ trình AI |
+| **Description** | Sinh viên tương tác với danh sách gợi ý nhiệm vụ/lộ trình do AI tạo ra: chấp nhận để tạo milestone, từ chối/bỏ qua, chỉnh sửa nội dung gợi ý, hoặc yêu cầu AI tái tạo tập gợi ý mới. |
+| **Actors** | Sinh viên, Hệ thống AI |
 | **Priority** | Trung bình |
-| **Triggers** | Sinh viên chọn các gợi ý và nhấn "Tạo Milestone". |
+| **Triggers** | Danh sách gợi ý từ UC 6.10 hiển thị trên giao diện. |
 | **Pre-conditions** | Đã có danh sách gợi ý từ UC 6.10. |
-| **Post-conditions** | Milestone mới được tạo ra trong hệ thống và gán cho sinh viên. |
-| **Business rules** | Milestone tạo từ AI có trạng thái "To Do" và cần xác định lại ngày hết hạn (deadline) hợp lý. |
-| **Non-functional requirement** | Giao diện cho phép chọn multi-select. |
+| **Post-conditions** | Gợi ý được chấp nhận tạo milestone chính thức, bị loại bỏ, chỉnh sửa nội dung, hoặc thay thế bằng tập mới. |
+| **Business rules** | 1. Milestone tạo từ AI có trạng thái "To Do" và cần xác định lại deadline hợp lý. 2. Giới hạn số lần tái tạo liên tục để tránh spam API. 3. Việc bỏ qua không xóa dữ liệu vĩnh viễn nhưng ẩn khỏi view hiện tại. |
+| **Non-functional requirement** | Giao diện cho phép chọn multi-select. UX thao tác nhanh (inline edit). Hạn chế gọi lại API khi tái tạo. |
 
-**Main flow:**
+**Main flow – Chấp nhận gợi ý:**
 
 | Bước | Thao tác |
 |------|---------|
 | 1 | Sinh viên xem danh sách các nhiệm vụ do AI gợi ý. |
 | 2 | Sinh viên tích chọn (checkbox) một hoặc nhiều nhiệm vụ phù hợp. |
-| 3 | Sinh viên điều chỉnh thông tin (như tên, mô tả, deadline dự kiến) trực tiếp trên form gợi ý nếu cần. |
+| 3 | Sinh viên điều chỉnh thông tin (tên, mô tả, deadline) nếu cần. |
 | 4 | Sinh viên nhấn nút "Tạo Milestone". |
-| 5 | Hệ thống gọi API tạo milestone mới cho từng nhiệm vụ được chọn (tương tác với Module 4). |
-| 6 | Hệ thống thêm các milestone vào danh sách quản lý của đề tài. |
-| 7 | Hệ thống ẩn các gợi ý đã được sử dụng và thông báo thành công. |
+| 5 | Hệ thống gọi API tạo milestone mới cho từng nhiệm vụ được chọn (tương tác Module 4). |
+| 6 | Hệ thống ẩn các gợi ý đã sử dụng và thông báo thành công. |
 
-**Alternative flows:**
-- (Không có luồng phụ đáng kể)
-
-**Exception flows:**
-- Nếu lỗi tạo milestone từ Module 4, báo lỗi.
-
----
-
-### UC 6.12 – Từ chối / Chỉnh sửa gợi ý AI
-
-| Field | Content |
-|-------|---------|
-| **Use case ID** | 6.12 |
-| **Use case name** | Từ chối / Chỉnh sửa gợi ý AI |
-| **Description** | Sinh viên loại bỏ những gợi ý không phù hợp hoặc sửa đổi nội dung trước khi chấp nhận. |
-| **Actors** | Sinh viên |
-| **Priority** | Thấp |
-| **Triggers** | Sinh viên nhấn nút "Bỏ qua" hoặc icon "Sửa" trên một thẻ gợi ý. |
-| **Pre-conditions** | Đã có danh sách gợi ý lộ trình từ AI. |
-| **Post-conditions** | Gợi ý bị loại khỏi danh sách hiển thị hoặc nội dung gợi ý được cập nhật. |
-| **Business rules** | Việc bỏ qua không xóa dữ liệu vĩnh viễn nhưng ẩn khỏi view hiện tại. |
-| **Non-functional requirement** | UX thao tác nhanh. |
-
-**Main flow:**
+**Main flow – Từ chối/Bỏ qua:**
 
 | Bước | Thao tác |
 |------|---------|
-| 1 | Sinh viên xem danh sách gợi ý AI. |
-| 2 | Để từ chối, sinh viên nhấn nút "Bỏ qua" (X) trên thẻ gợi ý. |
-| 3 | Hệ thống lập tức ẩn thẻ gợi ý đó khỏi màn hình. |
-| 4 | Để chỉnh sửa, sinh viên nhấn vào tiêu đề hoặc nội dung của thẻ để sửa trực tiếp (inline edit). |
-| 5 | Sinh viên nhập nội dung mới và nhấn Enter/Lưu. |
-| 6 | Hệ thống cập nhật hiển thị của thẻ gợi ý. |
+| 1 | Sinh viên nhấn nút "Bỏ qua" (X) trên thẻ gợi ý. |
+| 2 | Hệ thống ẩn thẻ gợi ý đó khỏi màn hình. |
 
-**Alternative flows:**
-- (Không có luồng phụ đáng kể)
+**Main flow – Chỉnh sửa gợi ý:**
 
-**Exception flows:**
-- (Không có luồng ngoại lệ đáng kể)
+| Bước | Thao tác |
+|------|---------|
+| 1 | Sinh viên nhấn vào tiêu đề hoặc nội dung thẻ gợi ý (inline edit). |
+| 2 | Sinh viên nhập nội dung mới và nhấn Enter/Lưu. |
+| 3 | Hệ thống cập nhật hiển thị của thẻ gợi ý. |
 
----
-
-### UC 6.13 – Tái tạo gợi ý AI (Re-generate)
-
-| Field | Content |
-|-------|---------|
-| **Use case ID** | 6.13 |
-| **Use case name** | Tái tạo gợi ý AI (Re-generate) |
-| **Description** | Sinh viên yêu cầu AI sinh ra một tập gợi ý nhiệm vụ/lộ trình mới nếu tập hiện tại không phù hợp. |
-| **Actors** | Sinh viên, Hệ thống AI |
-| **Priority** | Thấp |
-| **Triggers** | Sinh viên nhấn nút "Tạo lại gợi ý". |
-| **Pre-conditions** | Tính năng gợi ý AI đang bật. |
-| **Post-conditions** | Hiển thị tập gợi ý nhiệm vụ mới. |
-| **Business rules** | Hệ thống thay đổi tham số "temperature" hoặc thêm chỉ dẫn phụ để đa dạng hóa kết quả. |
-| **Non-functional requirement** | Hạn chế số lần tạo lại liên tục để tránh spam API. |
-
-**Main flow:**
+**Main flow – Tái tạo gợi ý:**
 
 | Bước | Thao tác |
 |------|---------|
 | 1 | Sinh viên nhấn "Tạo lại gợi ý" trên màn hình gợi ý AI. |
 | 2 | Hệ thống kiểm tra giới hạn lượt gọi API. |
-| 3 | Hệ thống làm sạch danh sách gợi ý cũ trên UI và hiển thị trạng thái đang tải. |
-| 4 | Hệ thống gọi lại luồng UC 6.10, bổ sung vào prompt yêu cầu tạo nội dung khác biệt. |
+| 3 | Hệ thống làm sạch danh sách gợi ý cũ, hiển thị trạng thái đang tải. |
+| 4 | Hệ thống gọi lại luồng UC 6.10, bổ sung prompt yêu cầu nội dung khác biệt. |
 | 5 | AI trả về danh sách gợi ý mới. |
 | 6 | Hệ thống hiển thị danh sách gợi ý mới cho sinh viên. |
 
@@ -522,49 +476,13 @@ graph LR
 
 | Luồng | Điều kiện | Xử lý |
 |-------|-----------|-------|
-| 2a | Vượt quá số lần cho phép | Hệ thống từ chối và báo "Vui lòng thử lại sau X phút". |
+| 2b (Tái tạo) | Vượt quá số lần cho phép | Hệ thống từ chối và báo "Vui lòng thử lại sau X phút". |
 
 **Exception flows:**
 
 | Luồng | Điều kiện | Xử lý |
 |-------|-----------|-------|
-| 5a | AI gặp lỗi | Hiển thị thông báo lỗi và giữ nguyên hoặc cho phép thử lại. |
-
----
-
-### UC 6.14 – Xem trạng thái xử lý AI của tài liệu
-
-| Field | Content |
-|-------|---------|
-| **Use case ID** | 6.14 |
-| **Use case name** | Xem trạng thái xử lý AI của tài liệu |
-| **Description** | Người dùng xem được tiến trình tài liệu đang được AI xử lý (đang trích xuất, đang embedding, hoàn thành hay lỗi). |
-| **Actors** | Sinh viên, Giảng viên hướng dẫn |
-| **Priority** | Trung bình |
-| **Triggers** | Truy cập trang danh sách tài liệu hoặc chi tiết tài liệu. |
-| **Pre-conditions** | Có tài liệu trong hệ thống. |
-| **Post-conditions** | Hiển thị badge/icon trạng thái AI của từng tài liệu. |
-| **Business rules** | Trạng thái hiển thị real-time qua Socket.io nếu có sự thay đổi. |
-| **Non-functional requirement** | UI rõ ràng, có tooltip giải thích ý nghĩa trạng thái. |
-
-**Main flow:**
-
-| Bước | Thao tác |
-|------|---------|
-| 1 | Người dùng vào màn hình Danh sách tài liệu của đề tài. |
-| 2 | Hệ thống lấy dữ liệu tài liệu bao gồm trường "ai_status" (Đang xử lý, Hoàn thành, Lỗi). |
-| 3 | Hệ thống hiển thị icon/badge tương ứng bên cạnh tên mỗi tài liệu. |
-| 4 | Nếu trạng thái là "Đang xử lý", hệ thống kết nối Socket.io để lắng nghe sự kiện hoàn thành. |
-| 5 | Khi quá trình nền hoàn tất, máy chủ gửi sự kiện qua Socket. |
-| 6 | UI tự động cập nhật trạng thái thành "Hoàn thành" mà không cần tải lại trang. |
-
-**Alternative flows:**
-- (Không có luồng phụ đáng kể)
-
-**Exception flows:**
-
-| Luồng | Điều kiện | Xử lý |
-|-------|-----------|-------|
-| 6a | Nhận trạng thái "Lỗi" qua Socket | Giao diện cập nhật trạng thái "Lỗi" (màu đỏ) và gợi ý thử lại hoặc xem chi tiết lỗi. |
+| 5a (Chấp nhận) | Lỗi tạo milestone từ Module 4 | Báo lỗi. |
+| 5b (Tái tạo) | AI gặp lỗi | Hiển thị thông báo lỗi và giữ nguyên hoặc cho phép thử lại. |
 
 ---

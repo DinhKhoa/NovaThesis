@@ -18,9 +18,7 @@ graph LR
         UC1.5(1.5 Quên mật khẩu)
         UC1.6(1.6 Đặt lại mật khẩu)
         UC1.7(1.7 Đổi mật khẩu)
-        UC1.8(1.8 Xem hồ sơ cá nhân)
-        UC1.9(1.9 Chỉnh sửa hồ sơ cá nhân)
-        UC1.10(1.10 Cập nhật ảnh đại diện)
+        UC1.8(1.8 Quản lý hồ sơ cá nhân)
     end
 
     SV --> UC1.1
@@ -31,8 +29,6 @@ graph LR
     SV --> UC1.6
     SV --> UC1.7
     SV --> UC1.8
-    SV --> UC1.9
-    SV --> UC1.10
 
     GV --> UC1.1
     GV --> UC1.3
@@ -41,15 +37,11 @@ graph LR
     GV --> UC1.6
     GV --> UC1.7
     GV --> UC1.8
-    GV --> UC1.9
-    GV --> UC1.10
 
     Admin --> UC1.1
     Admin --> UC1.3
     Admin --> UC1.7
     Admin --> UC1.8
-    Admin --> UC1.9
-    Admin --> UC1.10
 ```
 
 ---
@@ -345,20 +337,20 @@ graph LR
 
 ---
 
-### UC 1.8 – Xem hồ sơ cá nhân
+### UC 1.8 – Quản lý hồ sơ cá nhân
 
 | Field | Content |
 |-------|---------|
 | **Use case ID** | 1.8 |
-| **Use case name** | Xem hồ sơ cá nhân |
-| **Description** | Cho phép người dùng xem thông tin cá nhân của mình (họ tên, mã số, khoa, chuyên ngành, email). |
+| **Use case name** | Quản lý hồ sơ cá nhân |
+| **Description** | Cho phép người dùng xem, cập nhật thông tin cá nhân (Số điện thoại, Giới thiệu, Địa chỉ) và thay đổi ảnh đại diện (avatar). Các trường như Email, Mã SV/MGV bị vô hiệu hóa chỉnh sửa. |
 | **Actors** | Sinh viên, Giảng viên hướng dẫn, Admin |
 | **Priority** | Cao |
 | **Triggers** | Người dùng click vào ảnh đại diện hoặc menu "Hồ sơ của tôi". |
 | **Pre-conditions** | Người dùng đã đăng nhập thành công. |
-| **Post-conditions** | Hệ thống hiển thị giao diện chứa thông tin cá nhân chính xác. |
-| **Business rules** | Người dùng chỉ xem được hồ sơ của chính mình (hoặc Admin/Giảng viên xem hồ sơ của sinh viên liên quan theo quyền khác). |
-| **Non-functional requirement** | Tốc độ load thông tin < 1s. |
+| **Post-conditions** | Thông tin mới được lưu và hiển thị trên hồ sơ. Ảnh đại diện mới cập nhật trên toàn hệ thống. |
+| **Business rules** | 1. Người dùng chỉ xem được hồ sơ của chính mình. 2. Không cho phép tự ý đổi Mã SV, Mã GV, Email đăng nhập. 3. Ảnh đại diện phải định dạng JPG/PNG, tối đa 2MB. |
+| **Non-functional requirement** | Tốc độ load thông tin < 1s. Cập nhật real-time trên giao diện sau khi lưu. Ảnh cần nén/resize trước khi lưu. |
 
 **Main flow:**
 
@@ -368,101 +360,36 @@ graph LR
 | 2 | Hệ thống trích xuất ID người dùng từ JWT token hiện tại. |
 | 3 | Hệ thống truy vấn CSDL để lấy thông tin chi tiết của người dùng. |
 | 4 | Hệ thống hiển thị giao diện Hồ sơ cá nhân với các thông tin: Ảnh đại diện, Họ tên, Email, Mã SV/MGV, Khoa/Chuyên ngành, Số điện thoại. |
+| 5 | Người dùng nhấn "Chỉnh sửa" để chuyển các trường cho phép sửa (Số điện thoại, Giới thiệu, Địa chỉ) thành dạng input. |
+| 6 | Người dùng thay đổi thông tin cần thiết và nhấn "Lưu thay đổi". |
+| 7 | Hệ thống validate dữ liệu (Ví dụ: SĐT phải là số, độ dài phù hợp). |
+| 8 | Hệ thống cập nhật CSDL và hiển thị thông báo "Cập nhật thành công". |
+
+**Luồng cập nhật ảnh đại diện (từ bước 4):**
+
+| Bước | Thao tác |
+|------|---------|
+| 4a | Người dùng nhấn vào vị trí Ảnh đại diện. |
+| 4b | Hệ thống mở cửa sổ chọn file. Người dùng chọn file ảnh (.jpg, .png). |
+| 4c | Hệ thống kiểm tra định dạng và kích thước file (<= 2MB). |
+| 4d | Hệ thống hiển thị preview ảnh, người dùng nhấn "Lưu ảnh". |
+| 4e | Hệ thống upload ảnh lên server/storage, lấy URL mới và cập nhật CSDL. |
 
 **Alternative flows:**
 
 | Luồng | Điều kiện | Xử lý |
 |-------|-----------|-------|
-| N/A | Không có | |
+| 6a | Người dùng nhấn "Hủy" | Hệ thống đóng form chỉnh sửa, không lưu thay đổi. |
+| 4d1 | Người dùng nhấn "Hủy" hoặc chọn ảnh khác | Form preview đóng hoặc thay thế bằng ảnh mới. Không thực hiện lưu. |
 
 **Exception flows:**
 
 | Luồng | Điều kiện | Xử lý |
 |-------|-----------|-------|
 | 3a | Không tìm thấy thông tin tài khoản (bị xóa/lỗi DB) | Hệ thống báo lỗi "Không thể tải thông tin hồ sơ", cho phép reload trang. |
-
----
-
-### UC 1.9 – Chỉnh sửa hồ sơ cá nhân
-
-| Field | Content |
-|-------|---------|
-| **Use case ID** | 1.9 |
-| **Use case name** | Chỉnh sửa hồ sơ cá nhân |
-| **Description** | Cho phép người dùng cập nhật một số thông tin cá nhân như Số điện thoại, Giới thiệu bản thân. Các trường như Email, Mã SV/MGV bị vô hiệu hóa. |
-| **Actors** | Sinh viên, Giảng viên hướng dẫn, Admin |
-| **Priority** | Trung bình |
-| **Triggers** | Người dùng nhấn nút "Chỉnh sửa" tại trang Hồ sơ cá nhân. |
-| **Pre-conditions** | Người dùng đang đăng nhập và ở trang Hồ sơ cá nhân. |
-| **Post-conditions** | Thông tin mới được lưu và hiển thị trên hồ sơ. |
-| **Business rules** | Không cho phép tự ý đổi Mã SV, Mã GV, Email đăng nhập. |
-| **Non-functional requirement** | Cập nhật real-time trên giao diện sau khi ấn lưu. |
-
-**Main flow:**
-
-| Bước | Thao tác |
-|------|---------|
-| 1 | Người dùng nhấn "Chỉnh sửa" tại trang Hồ sơ. |
-| 2 | Hệ thống chuyển các trường thông tin cho phép sửa (Số điện thoại, Giới thiệu, Địa chỉ) thành dạng input. |
-| 3 | Người dùng thay đổi thông tin cần thiết và nhấn "Lưu thay đổi". |
-| 4 | Hệ thống validate dữ liệu (Ví dụ: SĐT phải là số, độ dài phù hợp). |
-| 5 | Hệ thống cập nhật CSDL. |
-| 6 | Hệ thống hiển thị thông báo "Cập nhật thành công" và hiển thị lại trang hồ sơ với thông tin mới. |
-
-**Alternative flows:**
-
-| Luồng | Điều kiện | Xử lý |
-|-------|-----------|-------|
-| 3a | Người dùng nhấn "Hủy" | Hệ thống đóng form chỉnh sửa, không lưu thay đổi. |
-
-**Exception flows:**
-
-| Luồng | Điều kiện | Xử lý |
-|-------|-----------|-------|
-| 4a | Dữ liệu nhập không hợp lệ (Sai format SĐT) | Hệ thống báo lỗi trực tiếp trên form "Số điện thoại không hợp lệ", block việc submit. |
-
----
-
-### UC 1.10 – Cập nhật ảnh đại diện
-
-| Field | Content |
-|-------|---------|
-| **Use case ID** | 1.10 |
-| **Use case name** | Cập nhật ảnh đại diện |
-| **Description** | Cho phép người dùng upload hình ảnh cá nhân để làm ảnh đại diện (avatar) hiển thị trên hệ thống. |
-| **Actors** | Sinh viên, Giảng viên hướng dẫn, Admin |
-| **Priority** | Thấp |
-| **Triggers** | Người dùng nhấn vào icon camera/chỉnh sửa tại khu vực ảnh đại diện trong Hồ sơ. |
-| **Pre-conditions** | Người dùng đã đăng nhập. |
-| **Post-conditions** | Ảnh đại diện mới được cập nhật trên toàn hệ thống (Avatar ở header, trong danh sách...). |
-| **Business rules** | 1. File phải định dạng JPG hoặc PNG. 2. Kích thước file tối đa 2MB. |
-| **Non-functional requirement** | Ảnh cần được nén và resize trước khi lưu (nếu cần), hỗ trợ preview ảnh trước khi lưu. |
-
-**Main flow:**
-
-| Bước | Thao tác |
-|------|---------|
-| 1 | Người dùng nhấn vào vị trí Ảnh đại diện. |
-| 2 | Hệ thống mở cửa sổ chọn file từ thiết bị cục bộ. |
-| 3 | Người dùng chọn một file ảnh (.jpg, .png) và nhấn Open. |
-| 4 | Hệ thống kiểm tra định dạng và kích thước của file ảnh (<= 2MB). |
-| 5 | Hệ thống hiển thị preview ảnh vừa chọn, cung cấp nút "Lưu ảnh". |
-| 6 | Người dùng nhấn "Lưu ảnh". |
-| 7 | Hệ thống upload ảnh lên server/storage, lấy URL mới và cập nhật CSDL. |
-| 8 | Hệ thống thông báo "Cập nhật ảnh đại diện thành công" và reload ảnh trên toàn bộ UI hiện hành. |
-
-**Alternative flows:**
-
-| Luồng | Điều kiện | Xử lý |
-|-------|-----------|-------|
-| 6a | Người dùng nhấn "Hủy" hoặc chọn ảnh khác | Form preview đóng hoặc thay thế bằng ảnh mới. Không thực hiện lưu. |
-
-**Exception flows:**
-
-| Luồng | Điều kiện | Xử lý |
-|-------|-----------|-------|
-| 4a | Kích thước file > 2MB | Hệ thống chặn thao tác và báo lỗi "Dung lượng ảnh vượt quá 2MB. Vui lòng chọn ảnh khác nhỏ hơn." |
-| 4b | Định dạng không được hỗ trợ (vd: .gif, .pdf) | Hệ thống báo lỗi "Chỉ hỗ trợ định dạng JPG hoặc PNG". |
-| 7a | Lỗi kết nối khi upload ảnh lên storage | Hệ thống báo lỗi "Upload thất bại. Vui lòng thử lại sau". |
+| 7a | Dữ liệu nhập không hợp lệ (Sai format SĐT) | Hệ thống báo lỗi trực tiếp trên form "Số điện thoại không hợp lệ", block việc submit. |
+| 4c1 | Kích thước file > 2MB | Hệ thống báo lỗi "Dung lượng ảnh vượt quá 2MB". |
+| 4c2 | Định dạng không hỗ trợ (.gif, .pdf) | Hệ thống báo lỗi "Chỉ hỗ trợ định dạng JPG hoặc PNG". |
+| 4e1 | Lỗi kết nối khi upload ảnh | Hệ thống báo lỗi "Upload thất bại. Vui lòng thử lại sau". |
 
 ---
