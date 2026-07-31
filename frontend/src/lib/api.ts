@@ -34,27 +34,88 @@ export interface PaginatedResponse<T> {
    TOKEN MANAGEMENT
    ======================================== */
 
+const ACCESS_KEY = "nova_access_token";
+const REFRESH_KEY = "nova_refresh_token";
+
 let accessToken: string | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
-  if (token) {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("nova_access_token", token);
-    }
-  } else {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("nova_access_token");
-    }
-  }
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(ACCESS_KEY, token);
+  else localStorage.removeItem(ACCESS_KEY);
 }
 
 export function getAccessToken(): string | null {
   if (accessToken) return accessToken;
   if (typeof window !== "undefined") {
-    accessToken = localStorage.getItem("nova_access_token");
+    accessToken = localStorage.getItem(ACCESS_KEY);
   }
   return accessToken;
+}
+
+export function setRefreshToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(REFRESH_KEY, token);
+  else localStorage.removeItem(REFRESH_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  return typeof window === "undefined" ? null : localStorage.getItem(REFRESH_KEY);
+}
+
+export function clearTokens(): void {
+  setAccessToken(null);
+  setRefreshToken(null);
+}
+
+/* ========================================
+   LÀM MỚI PHIÊN
+   ======================================== */
+
+/**
+ * Access token sống 2 giờ. Không có bước làm mới, người dùng đang gõ dở một
+ * nhận xét sẽ bị đá về trang đăng nhập và mất bài — refresh token đổi trải
+ * nghiệm đó thành một request phụ mà họ không hề thấy.
+ *
+ * Biến `refreshing` gom mọi request 401 xảy ra cùng lúc vào CHUNG một lần làm
+ * mới. Không có nó, một trang gọi năm API song song sẽ kích hoạt năm lượt
+ * refresh; backend xoay vòng token nên bốn lượt sau dùng token đã bị thu hồi và
+ * tất cả cùng thất bại.
+ */
+let refreshing: Promise<boolean> | null = null;
+
+async function refreshSession(): Promise<boolean> {
+  refreshing ??= (async () => {
+    const refresh_token = getRefreshToken();
+    if (!refresh_token) return false;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token }),
+      });
+      if (!response.ok) return false;
+
+      const body = (await response.json()) as {
+        access_token: string;
+        refresh_token?: string;
+      };
+      setAccessToken(body.access_token);
+      if (body.refresh_token) setRefreshToken(body.refresh_token);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      // Mở khoá cho lần hết hạn kế tiếp, dù thành công hay không.
+      setTimeout(() => {
+        refreshing = null;
+      }, 0);
+    }
+  })();
+
+  return refreshing;
 }
 
 /* ========================================
@@ -63,7 +124,8 @@ export function getAccessToken(): string | null {
 
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retried = false
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getAccessToken();
@@ -79,34 +141,47 @@ async function request<T>(
     delete (headers as Record<string, string>)["Content-Type"];
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch {
+    // Backend chưa chạy hoặc mất mạng. Phân biệt rõ với lỗi do server trả về,
+    // vì cách xử lý của người dùng khác hẳn nhau.
+    throw {
+      message: "Không kết nối được máy chủ. Kiểm tra backend đã chạy chưa.",
+      status: 0,
+    } as ApiError;
+  }
 
   // Handle 204 No Content
   if (response.status === 204) {
     return undefined as T;
   }
 
-  const body = await response.json();
+  // Tệp tải về (PDF/XLSX) không phải JSON — trả nguyên phản hồi cho người gọi.
+  const contentType = response.headers.get("content-type") ?? "";
+  if (response.ok && !contentType.includes("application/json")) {
+    return response as unknown as T;
+  }
+
+  const body = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error: ApiError = {
+    // Token hết hạn: thử làm mới một lần rồi gọi lại đúng request đó.
+    // Bỏ qua nhóm `/auth/` để thông báo lỗi đăng nhập hiển thị được như cũ.
+    if (response.status === 401 && !retried && !endpoint.startsWith("/auth/")) {
+      if (await refreshSession()) {
+        return request<T>(endpoint, options, true);
+      }
+      clearTokens();
+      if (typeof window !== "undefined") window.location.href = "/?auth=login";
+    }
+
+    throw {
       message: body.message || body.detail || "Đã xảy ra lỗi",
       status: response.status,
       errors: body.errors,
-    };
-
-    // Handle 401 – Token expired (skip for auth endpoints so login error messages can be displayed)
-    if (response.status === 401 && !endpoint.includes("/auth/")) {
-      setAccessToken(null);
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-    }
-
-    throw error;
+    } as ApiError;
   }
 
   return body as T;

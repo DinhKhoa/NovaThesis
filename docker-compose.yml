@@ -1,0 +1,41 @@
+# NovaThesis — hạ tầng phát triển cục bộ.
+#
+# Chỉ chứa PostgreSQL: backend và frontend chạy trực tiếp bằng Node để giữ
+# vòng lặp sửa-chạy nhanh. Ảnh `pgvector/pgvector` là bản Postgres chính thức
+# đã biên dịch sẵn extension `vector`, nên không cần cài đặt thêm gì trên máy.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: novathesis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: novathesis
+      POSTGRES_PASSWORD: novathesis
+      POSTGRES_DB: novathesis
+      # Đối chiếu tiếng Việt cho ORDER BY / LIKE trên tên đề tài, tên tệp.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5433:5432"
+    volumes:
+      - novathesis-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Backend chờ healthcheck này trước khi chạy migration.
+      test: ["CMD-SHELL", "pg_isready -U novathesis -d novathesis"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Máy chủ SMTP giả: bắt toàn bộ email hệ thống gửi đi (xác minh tài khoản,
+  # đặt lại mật khẩu, nhắc deadline) và hiển thị tại http://localhost:8025
+  # thay vì gửi thật ra ngoài trong lúc phát triển.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: novathesis-mail
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  novathesis-pgdata:

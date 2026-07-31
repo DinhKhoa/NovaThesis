@@ -2,59 +2,98 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FloppyDisk } from "@phosphor-icons/react";
+import { ArrowLeft, FloppyDisk, Warning } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Card, Button, Input, Textarea } from "@/components/ui";
+import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { useAuthStore, isLecturer } from "@/lib/auth";
 import { toast } from "@/lib/toast";
+import { isApiError } from "@/lib/api";
+import { useAsync } from "@/lib/use-async";
+import { thesesApi } from "@/lib/services";
 
-const lecturersList = [
-  { id: 2, name: "TS. Nguyễn Văn A", department: "Khoa CNTT" },
-  { id: 3, name: "PGS.TS. Trần Thị B", department: "Khoa CNTT" },
+const FIELDS = [
+  "Công nghệ phần mềm",
+  "Trí tuệ nhân tạo & Dữ liệu",
+  "Hệ thống nhúng & IoT",
+  "An toàn thông tin",
+  "Mạng máy tính & Cloud",
+  "Hệ thống thông tin quản lý",
+  "Thị giác máy tính",
+  "Robot & Tự động hóa",
 ];
 
 export default function NewThesisPage() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const lecturerMode = isLecturer(user);
 
   const [title, setTitle] = React.useState("");
-  const [field, setField] = React.useState("Công nghệ phần mềm");
+  const [field, setField] = React.useState(FIELDS[0] ?? "");
   const [description, setDescription] = React.useState("");
-  const [lecturerId, setLecturerId] = React.useState<number>(2);
+  const [pickedLecturerId, setLecturerId] = React.useState<number | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+
+  const { data: lecturers, loading: loadingLecturers } = useAsync(
+    () => thesesApi.lecturers(),
+    [],
+    { enabled: !lecturerMode }
+  );
+
+  /* Chọn sẵn giảng viên đầu tiên còn chỗ. Chọn bừa người đã hết quota chỉ để rồi
+     server từ chối là đẩy một luật nghiệp vụ ra cho người dùng tự phát hiện.
+
+     Suy ra lúc render chứ không đồng bộ bằng useEffect: cách kia tạo thêm một
+     lượt render và một khoảnh khắc ô chọn hiển thị rỗng trước khi tự điền. */
+  const lecturerId =
+    pickedLecturerId ??
+    (lecturers?.find((l) => l.available) ?? lecturers?.[0])?.id ??
+    null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      toast.error("Vui lòng nhập tên tiêu đề đề tài");
+
+    if (title.trim().length < 10) {
+      toast.error("Tên đề tài cần ít nhất 10 ký tự để mô tả được nội dung.");
       return;
     }
-    if (!description.trim()) {
-      toast.error("Vui lòng nhập mô tả / đề cương tóm tắt");
+    if (description.trim().length < 30) {
+      toast.error("Mô tả cần ít nhất 30 ký tự — nêu mục tiêu và phạm vi nghiên cứu.");
+      return;
+    }
+    if (!lecturerMode && lecturerId === null) {
+      toast.error("Vui lòng chọn giảng viên hướng dẫn.");
       return;
     }
 
     setSubmitting(true);
     try {
-      // API call: api.post("/theses", { title, field, description, lecturer_id: lecturerId })
+      const created = await thesesApi.create({
+        title: title.trim(),
+        description: description.trim(),
+        field,
+        ...(lecturerMode ? {} : { lecturer_id: lecturerId ?? undefined }),
+      });
+
       toast.success(
-        isLecturer(user)
-          ? "Đề xuất đề tài thành công!"
-          : "Gửi đề xuất đề tài cho Giảng viên phê duyệt thành công!"
+        lecturerMode
+          ? "Đã tạo đề tài. Sinh viên có thể đăng ký từ danh sách."
+          : "Đã lưu bản nháp. Bấm “Gửi duyệt” ở trang chi tiết khi bạn sẵn sàng."
       );
-      router.push("/theses");
-    } catch {
-      toast.error("Không thể tạo đề tài");
+      router.push(`/theses/${created.id}`);
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Không tạo được đề tài.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  const selected = lecturers?.find((l) => l.id === lecturerId);
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-4">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/theses")}
           className="btn-ghost text-tertiary hover:text-primary text-[13px] inline-flex items-center gap-1.5 p-0"
         >
           <ArrowLeft size={16} />
@@ -63,72 +102,88 @@ export default function NewThesisPage() {
       </div>
 
       <PageHeader
-        title={isLecturer(user) ? "Tạo Đề tài mới (Giảng viên)" : "Đề xuất Đề tài mới (Sinh viên)"}
+        title={lecturerMode ? "Tạo đề tài mới" : "Đề xuất đề tài"}
         description={
-          isLecturer(user)
-            ? "Tạo đề tài nghiên cứu để sinh viên đăng ký."
-            : "Đề xuất tên đề tài và nội dung cho Giảng viên hướng dẫn duyệt."
+          lecturerMode
+            ? "Tạo đề tài nghiên cứu để sinh viên đăng ký thực hiện."
+            : "Đề tài được lưu ở trạng thái Nháp. Bạn xem lại rồi mới gửi cho giảng viên duyệt."
         }
       />
 
       <Card className="p-6">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
-            label="Tên tiêu đề đề tài / Luận văn *"
-            placeholder="Ví dụ: Xây dựng hệ thống RAG Reranking hỗ trợ tìm kiếm tài liệu..."
+            label="Tên đề tài *"
+            placeholder="Ví dụ: Xây dựng hệ thống tìm kiếm ngữ nghĩa cho kho luận văn bằng pgvector"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
+            helperText={`${title.trim().length}/255 ký tự`}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[13px] font-medium text-secondary block mb-1.5">
-                Lĩnh vực chuyên môn *
-              </label>
-              <select
-                className="input-base text-[14px]"
-                value={field}
-                onChange={(e) => setField(e.target.value)}
-              >
-                <option value="Công nghệ phần mềm">Công nghệ phần mềm</option>
-                <option value="Trí tuệ nhân tạo & Data">Trí tuệ nhân tạo & Data</option>
-                <option value="Hệ thống nhúng & IoT">Hệ thống nhúng & IoT</option>
-                <option value="An toàn thông tin">An toàn thông tin</option>
-                <option value="Mạng máy tính & Cloud">Mạng máy tính & Cloud</option>
-              </select>
-            </div>
+            <Select
+              label="Lĩnh vực chuyên môn *"
+              value={field}
+              onChange={(e) => setField(e.target.value)}
+            >
+              {FIELDS.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </Select>
 
-            {!isLecturer(user) && (
-              <div>
-                <label className="text-[13px] font-medium text-secondary block mb-1.5">
-                  Giảng viên hướng dẫn mong muốn *
-                </label>
-                <select
-                  className="input-base text-[14px]"
-                  value={lecturerId}
-                  onChange={(e) => setLecturerId(Number(e.target.value))}
-                >
-                  {lecturersList.map((gv) => (
-                    <option key={gv.id} value={gv.id}>
-                      {gv.name} ({gv.department})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {!lecturerMode && (
+              <Select
+                label="Giảng viên hướng dẫn *"
+                value={lecturerId ?? ""}
+                onChange={(e) => setLecturerId(Number(e.target.value))}
+                disabled={loadingLecturers}
+                helperText={
+                  selected
+                    ? `Đang hướng dẫn ${selected.current_students}/${selected.max_students} sinh viên`
+                    : "Đang tải danh sách giảng viên…"
+                }
+              >
+                {(lecturers ?? []).map((gv) => (
+                  <option key={gv.id} value={gv.id} disabled={!gv.available}>
+                    {gv.name} — {gv.department}
+                    {gv.available ? "" : " (đã đủ sinh viên)"}
+                  </option>
+                ))}
+              </Select>
             )}
           </div>
 
+          {selected && !selected.available && (
+            <div
+              className="flex items-start gap-2 px-3 py-2.5 rounded-[8px] text-[12.5px]"
+              style={{
+                background: "var(--warning-bg)",
+                border: "1px solid var(--warning-border)",
+                color: "var(--warning)",
+              }}
+            >
+              <Warning size={15} weight="fill" className="flex-shrink-0 mt-px" />
+              <span>
+                Giảng viên này đã nhận đủ số sinh viên hướng dẫn. Đề tài vẫn lưu được ở dạng nháp,
+                nhưng sẽ không được duyệt cho đến khi có chỗ trống.
+              </span>
+            </div>
+          )}
+
           <Textarea
-            label="Mô tả chi tiết / Đề cương tóm tắt *"
-            rows={6}
-            placeholder="Nêu rõ mục tiêu nghiên cứu, phạm vi công việc, công nghệ ứng dụng..."
+            label="Mô tả / Đề cương tóm tắt *"
+            rows={7}
+            placeholder="Nêu rõ mục tiêu nghiên cứu, phạm vi công việc, phương pháp và công nghệ dự kiến sử dụng…"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            helperText={`${description.trim().length} ký tự — càng cụ thể, giảng viên càng dễ duyệt`}
           />
 
-          <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-[var(--border-primary)]">
-            <Button variant="ghost" type="button" onClick={() => router.back()}>
+          <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-[var(--border-primary)]">
+            <Button variant="ghost" type="button" onClick={() => router.push("/theses")}>
               Hủy
             </Button>
             <Button
@@ -137,7 +192,7 @@ export default function NewThesisPage() {
               loading={submitting}
               icon={<FloppyDisk size={15} />}
             >
-              {isLecturer(user) ? "Khởi tạo Đề tài" : "Gửi Đề xuất"}
+              {lecturerMode ? "Tạo đề tài" : "Lưu bản nháp"}
             </Button>
           </div>
         </form>

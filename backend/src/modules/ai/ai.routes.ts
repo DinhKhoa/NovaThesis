@@ -1,0 +1,896 @@
+/**
+ * MODULE 6 — TRỢ LÝ AI
+ *
+ * Hỏi đáp RAG có trích dẫn (UC 6.5–6.9), tìm kiếm ngữ nghĩa (UC 6.4), gợi ý lộ
+ * trình (UC 6.10–6.13), kiểm tra trùng lặp (UC 6.15) và thống kê sử dụng (UC 9.3).
+ *
+ * Hai ràng buộc chi phối gần như mọi dòng trong tệp này:
+ *
+ *   • PHẠM VI DỮ LIỆU. Không có một điều kiện phân quyền nào được viết tay ở đây.
+ *     Mọi câu hỏi "người này được đọc tài liệu nào" đều đi qua `domain/access.ts`
+ *     (`assertThesisAccess`, `accessibleDocumentIds`, `thesisScopeFilter`). Đó là
+ *     điều kiện để Tenant Isolation (`Yêu cầu dự án.md` §2.1) chỉ cần đúng ở một
+ *     chỗ thay vì đúng ở mười ba endpoint.
+ *
+ *   • RANH GIỚI SSE. `POST /chat` gửi header ngay khi bắt đầu trả lời, nên từ
+ *     thời điểm đó `errorHandler` không còn làm gì được nữa. Toàn bộ phần có thể
+ *     hỏng vì đầu vào — tìm phiên, kiểm tra quyền — được làm XONG trước khi mở
+ *     luồng; sau khi mở, lỗi được báo bằng sự kiện `error` chứ không ném ra ngoài.
+ */
+import { Router, type Response } from "express";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
+
+import { prisma } from "../../lib/prisma";
+import { logger } from "../../lib/logger";
+import { env } from "../../config/env";
+import { asyncHandler, initSSE, noContent, paginated, parsePage, paginationSchema, sendSSE } from "../../lib/http";
+import { audit, AuditAction } from "../../lib/audit";
+import { badRequest, conflict, notFound, unprocessable } from "../../lib/errors";
+import { currentUser, requireAuth, requireRole, type AuthUser } from "../../middleware/auth";
+import { optionalText, text, validateBody, validateParams, validateQuery, idParam } from "../../middleware/validate";
+import { aiLimiter } from "../../middleware/rate-limit";
+import { accessibleDocumentIds, assertThesisAccess, thesisScopeFilter } from "../../domain/access";
+import { notifyMany, thesisAudience } from "../../services/notifications";
+import { currentModelName, retrieve, streamAnswer, type Citation } from "../../services/ai/rag";
+import { searchHybridChunks, searchSimilarChunks } from "../../services/ai/vector.repository";
+import { embedOne } from "../../services/ai/embeddings";
+import type { ChatTurn } from "../../services/ai/llm";
+import {
+  toChatMessageDTO,
+  toChatSessionDTO,
+  toMilestoneDTO,
+  toSuggestionDTO,
+} from "../serializers";
+import {
+  collectAiStats,
+  generateRoadmap,
+  parseStoredRoadmap,
+  roadmapAuditDetails,
+  scorePlagiarism,
+} from "./ai.service";
+
+export const aiRouter = Router();
+
+/* ==========================================================================
+   LƯỢC ĐỒ ĐẦU VÀO
+   ========================================================================== */
+
+/**
+ * Khoá ngoại tuỳ chọn đến từ query string hoặc body.
+ *
+ * `preprocess` quy chuỗi rỗng về `undefined` vì `?thesis_id=` (người dùng xoá bộ
+ * lọc trên giao diện) là chuyện thường xuyên, và `z.coerce.number("")` cho ra 0 —
+ * một mã đề tài không tồn tại, dẫn tới 404 khó hiểu thay vì "không lọc gì cả".
+ */
+const optionalId = (label: string) =>
+  z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.coerce.number().int().positive(`${label} không hợp lệ.`).optional()
+  );
+
+const thesisFilterQuery = z.object({ thesis_id: optionalId("Mã đề tài") });
+
+const createSessionSchema = z.object({
+  thesis_id: optionalId("Mã đề tài"),
+  title: optionalText(255, "Tiêu đề hội thoại"),
+});
+
+const renameSessionSchema = z.object({
+  title: text(1, 255, "Tiêu đề hội thoại"),
+});
+
+const chatSchema = z.object({
+  session_id: optionalId("Mã phiên hội thoại"),
+  thesis_id: optionalId("Mã đề tài"),
+  prompt: text(1, 2000, "Câu hỏi"),
+});
+
+const ratingSchema = z.object({
+  // `null` là giá trị hợp lệ, không phải thiếu dữ liệu: UC 6.9 luồng phụ 1a —
+  // bấm lại đúng biểu tượng đang chọn nghĩa là huỷ đánh giá.
+  rating: z.enum(["LIKE", "DISLIKE"]).nullable(),
+  note: optionalText(1000, "Ghi chú phản hồi"),
+});
+
+const searchSchema = z.object({
+  query: text(2, 500, "Nội dung tìm kiếm"),
+  thesis_id: optionalId("Mã đề tài"),
+  top_k: z.coerce.number().int().min(1).max(20).default(Math.min(env.RAG_TOP_K, 20)),
+});
+
+const suggestSchema = z.object({
+  thesis_id: z.coerce.number().int().positive("Mã đề tài không hợp lệ."),
+});
+
+const acceptSchema = z.object({
+  indexes: z.array(z.coerce.number().int().min(0).max(999)).max(12).optional(),
+});
+
+const plagiarismSchema = z.object({
+  thesis_id: z.coerce.number().int().positive("Mã đề tài không hợp lệ."),
+  text: text(50, 20_000, "Đoạn văn bản cần kiểm tra"),
+});
+
+/* ==========================================================================
+   PHIÊN HỘI THOẠI (UC 6.7 / 6.8)
+   ========================================================================== */
+
+/** Số phiên trả về tối đa. Thanh bên chỉ hiển thị lịch sử gần đây, không phải kho lưu trữ. */
+const SESSION_LIST_LIMIT = 100;
+
+/**
+ * Nạp phiên và khẳng định người gọi là chủ sở hữu.
+ *
+ * Lọc thẳng theo `user_id` trong `where` thay vì tải lên rồi so sánh: phiên của
+ * người khác trả về 404 chứ không phải 403, nên không có cách nào dò xem một mã
+ * phiên có tồn tại hay không.
+ */
+async function ownedSession(user: AuthUser, sessionId: number) {
+  const session = await prisma.aIChatSession.findFirst({
+    where: { id: sessionId, user_id: user.id, deleted_at: null },
+    select: { id: true, thesis_id: true, title: true },
+  });
+  if (!session) throw notFound("Phiên hội thoại không tồn tại hoặc đã bị xóa.");
+  return session;
+}
+
+aiRouter.get(
+  "/sessions",
+  requireAuth,
+  validateQuery(thesisFilterQuery),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { thesis_id } = req.query as unknown as z.infer<typeof thesisFilterQuery>;
+
+    if (thesis_id !== undefined) await assertThesisAccess(user, thesis_id, "view");
+
+    const sessions = await prisma.aIChatSession.findMany({
+      where: {
+        user_id: user.id,
+        deleted_at: null,
+        ...(thesis_id !== undefined ? { thesis_id } : {}),
+      },
+      orderBy: { updated_at: "desc" },
+      take: SESSION_LIST_LIMIT,
+      include: { _count: { select: { messages: true } } },
+    });
+
+    res.json({ data: sessions.map(toChatSessionDTO) });
+  })
+);
+
+aiRouter.post(
+  "/sessions",
+  requireAuth,
+  validateBody(createSessionSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const body = req.body as z.infer<typeof createSessionSchema>;
+
+    // `thesis_id` để trống là hợp lệ (xem ghi chú ở schema): sinh viên chưa được
+    // duyệt đề tài vẫn hỏi trợ lý được, chỉ là phạm vi RAG rỗng.
+    if (body.thesis_id !== undefined) await assertThesisAccess(user, body.thesis_id, "view");
+
+    const session = await prisma.aIChatSession.create({
+      data: {
+        user_id: user.id,
+        thesis_id: body.thesis_id ?? null,
+        ...(body.title ? { title: body.title } : {}),
+      },
+      include: { _count: { select: { messages: true } } },
+    });
+
+    audit({
+      action: AuditAction.AI_CHAT,
+      req,
+      details: { sub_action: "session_create", session_id: session.id, thesis_id: session.thesis_id },
+    });
+
+    res.status(201).json(toChatSessionDTO(session));
+  })
+);
+
+aiRouter.patch(
+  "/sessions/:id",
+  requireAuth,
+  validateParams(idParam),
+  validateBody(renameSessionSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+    const { title } = req.body as z.infer<typeof renameSessionSchema>;
+
+    await ownedSession(user, id);
+
+    const session = await prisma.aIChatSession.update({
+      where: { id },
+      data: { title },
+      include: { _count: { select: { messages: true } } },
+    });
+
+    audit({
+      action: AuditAction.AI_CHAT,
+      req,
+      details: { sub_action: "session_rename", session_id: id },
+    });
+
+    res.json(toChatSessionDTO(session));
+  })
+);
+
+aiRouter.delete(
+  "/sessions/:id",
+  requireAuth,
+  validateParams(idParam),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+
+    await ownedSession(user, id);
+
+    // Xoá MỀM dù UC 6.8 nói "xóa hoàn toàn": thống kê UC 9.3 đếm trên chính bảng
+    // này, nên xoá cứng sẽ làm báo cáo sử dụng AI teo dần mỗi lần có người dọn
+    // lịch sử. Người dùng không còn thấy phiên ở bất kỳ endpoint nào — đúng thứ
+    // họ yêu cầu; số liệu tổng hợp thì vẫn nguyên.
+    await prisma.aIChatSession.update({ where: { id }, data: { deleted_at: new Date() } });
+
+    audit({
+      action: AuditAction.AI_CHAT,
+      req,
+      details: { sub_action: "session_delete", session_id: id },
+    });
+
+    noContent(res);
+  })
+);
+
+aiRouter.get(
+  "/sessions/:id/messages",
+  requireAuth,
+  validateParams(idParam),
+  validateQuery(paginationSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+    const page = parsePage(req.query);
+
+    await ownedSession(user, id);
+
+    const [messages, total] = await Promise.all([
+      prisma.aIChatMessage.findMany({
+        where: { session_id: id },
+        // Cũ → mới: khung chat đọc từ trên xuống, đảo lại ở client là việc thừa.
+        orderBy: { created_at: "asc" },
+        skip: page.skip,
+        take: page.take,
+      }),
+      prisma.aIChatMessage.count({ where: { session_id: id } }),
+    ]);
+
+    res.json(paginated(messages.map(toChatMessageDTO), total, page));
+  })
+);
+
+/* ==========================================================================
+   HỎI ĐÁP RAG DẠNG LUỒNG (UC 6.5)
+   ========================================================================== */
+
+/** Số lượt gần nhất đưa vào ngữ cảnh để hiểu câu hỏi nối tiếp ("cái đó" trỏ về đâu). */
+const HISTORY_TURNS = 6;
+
+/** Không ghi vào response đã đóng: sau khi client ngắt, `res` bị huỷ và mọi lần ghi là vô nghĩa. */
+function emit(res: Response, event: string, data: unknown): void {
+  if (res.writableEnded || res.destroyed) return;
+  sendSSE(res, event, data);
+}
+
+function sessionTitle(prompt: string): string {
+  return prompt.slice(0, 60).trim() || "Hội thoại mới";
+}
+
+async function loadHistory(sessionId: number, beforeMessageId: number): Promise<ChatTurn[]> {
+  const rows = await prisma.aIChatMessage.findMany({
+    where: { session_id: sessionId, id: { lt: beforeMessageId } },
+    orderBy: { id: "desc" },
+    take: HISTORY_TURNS,
+    select: { role: true, content: true },
+  });
+  return rows
+    .reverse()
+    .map((r) => ({ role: r.role === "USER" ? ("user" as const) : ("assistant" as const), content: r.content }));
+}
+
+aiRouter.post(
+  "/chat",
+  requireAuth,
+  aiLimiter,
+  validateBody(chatSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const body = req.body as z.infer<typeof chatSchema>;
+    const prompt = body.prompt;
+
+    /* ---- Giai đoạn 1: mọi thứ còn báo lỗi JSON được, làm trước khi mở luồng ---- */
+
+    let session: { id: number; thesis_id: number | null };
+    if (body.session_id !== undefined) {
+      session = await ownedSession(user, body.session_id);
+    } else {
+      if (body.thesis_id !== undefined) await assertThesisAccess(user, body.thesis_id, "view");
+      session = await prisma.aIChatSession.create({
+        data: {
+          user_id: user.id,
+          thesis_id: body.thesis_id ?? null,
+          title: sessionTitle(prompt),
+        },
+        select: { id: true, thesis_id: true },
+      });
+    }
+
+    const userMessage = await prisma.aIChatMessage.create({
+      data: { session_id: session.id, role: "USER", content: prompt },
+    });
+    const history = await loadHistory(session.id, userMessage.id);
+
+    /* ---- Giai đoạn 2: từ đây trở đi header đã gửi, lỗi đi qua sự kiện `error` ---- */
+
+    initSSE(res);
+
+    const controller = new AbortController();
+    let aborted = false;
+
+    /*
+     * Bấm "Dừng" giữa chừng.
+     *
+     * Nghe trên `res` chứ không phải `req`: từ Node 16, `req` phát `close` NGAY
+     * khi thân yêu cầu đã đọc xong — với một POST JSON nhỏ, điều đó xảy ra trước
+     * cả chữ đầu tiên của câu trả lời, nên gắn vào đó sẽ huỷ mọi phiên chat ngay
+     * lập tức. `res` phát `close` khi phản hồi kết thúc HOẶC khi kết nối đứt, nên
+     * `writableFinished` phân biệt được hai trường hợp đó.
+     */
+    const onClose = (): void => {
+      if (res.writableFinished) return;
+      aborted = true;
+      controller.abort();
+    };
+    res.on("close", onClose);
+
+    const startedAt = Date.now();
+    let answer = "";
+    let citations: Citation[] = [];
+
+    try {
+      emit(res, "session", {
+        session_id: session.id,
+        thesis_id: session.thesis_id,
+        user_message: toChatMessageDTO(userMessage),
+      });
+
+      const retrieval = await retrieve({
+        user,
+        query: prompt,
+        thesisId: session.thesis_id,
+      });
+      citations = retrieval.citations;
+
+      // Gửi trích dẫn TRƯỚC khi sinh chữ: nguồn là bề mặt tin cậy của một câu trả
+      // lời RAG, và người đọc có thể mở tài liệu gốc trong lúc chữ vẫn đang chạy.
+      emit(res, "citations", { citations });
+
+      for await (const chunk of streamAnswer({
+        question: prompt,
+        retrieval,
+        history,
+        signal: controller.signal,
+      })) {
+        // Chế độ `local` phát lại văn bản có sẵn và không hề nhìn tới `signal`;
+        // không tự thoát ở đây thì "Dừng" sẽ không dừng được gì.
+        if (aborted) break;
+        answer += chunk;
+        emit(res, "delta", { text: chunk });
+      }
+
+      const latencyMs = Date.now() - startedAt;
+
+      const assistantMessage = await prisma.aIChatMessage.create({
+        data: {
+          session_id: session.id,
+          role: "ASSISTANT",
+          content: answer,
+          // `Citation` có trường tuỳ chọn nên không khớp trực tiếp `InputJsonValue`;
+          // giá trị thì luôn là JSON thuần vì nó vừa đi qua `JSON.stringify` của SSE.
+          citations: citations as unknown as Prisma.InputJsonValue,
+          model_name: currentModelName(),
+          latency_ms: latencyMs,
+          // Bị ngắt giữa chừng thì để trống: serializer dựa vào đúng cột này để
+          // đánh dấu câu trả lời chưa hoàn chỉnh.
+          finished_at: aborted ? null : new Date(),
+        },
+      });
+
+      // Danh sách phiên sắp theo `updated_at`; không chạm vào đây thì phiên vừa
+      // nhắn vẫn nằm nguyên chỗ cũ trong thanh bên.
+      await prisma.aIChatSession.update({
+        where: { id: session.id },
+        data: { updated_at: new Date() },
+      });
+
+      audit({
+        action: AuditAction.AI_CHAT,
+        req,
+        details: {
+          session_id: session.id,
+          thesis_id: session.thesis_id,
+          citations: citations.length,
+          latency_ms: latencyMs,
+          aborted,
+        },
+      });
+
+      emit(res, "done", {
+        message_id: assistantMessage.id,
+        session_id: session.id,
+        message: toChatMessageDTO(assistantMessage),
+        model_name: assistantMessage.model_name,
+        latency_ms: latencyMs,
+        citations: citations.length,
+        incomplete: aborted,
+      });
+    } catch (err) {
+      // Không ném ra `errorHandler`: header 200 đã đi rồi, đổi mã trạng thái lúc
+      // này là không thể và `res.json()` sẽ nối JSON vào giữa luồng sự kiện.
+      logger.error({ err, session_id: session.id }, "Luồng trả lời AI thất bại");
+      audit({
+        action: AuditAction.AI_PROVIDER_ERROR,
+        req,
+        level: "ERROR",
+        details: { session_id: session.id, message: err instanceof Error ? err.message : "unknown" },
+      });
+      emit(res, "error", {
+        message: "Trợ lý gặp sự cố khi sinh câu trả lời. Vui lòng thử lại sau ít phút.",
+      });
+    } finally {
+      res.off("close", onClose);
+      if (!res.writableEnded) res.end();
+    }
+  })
+);
+
+/* ==========================================================================
+   ĐÁNH GIÁ CÂU TRẢ LỜI (UC 6.9)
+   ========================================================================== */
+
+aiRouter.post(
+  "/messages/:id/rating",
+  requireAuth,
+  validateParams(idParam),
+  validateBody(ratingSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+    const { rating, note } = req.body as z.infer<typeof ratingSchema>;
+
+    const message = await prisma.aIChatMessage.findFirst({
+      where: { id, session: { user_id: user.id, deleted_at: null } },
+      select: { id: true, role: true, session_id: true },
+    });
+    if (!message) throw notFound("Không tìm thấy câu trả lời cần đánh giá.");
+    if (message.role !== "ASSISTANT") {
+      throw badRequest("Chỉ đánh giá được câu trả lời của trợ lý.");
+    }
+
+    const updated = await prisma.aIChatMessage.update({
+      where: { id },
+      data: {
+        rating,
+        // Huỷ đánh giá thì xoá luôn ghi chú đi kèm: giữ lại một ghi chú không còn
+        // gắn với biểu tượng nào chỉ làm dữ liệu phân tích nhiễu.
+        feedback_note: rating === null ? null : (note ?? null),
+      },
+    });
+
+    audit({
+      action: AuditAction.AI_CHAT,
+      req,
+      details: { sub_action: "rating", message_id: id, session_id: message.session_id, rating },
+    });
+
+    res.json(toChatMessageDTO(updated));
+  })
+);
+
+/* ==========================================================================
+   TÌM KIẾM NGỮ NGHĨA (UC 6.4)
+   ========================================================================== */
+
+aiRouter.post(
+  "/search",
+  requireAuth,
+  aiLimiter,
+  validateBody(searchSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { query, thesis_id, top_k } = req.body as z.infer<typeof searchSchema>;
+
+    if (thesis_id !== undefined) await assertThesisAccess(user, thesis_id, "view");
+
+    const startedAt = Date.now();
+    const documentIds = await accessibleDocumentIds(user, thesis_id ?? null);
+
+    // `null` = Admin không giới hạn. Con số này chỉ để hiển thị "đã tìm trong N
+    // tài liệu", nên chỉ Admin mới phải trả giá thêm một lần đếm.
+    const scopeDocuments =
+      documentIds === null
+        ? await prisma.document.count({ where: { deleted_at: null } })
+        : documentIds.length;
+
+    const queryVector = await embedOne(query);
+    // Tìm kiếm LAI: hợp nhất xếp hạng vector và xếp hạng toàn văn. Vector thuần
+    // thất bại với truy vấn ngắn chứa thuật ngữ hiếm ("HNSW khác IVFFlat?") —
+    // xem phần đo đạc trong migration ..._chunk_fulltext_index.
+    const hits = await searchHybridChunks({
+      queryVector,
+      queryText: query,
+      documentIds,
+      // Lấy dư rồi cắt: bộ lọc liên quan bên dưới có thể loại bớt kết quả đầu.
+      limit: top_k * 3,
+    });
+
+    const results = hits.slice(0, top_k).map((hit) => ({
+      document_id: hit.document_id,
+      doc_title: hit.doc_title,
+      page: hit.page_number,
+      score: Number(hit.score.toFixed(4)),
+      snippet: hit.content.slice(0, 400),
+      chunk_id: hit.chunk_id,
+    }));
+
+    const tookMs = Date.now() - startedAt;
+
+    audit({
+      action: AuditAction.AI_SEMANTIC_SEARCH,
+      req,
+      details: {
+        thesis_id: thesis_id ?? null,
+        query: query.slice(0, 120),
+        results: results.length,
+        scope_documents: scopeDocuments,
+        took_ms: tookMs,
+      },
+    });
+
+    res.json({ results, took_ms: tookMs, scope_documents: scopeDocuments });
+  })
+);
+
+/* ==========================================================================
+   GỢI Ý LỘ TRÌNH (UC 6.10 – 6.13)
+   ========================================================================== */
+
+aiRouter.get(
+  "/suggestions",
+  requireAuth,
+  validateQuery(thesisFilterQuery),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { thesis_id } = req.query as unknown as z.infer<typeof thesisFilterQuery>;
+
+    if (thesis_id !== undefined) await assertThesisAccess(user, thesis_id, "view");
+
+    // Không lọc theo đề tài thì phạm vi vẫn phải bị chặn: lọc lồng qua quan hệ
+    // `thesis` để tái dùng đúng điều kiện mà module đề tài đang dùng.
+    const scope = await thesisScopeFilter(user);
+
+    const suggestions = await prisma.aISuggestion.findMany({
+      where: {
+        status: "PENDING",
+        ...(thesis_id !== undefined ? { thesis_id } : { thesis: scope }),
+      },
+      orderBy: { created_at: "desc" },
+      take: 50,
+    });
+
+    res.json({ data: suggestions.map(toSuggestionDTO) });
+  })
+);
+
+aiRouter.post(
+  "/suggestions",
+  requireAuth,
+  aiLimiter,
+  validateBody(suggestSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { thesis_id } = req.body as z.infer<typeof suggestSchema>;
+
+    await assertThesisAccess(user, thesis_id, "contribute");
+
+    const draft = await generateRoadmap({ thesisId: thesis_id, attempt: 1 });
+
+    const suggestion = await prisma.aISuggestion.create({
+      data: {
+        thesis_id,
+        created_by: user.id,
+        payload: draft.items as unknown as Prisma.InputJsonValue,
+        status: "PENDING",
+        model_name: draft.modelName,
+        attempt: 1,
+      },
+    });
+
+    audit({
+      action: AuditAction.AI_SUGGEST,
+      req,
+      details: { thesis_id, suggestion_id: suggestion.id, attempt: 1, ...roadmapAuditDetails(draft) },
+    });
+
+    res.status(201).json(toSuggestionDTO(suggestion));
+  })
+);
+
+/** Nạp gợi ý kèm kiểm tra quyền trên đề tài của nó. */
+async function editableSuggestion(user: AuthUser, suggestionId: number) {
+  const suggestion = await prisma.aISuggestion.findUnique({ where: { id: suggestionId } });
+  if (!suggestion) throw notFound("Gợi ý không tồn tại.");
+  await assertThesisAccess(user, suggestion.thesis_id, "contribute");
+  return suggestion;
+}
+
+aiRouter.post(
+  "/suggestions/:id/accept",
+  requireAuth,
+  validateParams(idParam),
+  validateBody(acceptSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+    const { indexes } = req.body as z.infer<typeof acceptSchema>;
+
+    const suggestion = await editableSuggestion(user, id);
+    if (suggestion.status !== "PENDING") {
+      throw conflict("Gợi ý này đã được xử lý trước đó.");
+    }
+
+    const items = parseStoredRoadmap(suggestion.payload);
+    if (!items) throw unprocessable("Nội dung gợi ý không còn đọc được. Hãy tạo lại gợi ý mới.");
+
+    const selected = indexes?.length
+      ? indexes.map((i) => {
+          const item = items[i];
+          if (!item) throw badRequest(`Gợi ý số ${i + 1} không tồn tại trong danh sách.`);
+          return item;
+        })
+      : items;
+
+    if (selected.length === 0) throw badRequest("Chưa chọn nhiệm vụ nào để tạo mốc.");
+
+    // Nối tiếp thứ tự hiện có thay vì bắt đầu lại từ 0: bảng Kanban và biểu đồ
+    // Gantt (UC 9.4) sắp theo `order_index`, chèn trùng số sẽ làm mốc nhảy chỗ.
+    const maxOrder = await prisma.milestone.aggregate({
+      where: { thesis_id: suggestion.thesis_id, deleted_at: null },
+      _max: { order_index: true },
+    });
+    const baseOrder = (maxOrder._max.order_index ?? -1) + 1;
+
+    const createdAfter = new Date();
+    const rows = selected.map((item, i) => ({
+      thesis_id: suggestion.thesis_id,
+      name: item.name,
+      description: item.description || null,
+      // Mô hình chỉ đưa ra "sau bao nhiêu tuần"; ngày thật được quy đổi ở đây,
+      // tại thời điểm người dùng bấm chấp nhận (xem ghi chú ở `ai.service.ts`).
+      deadline: new Date(createdAfter.getTime() + item.weeks_from_now * 7 * 86_400_000),
+      status: "NOT_STARTED" as const,
+      order_index: baseOrder + i,
+    }));
+
+    const created = await prisma.$transaction(async (tx) => {
+      await tx.milestone.createMany({ data: rows });
+      await tx.aISuggestion.update({ where: { id }, data: { status: "ACCEPTED" } });
+      // `createMany` không trả về bản ghi; đọc lại theo đúng khoảng thứ tự vừa
+      // cấp phát, kèm mốc thời gian để không vơ nhầm mốc do người khác tạo song song.
+      return tx.milestone.findMany({
+        where: {
+          thesis_id: suggestion.thesis_id,
+          deleted_at: null,
+          order_index: { gte: baseOrder, lt: baseOrder + rows.length },
+          created_at: { gte: createdAfter },
+        },
+        orderBy: { order_index: "asc" },
+        include: {
+          thesis: { select: { id: true, title: true } },
+          _count: { select: { feedbacks: true } },
+        },
+      });
+    });
+
+    const audience = await thesisAudience(suggestion.thesis_id);
+    await notifyMany(
+      audience.all.filter((userId) => userId !== user.id),
+      {
+        type: "MILESTONE",
+        title: "Đề tài có mốc tiến độ mới",
+        content: `${user.full_name} đã tạo ${created.length} mốc tiến độ từ gợi ý của trợ lý AI.`,
+        link: `/milestones?thesis_id=${suggestion.thesis_id}`,
+      }
+    );
+
+    audit({
+      action: AuditAction.MILESTONE_CREATE,
+      req,
+      details: {
+        source: "ai_suggestion",
+        suggestion_id: id,
+        thesis_id: suggestion.thesis_id,
+        milestone_ids: created.map((m) => m.id),
+      },
+    });
+
+    res.status(201).json({
+      data: created.map(toMilestoneDTO),
+      suggestion: toSuggestionDTO({ ...suggestion, status: "ACCEPTED" }),
+    });
+  })
+);
+
+aiRouter.post(
+  "/suggestions/:id/reject",
+  requireAuth,
+  validateParams(idParam),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+
+    const suggestion = await editableSuggestion(user, id);
+    if (suggestion.status !== "PENDING") {
+      throw conflict("Gợi ý này đã được xử lý trước đó.");
+    }
+
+    // Đổi trạng thái chứ không xoá — UC 6.12 business rule: "việc bỏ qua không
+    // xóa dữ liệu vĩnh viễn nhưng ẩn khỏi view hiện tại".
+    const updated = await prisma.aISuggestion.update({
+      where: { id },
+      data: { status: "REJECTED" },
+    });
+
+    audit({
+      action: AuditAction.AI_SUGGEST,
+      req,
+      details: { sub_action: "reject", suggestion_id: id, thesis_id: suggestion.thesis_id },
+    });
+
+    res.json(toSuggestionDTO(updated));
+  })
+);
+
+aiRouter.post(
+  "/suggestions/:id/regenerate",
+  requireAuth,
+  aiLimiter,
+  validateParams(idParam),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+
+    const previous = await editableSuggestion(user, id);
+    const attempt = previous.attempt + 1;
+    const previousItems = parseStoredRoadmap(previous.payload);
+
+    const draft = await generateRoadmap({
+      thesisId: previous.thesis_id,
+      attempt,
+      previousNames: previousItems?.map((i) => i.name) ?? [],
+    });
+
+    // Hai lượt ghi trong một giao dịch: nếu gợi ý mới được tạo mà bản cũ không
+    // chuyển sang REJECTED, người dùng sẽ thấy hai danh sách PENDING cùng lúc.
+    const suggestion = await prisma.$transaction(async (tx) => {
+      await tx.aISuggestion.update({ where: { id }, data: { status: "REJECTED" } });
+      return tx.aISuggestion.create({
+        data: {
+          thesis_id: previous.thesis_id,
+          created_by: user.id,
+          payload: draft.items as unknown as Prisma.InputJsonValue,
+          status: "PENDING",
+          model_name: draft.modelName,
+          attempt,
+        },
+      });
+    });
+
+    audit({
+      action: AuditAction.AI_SUGGEST,
+      req,
+      details: {
+        sub_action: "regenerate",
+        thesis_id: previous.thesis_id,
+        replaced_suggestion_id: id,
+        suggestion_id: suggestion.id,
+        attempt,
+        ...roadmapAuditDetails(draft),
+      },
+    });
+
+    res.status(201).json(toSuggestionDTO(suggestion));
+  })
+);
+
+/* ==========================================================================
+   KIỂM TRA TRÙNG LẶP (UC 6.15)
+   ========================================================================== */
+
+/** Số đoạn lấy về trước khi gom theo tài liệu. Rộng hơn 5 nguồn cần trả về khá nhiều. */
+const PLAGIARISM_CANDIDATES = 60;
+
+aiRouter.post(
+  "/plagiarism",
+  requireAuth,
+  aiLimiter,
+  validateBody(plagiarismSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const body = req.body as z.infer<typeof plagiarismSchema>;
+
+    // Chỉ cần quyền ĐỌC: đối chiếu trùng lặp không thay đổi gì trên đề tài, và
+    // giảng viên phải chạy được cả trên đề tài đã hoàn thành (vốn bị `contribute`
+    // đóng băng).
+    await assertThesisAccess(user, body.thesis_id, "view");
+
+    // Đối chiếu với TOÀN BỘ kho tài liệu người dùng được đọc, không loại trừ
+    // chính đề tài đang kiểm tra: trùng với tài liệu tham khảo mà chính mình đã
+    // tải lên vẫn là trùng, và đó lại là trường hợp hay gặp nhất.
+    const documentIds = await accessibleDocumentIds(user, null);
+
+    const queryVector = await embedOne(body.text);
+    const hits = await searchSimilarChunks({
+      queryVector,
+      documentIds,
+      limit: PLAGIARISM_CANDIDATES,
+    });
+
+    const verdict = scorePlagiarism(body.text, hits);
+
+    const check = await prisma.plagiarismCheck.create({
+      data: {
+        thesis_id: body.thesis_id,
+        input_text: body.text,
+        similarity: verdict.similarity,
+        matches: verdict.matches as unknown as Prisma.InputJsonValue,
+        checked_by: user.id,
+      },
+      select: { id: true },
+    });
+
+    audit({
+      action: AuditAction.AI_PLAGIARISM,
+      req,
+      details: {
+        thesis_id: body.thesis_id,
+        check_id: check.id,
+        similarity: verdict.similarity,
+        matches: verdict.matches.length,
+        input_chars: body.text.length,
+      },
+    });
+
+    res.status(201).json({
+      id: check.id,
+      similarity: verdict.similarity,
+      matches: verdict.matches,
+    });
+  })
+);
+
+/* ==========================================================================
+   THỐNG KÊ SỬ DỤNG AI (UC 9.3)
+   ========================================================================== */
+
+aiRouter.get(
+  "/stats",
+  requireAuth,
+  requireRole("ADMIN"),
+  asyncHandler(async (_req, res) => {
+    res.json(await collectAiStats());
+  })
+);

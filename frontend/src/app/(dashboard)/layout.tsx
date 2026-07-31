@@ -59,7 +59,7 @@ export default function DashboardLayout({
             : "lg:pl-[var(--sidebar-width)]"
         }`}
       >
-        <Topbar onOpenMobileNav={() => setMobileOpen(true)} unreadCount={3} />
+        <Topbar onOpenMobileNav={() => setMobileOpen(true)} />
 
         <main className="flex-1 min-w-0 p-3 sm:p-4 lg:p-5">
           {/*

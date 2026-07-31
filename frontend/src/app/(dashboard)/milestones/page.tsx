@@ -2,121 +2,61 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "next/navigation";
 import {
-  Plus,
-  Clock,
-  CheckCircle,
-  XCircle,
-  UploadSimple,
   CalendarCheck,
-  FilePdf,
+  CheckCircle,
+  Clock,
+  ClockCounterClockwise,
   DotsSixVertical,
+  FilePdf,
+  Plus,
   Prohibit,
+  Trash,
+  UploadSimple,
+  Warning,
+  XCircle,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import {
-  Card,
-  Button,
   Badge,
-  Modal,
-  Input,
-  Textarea,
+  Button,
+  Card,
+  ConfirmDialog,
   Dropdown,
   DropdownItem,
+  DropdownSeparator,
+  EmptyState,
+  Input,
+  Modal,
+  SegmentedControl,
   Select,
+  Skeleton,
   Table,
+  Textarea,
   useMounted,
 } from "@/components/ui";
 import { useAuthStore, isLecturer } from "@/lib/auth";
 import { toast } from "@/lib/toast";
-import {
-  checkTransition,
-  STATUS_LABELS,
-  TRANSITION_TOASTS,
-} from "@/lib/milestone-fsm";
+import { isApiError } from "@/lib/api";
+import { useAsync } from "@/lib/use-async";
+import { checkTransition, STATUS_LABELS, TRANSITION_TOASTS } from "@/lib/milestone-fsm";
 import { useBoardDrag } from "@/lib/use-board-drag";
+import {
+  milestonesApi,
+  reportsApi,
+  thesesApi,
+  type Milestone,
+  type MilestoneHistoryEntry,
+  type MilestoneStatus,
+} from "@/lib/services";
+import { daysUntil, formatDate, formatDateTime, toDateInputValue } from "@/lib/format";
 
-/* ========================================
-   TYPES (ERD Milestones Table)
-   ======================================== */
-
-export type MilestoneStatus =
-  | "NOT_STARTED"
-  | "ONGOING"
-  | "PENDING_APPROVAL"
-  | "COMPLETED"
-  | "REVISION_REQUIRED";
-
-export interface Milestone {
-  id: number;
-  thesis_id: number;
-  name: string;
-  description: string;
-  deadline: string;
-  status: MilestoneStatus;
-  description_revision?: string;
-  evidence_file_url?: string | null;
-  evidence_filename?: string | null;
-  extension_requested?: boolean;
-  extension_reason?: string;
-  extension_new_deadline?: string;
-  created_at: string;
-}
-
-const mockMilestones: Milestone[] = [
-  {
-    id: 1,
-    thesis_id: 1,
-    name: "Nộp Báo cáo Đề cương Luận văn",
-    description: "Xây dựng đề cương chi tiết, tổng quan tài liệu nghiên cứu và lịch trình thực hiện.",
-    deadline: "2026-07-25",
-    status: "ONGOING",
-    created_at: "2026-02-15",
-  },
-  {
-    id: 2,
-    thesis_id: 1,
-    name: "Thiết kế Kiến trúc Hệ thống & ERD Database",
-    description: "Đặc tả sơ đồ thực thể ERD 13 bảng và thiết kế UI wireframe.",
-    deadline: "2026-07-20",
-    status: "PENDING_APPROVAL",
-    evidence_file_url: "/uploads/erd_spec_v2.pdf",
-    evidence_filename: "erd_spec_v2.pdf",
-    created_at: "2026-02-20",
-  },
-  {
-    id: 3,
-    thesis_id: 1,
-    name: "Cài đặt Module AI & Vector Search (pgvector)",
-    description: "Tích hợp pgvector, chunking tài liệu PDF và kết nối OpenAI embedding API.",
-    deadline: "2026-08-05",
-    status: "NOT_STARTED",
-    created_at: "2026-03-01",
-  },
-  {
-    id: 4,
-    thesis_id: 1,
-    name: "Hoàn thiện Frontend Dashboard & Flow 92 Use Cases",
-    description: "Xây dựng giao diện Next.js 15 Tailwind v4 chuẩn UX.",
-    deadline: "2026-07-15",
-    status: "COMPLETED",
-    evidence_file_url: "/uploads/frontend_demo_v1.zip",
-    evidence_filename: "frontend_demo_v1.zip",
-    created_at: "2026-02-10",
-  },
-  {
-    id: 5,
-    thesis_id: 1,
-    name: "Thử nghiệm Đánh giá Lỗi Security & Input Validation",
-    description: "Kiểm tra chống SQL Injection, rate limit, bcrypt password hashing.",
-    deadline: "2026-08-15",
-    status: "REVISION_REQUIRED",
-    description_revision: "Cần bổ sung thêm phần kiểm tra JWT Refresh Token.",
-    created_at: "2026-03-10",
-  },
-];
-
-const statusColumns: { key: MilestoneStatus; label: string; variant: "neutral" | "info" | "warning" | "success" | "danger" }[] = [
+const statusColumns: {
+  key: MilestoneStatus;
+  label: string;
+  variant: "neutral" | "info" | "warning" | "success" | "danger";
+}[] = [
   { key: "NOT_STARTED", label: STATUS_LABELS.NOT_STARTED, variant: "neutral" },
   { key: "ONGOING", label: STATUS_LABELS.ONGOING, variant: "info" },
   { key: "PENDING_APPROVAL", label: STATUS_LABELS.PENDING_APPROVAL, variant: "warning" },
@@ -124,80 +64,89 @@ const statusColumns: { key: MilestoneStatus; label: string; variant: "neutral" |
   { key: "COMPLETED", label: STATUS_LABELS.COMPLETED, variant: "success" },
 ];
 
-/* Left-to-right order, which is also the order the keyboard arrows walk. */
 const COLUMN_ORDER = statusColumns.map((c) => c.key) as readonly MilestoneStatus[];
 
 export default function MilestonesPage() {
   const { user } = useAuthStore();
-  const [milestones, setMilestones] = React.useState<Milestone[]>(mockMilestones);
+  const searchParams = useSearchParams();
+  const thesisParam = searchParams.get("thesis");
+
   const [viewMode, setViewMode] = React.useState<"kanban" | "list">("kanban");
-
-  // Create Milestone Modal (UC 4.1)
-  const [createModalOpen, setCreateModalOpen] = React.useState(false);
-  const [name, setName] = React.useState("");
-  const [desc, setDesc] = React.useState("");
-  const [deadline, setDeadline] = React.useState("");
-
-  // Upload Evidence Modal (UC 4.9)
-  const [uploadModalOpen, setUploadModalOpen] = React.useState(false);
-  const [selectedMilestone, setSelectedMilestone] = React.useState<Milestone | null>(null);
-  const [uploading, setUploading] = React.useState(false);
-
-  // Extend Deadline Modal (UC 4.7)
-  const [extendModalOpen, setExtendModalOpen] = React.useState(false);
-  const [extendReason, setExtendReason] = React.useState("");
-  const [newDeadline, setNewDeadline] = React.useState("");
-
-  // GV Revision Request Modal (UC 4.11)
-  const [revisionModalOpen, setRevisionModalOpen] = React.useState(false);
-  const [revisionComment, setRevisionComment] = React.useState("");
-
-  // Export PDF Progress (UC 4.15)
-  const [exportingPdf, setExportingPdf] = React.useState(false);
-
-  // Handlers
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !deadline) {
-      toast.error("Vui lòng điền tên mốc và hạn chót");
-      return;
-    }
-    const created: Milestone = {
-      id: Date.now(),
-      thesis_id: 1,
-      name,
-      description: desc,
-      deadline,
-      status: "NOT_STARTED",
-      created_at: new Date().toISOString().split("T")[0],
-    };
-    setMilestones((prev) => [...prev, created]);
-    toast.success("Đã tạo milestone mới!");
-    setCreateModalOpen(false);
-    setName("");
-    setDesc("");
-    setDeadline("");
-  };
-
-  // Status change (UC 4.8). Every path into this — drag, keyboard, menu —
-  // goes through the FSM first, so the board can never produce a state the
-  // server would reject.
-  const handleStatusChange = React.useCallback(
-    (id: number, next: MilestoneStatus) => {
-      setMilestones((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, status: next } : m))
-      );
-      toast.success(TRANSITION_TOASTS[next] ?? "Đã cập nhật trạng thái.");
-    },
-    []
+  const [pickedThesisId, setThesisId] = React.useState<number | null>(
+    thesisParam ? Number(thesisParam) : null
   );
 
-  /* The board reads the transition table rather than owning any rules of its
-     own, so drag, keyboard and the row menu all agree on what is legal. */
+  /* Danh sách đề tài để chọn phạm vi. Giảng viên hướng dẫn nhiều đề tài cùng
+     lúc; gộp hết mốc của mọi đề tài vào một bảng Kanban thì cột nào cũng đầy
+     và không còn đọc được. */
+  const { data: theses } = useAsync(() => thesesApi.list({ per_page: 100 }), []);
+  const thesisOptions = theses?.data ?? [];
+
+  /* Suy ra lúc render thay vì đồng bộ bằng useEffect: cách kia tốn thêm một
+     lượt render và một khoảnh khắc bảng Kanban hiện rỗng trước khi tự chọn. */
+  const thesisId = pickedThesisId ?? thesisOptions[0]?.id ?? null;
+
+  const { data, loading, error, refetch, setData } = useAsync(
+    () => milestonesApi.list({ per_page: 100, ...(thesisId ? { thesis_id: thesisId } : {}) }),
+    [thesisId],
+    { enabled: thesisId !== null }
+  );
+
+  const milestones = React.useMemo(
+    () => [...(data?.data ?? [])].sort((a, b) => a.order_index - b.order_index),
+    [data]
+  );
+
+  /* ---- Modal state ---- */
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [selected, setSelected] = React.useState<Milestone | null>(null);
+  const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [extendOpen, setExtendOpen] = React.useState(false);
+  const [revisionOpen, setRevisionOpen] = React.useState(false);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<Milestone | null>(null);
+  const [exportingPdf, setExportingPdf] = React.useState(false);
+
+  const replaceMilestone = React.useCallback(
+    (updated: Milestone) => {
+      setData((prev) =>
+        prev ? { ...prev, data: prev.data.map((m) => (m.id === updated.id ? updated : m)) } : prev
+      );
+    },
+    [setData]
+  );
+
+  /* ---- Đổi trạng thái (UC 4.8) ------------------------------------------
+     Server là trọng tài cuối cùng. Ta cập nhật lạc quan để bảng phản hồi tức
+     thì, nhưng nếu FSM phía server từ chối thì trả lại đúng bản ghi cũ — chứ
+     không giữ một trạng thái mà cơ sở dữ liệu không hề có. */
+  const handleStatusChange = React.useCallback(
+    async (id: number, next: MilestoneStatus) => {
+      const before = milestones.find((m) => m.id === id);
+      if (!before || before.status === next) return;
+
+      setData((prev) =>
+        prev
+          ? { ...prev, data: prev.data.map((m) => (m.id === id ? { ...m, status: next } : m)) }
+          : prev
+      );
+
+      try {
+        const updated = await milestonesApi.setStatus(id, next);
+        replaceMilestone(updated);
+        toast.success(TRANSITION_TOASTS[next] ?? "Đã cập nhật trạng thái.");
+      } catch (err) {
+        replaceMilestone(before);
+        toast.error(isApiError(err) ? err.message : "Không đổi được trạng thái.");
+      }
+    },
+    [milestones, setData, replaceMilestone]
+  );
+
   const canDrop = React.useCallback(
     (id: string, from: MilestoneStatus, to: MilestoneStatus) => {
       const m = milestones.find((x) => String(x.id) === id);
-      if (!m) return { allowed: false };
+      if (!m) return { allowed: false as const, reason: "Không tìm thấy mốc." };
       return checkTransition(from, to, user?.role, m);
     },
     [milestones, user?.role]
@@ -206,121 +155,111 @@ export default function MilestonesPage() {
   const board = useBoardDrag<MilestoneStatus>({
     columns: COLUMN_ORDER,
     canDrop,
-    onDrop: (id, _from, to) => handleStatusChange(Number(id), to),
+    onDrop: (id, _from, to) => void handleStatusChange(Number(id), to),
     onReject: (reason) => toast.error(reason),
   });
 
   const mounted = useMounted();
 
-  // Approve Milestone (UC 4.10)
-  const handleApprove = (id: number) => {
-    setMilestones((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, status: "COMPLETED" } : m))
-    );
-    toast.success("Giảng viên đã phê duyệt hoàn thành milestone!");
-  };
-
-  // Request Revision (UC 4.11)
-  const handleRequestRevision = () => {
-    if (!selectedMilestone || !revisionComment.trim()) {
-      toast.error("Vui lòng nhập nhận xét yêu cầu sửa đổi");
-      return;
-    }
-    setMilestones((prev) =>
-      prev.map((m) =>
-        m.id === selectedMilestone.id ? { ...m, status: "REVISION_REQUIRED" } : m
-      )
-    );
-    toast.warning("Đã yêu cầu sinh viên chỉnh sửa!");
-    setRevisionModalOpen(false);
-    setRevisionComment("");
-  };
-
-  // Request Extension (UC 4.7)
-  const handleRequestExtension = () => {
-    if (!selectedMilestone || !extendReason || !newDeadline) {
-      toast.error("Vui lòng điền đầy đủ thông tin gia hạn");
-      return;
-    }
-    setMilestones((prev) =>
-      prev.map((m) =>
-        m.id === selectedMilestone.id
-          ? {
-              ...m,
-              extension_requested: true,
-              extension_reason: extendReason,
-              extension_new_deadline: newDeadline,
-            }
-          : m
-      )
-    );
-    toast.success("Đã gửi yêu cầu xin gia hạn deadline tới Giảng viên!");
-    setExtendModalOpen(false);
-  };
-
-  // Export PDF (UC 4.15)
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
+    if (!thesisId) return;
     setExportingPdf(true);
-    setTimeout(() => {
-      toast.success("Đã xuất và tải xuống file Báo_cáo_tiến_độ_NovaThesis.pdf!");
+    try {
+      await reportsApi.download(
+        `/reports/progress/${thesisId}/pdf`,
+        `Bao_cao_tien_do_${thesisId}.pdf`
+      );
+      toast.success("Đã tải báo cáo tiến độ.");
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Không xuất được báo cáo.");
+    } finally {
       setExportingPdf(false);
-    }, 1500);
+    }
   };
+
+  const overdue = milestones.filter(
+    (m) => m.status !== "COMPLETED" && daysUntil(m.deadline) < 0
+  ).length;
 
   return (
     <div>
       <PageHeader
         title="Tiến độ"
         description="Các mốc công việc của đề tài, hạn nộp và trạng thái phê duyệt."
+        meta={overdue > 0 ? <Badge variant="danger">{overdue} mốc quá hạn</Badge> : undefined}
         actions={
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
               icon={<FilePdf size={15} />}
               loading={exportingPdf}
-              onClick={handleExportPdf}
+              disabled={!thesisId}
+              onClick={() => void handleExportPdf()}
             >
               Xuất PDF
             </Button>
             <Button
               variant="primary"
               icon={<Plus size={15} />}
-              onClick={() => setCreateModalOpen(true)}
+              disabled={!thesisId}
+              onClick={() => setCreateOpen(true)}
             >
-              Thêm Milestone
+              Thêm mốc
             </Button>
           </div>
         }
       />
 
-      {/* Board View / List View Switch */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-primary)]">
-          <button
-            className={`px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors ${
-              viewMode === "kanban"
-                ? "bg-[var(--bg-tertiary)] text-primary shadow-sm"
-                : "text-tertiary hover:text-primary"
-            }`}
-            onClick={() => setViewMode("kanban")}
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <SegmentedControl
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { value: "kanban", label: "Bảng Kanban" },
+            { value: "list", label: "Danh sách" },
+          ]}
+        />
+
+        {thesisOptions.length > 1 && (
+          <Select
+            value={thesisId ?? ""}
+            onChange={(e) => setThesisId(Number(e.target.value))}
+            className="w-auto max-w-sm"
+            aria-label="Chọn đề tài"
           >
-            Kanban Board
-          </button>
-          <button
-            className={`px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors ${
-              viewMode === "list"
-                ? "bg-[var(--bg-tertiary)] text-primary shadow-sm"
-                : "text-tertiary hover:text-primary"
-            }`}
-            onClick={() => setViewMode("list")}
-          >
-            Danh sách
-          </button>
-        </div>
+            {thesisOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))}
+          </Select>
+        )}
       </div>
 
-      {/* KANBAN BOARD VIEW (UC 4.2, 4.8) */}
-      {viewMode === "kanban" && (
+      {error ? (
+        <EmptyState
+          icon={<Warning size={16} />}
+          title="Không tải được mốc tiến độ"
+          description={error}
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              Thử lại
+            </Button>
+          }
+        />
+      ) : loading && !data ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {COLUMN_ORDER.map((c) => (
+            <Skeleton key={c} className="h-72 rounded-lg" />
+          ))}
+        </div>
+      ) : thesisId === null ? (
+        <EmptyState
+          icon={<CalendarCheck size={16} />}
+          title="Chưa có đề tài nào"
+          description="Mốc tiến độ thuộc về một đề tài. Hãy tạo hoặc tham gia một đề tài trước."
+        />
+      ) : viewMode === "kanban" ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto pb-4">
           {statusColumns.map((col) => {
             const items = milestones.filter((m) => m.status === col.key);
@@ -328,7 +267,6 @@ export default function MilestonesPage() {
 
             return (
               <div key={col.key} className="flex flex-col gap-2 min-w-[240px]">
-                {/* Column Header */}
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-primary)]">
                   <span className="text-[12.5px] font-semibold text-secondary">{col.label}</span>
                   <Badge variant={col.variant}>{items.length}</Badge>
@@ -344,123 +282,110 @@ export default function MilestonesPage() {
                   aria-dropeffect={state === "valid" ? "move" : undefined}
                   className="drop-zone flex flex-col gap-2 min-h-[22rem] rounded-lg p-1"
                 >
-                  {items.map((m) => (
-                    <Card
-                      key={m.id}
-                      hoverable={false}
-                      data-dragging={
-                        board.activeItemId === String(m.id) ? "true" : undefined
-                      }
-                      className="board-card p-3 flex flex-col justify-between"
-                      onPointerDown={(e: React.PointerEvent) =>
-                        board.startPointerDrag(e, String(m.id), m.status)
-                      }
-                      onKeyDown={(e: React.KeyboardEvent) =>
-                        board.handleKeyDown(e, String(m.id), m.status)
-                      }
-                      tabIndex={0}
-                      aria-roledescription="Thẻ mốc tiến độ, có thể kéo thả"
-                      aria-grabbed={board.activeItemId === String(m.id)}
-                      aria-label={`${m.name} — ${STATUS_LABELS[m.status]}. Nhấn Space để di chuyển.`}
-                    >
-                      <div>
-                        <div className="flex items-start gap-1.5 mb-1.5">
-                          {/* `touch-action: none` lives on the grip alone, so
-                              the board still scrolls under a finger everywhere
-                              else on the card. */}
-                          <span
-                            className="drag-grip -ml-1 mt-px flex-shrink-0"
-                            aria-hidden="true"
-                          >
-                            <DotsSixVertical size={14} weight="bold" />
-                          </span>
-                          <h3 className="text-[13px] font-semibold leading-snug">
-                            {m.name}
-                          </h3>
-                        </div>
-                        <p className="text-[12px] text-tertiary line-clamp-2 mb-2.5 leading-relaxed">
-                          {m.description}
-                        </p>
-                      </div>
-
-                      <div>
-                        {/* Evidence Tag */}
-                        {m.evidence_filename && (
-                          <div className="flex items-center gap-1.5 text-[11px] text-accent mb-2 bg-[var(--accent-subtle)] p-1.5 rounded-md">
-                            <UploadSimple size={14} />
-                            <span className="truncate">{m.evidence_filename}</span>
+                  {items.map((m) => {
+                    const late = m.status !== "COMPLETED" && daysUntil(m.deadline) < 0;
+                    return (
+                      <Card
+                        key={m.id}
+                        hoverable={false}
+                        data-dragging={board.activeItemId === String(m.id) ? "true" : undefined}
+                        className="board-card p-3 flex flex-col justify-between"
+                        onPointerDown={(e: React.PointerEvent) =>
+                          board.startPointerDrag(e, String(m.id), m.status)
+                        }
+                        onKeyDown={(e: React.KeyboardEvent) =>
+                          board.handleKeyDown(e, String(m.id), m.status)
+                        }
+                        tabIndex={0}
+                        aria-roledescription="Thẻ mốc tiến độ, có thể kéo thả"
+                        aria-grabbed={board.activeItemId === String(m.id)}
+                        aria-label={`${m.name} — ${STATUS_LABELS[m.status]}. Nhấn Space để di chuyển.`}
+                      >
+                        <div>
+                          <div className="flex items-start gap-1.5 mb-1.5">
+                            {/* `touch-action: none` lives on the grip alone, so
+                                the board still scrolls under a finger everywhere
+                                else on the card. */}
+                            <span className="drag-grip -ml-1 mt-px flex-shrink-0" aria-hidden="true">
+                              <DotsSixVertical size={14} weight="bold" />
+                            </span>
+                            <h3 className="text-[13px] font-semibold leading-snug">{m.name}</h3>
                           </div>
-                        )}
-
-                        {/* Extension Tag */}
-                        {m.extension_requested && (
-                          <div className="flex items-center gap-1.5 text-[11px] text-warning mb-2 bg-[var(--warning-bg)] p-1.5 rounded-md">
-                            <Clock size={14} />
-                            <span>Xin gia hạn → {m.extension_new_deadline}</span>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-[11px] text-tertiary pt-2 border-t border-[var(--border-secondary)]">
-                          <span className="flex items-center gap-1 font-mono">
-                            <Clock size={14} /> {m.deadline}
-                          </span>
-
-                          <Dropdown
-                            align="right"
-                            trigger={
-                              <button className="btn-ghost p-1 rounded hover:text-primary text-[12px]">
-                                Thao tác
-                              </button>
-                            }
-                          >
-                            {/* Student Action: Upload evidence */}
-                            <DropdownItem
-                              icon={<UploadSimple size={16} />}
-                              onClick={() => {
-                                setSelectedMilestone(m);
-                                setUploadModalOpen(true);
-                              }}
-                            >
-                              Nộp minh chứng
-                            </DropdownItem>
-
-                            {/* Student Action: Extend deadline */}
-                            <DropdownItem
-                              icon={<CalendarCheck size={16} />}
-                              onClick={() => {
-                                setSelectedMilestone(m);
-                                setExtendModalOpen(true);
-                              }}
-                            >
-                              Xin gia hạn
-                            </DropdownItem>
-
-                            {/* GV Actions: Approve / Reject (UC 4.10, 4.11) */}
-                            {isLecturer(user) && (
-                              <>
-                                <DropdownItem
-                                  icon={<CheckCircle size={16} />}
-                                  onClick={() => handleApprove(m.id)}
-                                >
-                                  Duyệt thành công
-                                </DropdownItem>
-                                <DropdownItem
-                                  danger
-                                  icon={<XCircle size={16} />}
-                                  onClick={() => {
-                                    setSelectedMilestone(m);
-                                    setRevisionModalOpen(true);
-                                  }}
-                                >
-                                  Yêu cầu sửa
-                                </DropdownItem>
-                              </>
-                            )}
-                          </Dropdown>
+                          {m.description && (
+                            <p className="text-[12px] text-tertiary line-clamp-2 mb-2.5 leading-relaxed">
+                              {m.description}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    </Card>
-                  ))}
+
+                        <div>
+                          {m.status === "REVISION_REQUIRED" && m.description_revision && (
+                            <div className="text-[11px] text-danger mb-2 bg-[var(--danger-bg)] p-1.5 rounded-md line-clamp-2">
+                              {m.description_revision}
+                            </div>
+                          )}
+
+                          {m.evidence_filename && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-accent mb-2 bg-[var(--accent-subtle)] p-1.5 rounded-md">
+                              <UploadSimple size={14} />
+                              <span className="truncate">{m.evidence_filename}</span>
+                            </div>
+                          )}
+
+                          {m.extension_requested && m.extension_status === "PENDING" && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-warning mb-2 bg-[var(--warning-bg)] p-1.5 rounded-md">
+                              <Clock size={14} />
+                              <span>Xin gia hạn → {formatDate(m.extension_new_deadline)}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-[11px] text-tertiary pt-2 border-t border-[var(--border-secondary)]">
+                            <span
+                              className={`flex items-center gap-1 tnum ${late ? "text-danger font-medium" : ""}`}
+                            >
+                              <Clock size={14} /> {formatDate(m.deadline)}
+                            </span>
+
+                            <MilestoneActions
+                              milestone={m}
+                              isLecturer={isLecturer(user) || user?.role === "ADMIN"}
+                              onUpload={() => {
+                                setSelected(m);
+                                setUploadOpen(true);
+                              }}
+                              onExtend={() => {
+                                setSelected(m);
+                                setExtendOpen(true);
+                              }}
+                              onRevision={() => {
+                                setSelected(m);
+                                setRevisionOpen(true);
+                              }}
+                              onHistory={() => {
+                                setSelected(m);
+                                setHistoryOpen(true);
+                              }}
+                              onApprove={() => void handleStatusChange(m.id, "COMPLETED")}
+                              onDelete={() => setDeleteTarget(m)}
+                              onReviewExtension={async (approve) => {
+                                try {
+                                  const updated = await milestonesApi.reviewExtension(m.id, approve);
+                                  replaceMilestone(updated);
+                                  toast.success(
+                                    approve ? "Đã duyệt gia hạn." : "Đã từ chối yêu cầu gia hạn."
+                                  );
+                                } catch (err) {
+                                  toast.error(
+                                    isApiError(err) ? err.message : "Thao tác thất bại."
+                                  );
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
 
                   {items.length === 0 && (
                     <p className="text-[12px] text-muted text-center py-6 select-none">
@@ -472,15 +397,7 @@ export default function MilestonesPage() {
             );
           })}
         </div>
-      )}
-
-      {/* LIST VIEW
-          The toggle for this already existed but rendered nothing. It matters
-          more now: a board you can only operate by dragging is unusable on a
-          narrow screen and awkward with assistive tech, so this is the same
-          workflow reachable through a plain control. Both paths call the same
-          FSM, so neither can produce a state the other would refuse. */}
-      {viewMode === "list" && (
+      ) : (
         <Card hoverable={false} className="overflow-hidden">
           <Table
             data={milestones}
@@ -493,16 +410,22 @@ export default function MilestonesPage() {
                   ? "success"
                   : undefined
             }
+            emptyState={
+              <EmptyState
+                compact
+                icon={<CalendarCheck size={16} />}
+                title="Chưa có mốc tiến độ nào"
+                description="Tạo mốc đầu tiên, hoặc để trợ lý AI đề xuất một lộ trình."
+              />
+            }
             columns={[
               {
                 key: "name",
                 header: "Mốc tiến độ",
-                sortValue: (m) => m.name,
+                sortValue: (m) => m.order_index,
                 render: (m) => (
                   <div className="min-w-0 py-0.5">
-                    <p className="text-[13px] font-medium truncate max-w-[28rem]">
-                      {m.name}
-                    </p>
+                    <p className="text-[13px] font-medium truncate max-w-[28rem]">{m.name}</p>
                     <p className="text-[12px] text-tertiary truncate max-w-[34rem]">
                       {m.description}
                     </p>
@@ -516,9 +439,7 @@ export default function MilestonesPage() {
                 hideOnMobile: true,
                 render: (m) =>
                   m.evidence_filename ? (
-                    <span className="chip max-w-[12rem] truncate">
-                      {m.evidence_filename}
-                    </span>
+                    <span className="chip max-w-[12rem] truncate">{m.evidence_filename}</span>
                   ) : (
                     <span className="text-muted">—</span>
                   ),
@@ -529,11 +450,16 @@ export default function MilestonesPage() {
                 width: "1%",
                 hideOnMobile: true,
                 sortValue: (m) => m.deadline,
-                render: (m) => (
-                  <span className="text-[12.5px] text-tertiary tnum whitespace-nowrap">
-                    {m.deadline}
-                  </span>
-                ),
+                render: (m) => {
+                  const late = m.status !== "COMPLETED" && daysUntil(m.deadline) < 0;
+                  return (
+                    <span
+                      className={`text-[12.5px] tnum whitespace-nowrap ${late ? "text-danger font-medium" : "text-tertiary"}`}
+                    >
+                      {formatDate(m.deadline)}
+                    </span>
+                  );
+                },
               },
               {
                 key: "status",
@@ -541,23 +467,21 @@ export default function MilestonesPage() {
                 width: "1%",
                 sortValue: (m) => m.status,
                 render: (m) => {
-                  /* Only the transitions the FSM would actually accept are
-                     offered, so the control cannot present a dead end. */
-                  const targets = COLUMN_ORDER.filter(
-                    (t) =>
-                      t === m.status ||
-                      checkTransition(m.status, t, user?.role, m).allowed
-                  );
+                  /* Server đã trả sẵn `allowed_targets` tính từ chính bảng FSM
+                     của nó, nên danh sách này không thể lệch khỏi thứ server
+                     chấp nhận. Tính lại ở client là tạo ra nguồn sự thật thứ hai. */
+                  const targets = m.allowed_targets ?? [];
                   return (
                     <Select
                       value={m.status}
                       aria-label={`Trạng thái của ${m.name}`}
                       className="w-auto"
-                      disabled={targets.length <= 1}
+                      disabled={targets.length === 0}
                       onChange={(e) =>
-                        handleStatusChange(m.id, e.target.value as MilestoneStatus)
+                        void handleStatusChange(m.id, e.target.value as MilestoneStatus)
                       }
                     >
+                      <option value={m.status}>{STATUS_LABELS[m.status]}</option>
                       {targets.map((t) => (
                         <option key={t} value={t}>
                           {STATUS_LABELS[t]}
@@ -582,9 +506,6 @@ export default function MilestonesPage() {
           : ""}
       </div>
 
-      {/* Floating card that follows the pointer. Portalled to <body> so no
-          ancestor transform can re-anchor it, and pointer-events disabled so
-          it never becomes its own hit target. */}
       {mounted && board.drag
         ? createPortal(
             <div
@@ -611,146 +532,544 @@ export default function MilestonesPage() {
           )
         : null}
 
-      {/* Modal: Create Milestone */}
-      <Modal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        title="Tạo Milestone mốc tiến độ mới"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setCreateModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="primary" onClick={handleCreate}>
-              Khởi tạo Milestone
-            </Button>
-          </>
-        }
-      >
-        <form className="flex flex-col gap-4">
-          <Input
-            label="Tên mốc tiến độ *"
-            placeholder="Ví dụ: Báo cáo Đề cương / Demo sản phẩm v1"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Input
-            label="Hạn chót hoàn thành (Deadline) *"
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-          />
-          <Textarea
-            label="Mô tả công việc & Yêu cầu sản phẩm nộp"
-            rows={4}
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-          />
-        </form>
-      </Modal>
+      <CreateMilestoneModal
+        open={createOpen}
+        thesisId={thesisId}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setCreateOpen(false);
+          void refetch();
+        }}
+      />
 
-      {/* Modal: Upload Evidence File */}
-      <Modal
-        open={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
-        title={`Nộp minh chứng cho: ${selectedMilestone?.name}`}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setUploadModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button
-              variant="primary"
-              loading={uploading}
-              onClick={() => {
-                setUploading(true);
-                setTimeout(() => {
-                  setMilestones((prev) =>
-                    prev.map((m) =>
-                      m.id === selectedMilestone?.id
-                        ? {
-                            ...m,
-                            status: "PENDING_APPROVAL",
-                            evidence_filename: "bao_cao_minh_chung.pdf",
-                          }
-                        : m
-                    )
-                  );
-                  toast.success("Đã tải lên minh chứng và chuyển sang trạng thái Chờ phê duyệt!");
-                  setUploading(false);
-                  setUploadModalOpen(false);
-                }, 1000);
-              }}
-            >
-              Tải lên & Nộp bài
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[var(--border-primary)] rounded-xl bg-[var(--bg-secondary)] text-center cursor-pointer hover:border-[var(--accent)] transition-colors">
-          <UploadSimple size={36} className="text-accent mb-2" />
-          <p className="text-[14px] font-medium text-primary">Kéo thả file báo cáo vào đây hoặc click để duyệt</p>
-          <p className="text-[12px] text-tertiary mt-1">Hỗ trợ PDF, DOCX, ZIP (Tối đa 10MB)</p>
-        </div>
-      </Modal>
+      {/* `key` đổi mỗi lần mở/đóng nên React dựng lại modal với state sạch.
+          Đây là cách React khuyến nghị để "reset state theo prop", thay cho một
+          useEffect gọi ba lần setState — vốn tốn thêm một lượt render và để lộ
+          giá trị cũ trong khoảnh khắc đầu tiên modal xuất hiện. */}
+      <EvidenceModal
+        key={`evidence-${uploadOpen}-${selected?.id ?? 0}`}
+        open={uploadOpen}
+        milestone={selected}
+        onClose={() => setUploadOpen(false)}
+        onDone={(updated) => {
+          replaceMilestone(updated);
+          setUploadOpen(false);
+        }}
+      />
 
-      {/* Modal: Extend Deadline Request */}
-      <Modal
-        open={extendModalOpen}
-        onClose={() => setExtendModalOpen(false)}
-        title="Yêu cầu Xin Gia hạn Deadline"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setExtendModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="primary" onClick={handleRequestExtension}>
-              Gửi Yêu cầu Gia hạn
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            label="Hạn chót đề xuất mới *"
-            type="date"
-            value={newDeadline}
-            onChange={(e) => setNewDeadline(e.target.value)}
-          />
-          <Textarea
-            label="Lý do xin gia hạn (Bắt buộc) *"
-            rows={4}
-            placeholder="Nêu rõ khó khăn kỹ thuật hoặc lý do công quan..."
-            value={extendReason}
-            onChange={(e) => setExtendReason(e.target.value)}
-          />
-        </div>
-      </Modal>
+      <ExtensionModal
+        key={`extension-${extendOpen}-${selected?.id ?? 0}`}
+        open={extendOpen}
+        milestone={selected}
+        onClose={() => setExtendOpen(false)}
+        onDone={(updated) => {
+          replaceMilestone(updated);
+          setExtendOpen(false);
+        }}
+      />
 
-      {/* Modal: GV Revision Request */}
-      <Modal
-        open={revisionModalOpen}
-        onClose={() => setRevisionModalOpen(false)}
-        title="Yêu cầu Sinh viên Chỉnh sửa Milestone"
-        footer={
+      <RevisionModal
+        key={`revision-${revisionOpen}-${selected?.id ?? 0}`}
+        open={revisionOpen}
+        milestone={selected}
+        onClose={() => setRevisionOpen(false)}
+        onDone={(updated) => {
+          replaceMilestone(updated);
+          setRevisionOpen(false);
+        }}
+      />
+
+      <HistoryModal
+        open={historyOpen}
+        milestone={selected}
+        onClose={() => setHistoryOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Xóa mốc tiến độ?"
+        confirmLabel="Xóa"
+        message={
           <>
-            <Button variant="ghost" onClick={() => setRevisionModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="danger" onClick={handleRequestRevision}>
-              Gửi Yêu cầu Chỉnh sửa
-            </Button>
+            Mốc <strong className="text-primary">{deleteTarget?.name}</strong> sẽ bị ẩn khỏi bảng
+            tiến độ. Lịch sử thay đổi vẫn được giữ để kiểm toán.
           </>
         }
-      >
-        <Textarea
-          label="Nhận xét & Yêu cầu chỉnh sửa cụ thể *"
-          rows={5}
-          placeholder="Chỉ ra các điểm chưa đạt trong minh chứng..."
-          value={revisionComment}
-          onChange={(e) => setRevisionComment(e.target.value)}
-        />
-      </Modal>
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          try {
+            await milestonesApi.remove(deleteTarget.id);
+            toast.success("Đã xóa mốc tiến độ.");
+            setDeleteTarget(null);
+            void refetch();
+          } catch (err) {
+            toast.error(isApiError(err) ? err.message : "Xóa thất bại");
+          }
+        }}
+      />
     </div>
+  );
+}
+
+/* ==========================================================================
+   THAO TÁC TRÊN THẺ
+   ========================================================================== */
+
+function MilestoneActions({
+  milestone,
+  isLecturer,
+  onUpload,
+  onExtend,
+  onRevision,
+  onHistory,
+  onApprove,
+  onDelete,
+  onReviewExtension,
+}: {
+  milestone: Milestone;
+  isLecturer: boolean;
+  onUpload: () => void;
+  onExtend: () => void;
+  onRevision: () => void;
+  onHistory: () => void;
+  onApprove: () => void;
+  onDelete: () => void;
+  onReviewExtension: (approve: boolean) => void;
+}) {
+  const pendingExtension = milestone.extension_requested && milestone.extension_status === "PENDING";
+
+  return (
+    <Dropdown
+      align="right"
+      trigger={
+        <button className="btn-ghost p-1 rounded hover:text-primary text-[12px]">Thao tác</button>
+      }
+    >
+      {!isLecturer && (
+        <>
+          <DropdownItem icon={<UploadSimple size={16} />} onClick={onUpload}>
+            Nộp minh chứng
+          </DropdownItem>
+          <DropdownItem icon={<CalendarCheck size={16} />} onClick={onExtend}>
+            Xin gia hạn
+          </DropdownItem>
+        </>
+      )}
+
+      {isLecturer && (
+        <>
+          {pendingExtension && (
+            <>
+              <DropdownItem
+                icon={<CheckCircle size={16} />}
+                onClick={() => onReviewExtension(true)}
+              >
+                Duyệt gia hạn → {formatDate(milestone.extension_new_deadline)}
+              </DropdownItem>
+              <DropdownItem danger icon={<XCircle size={16} />} onClick={() => onReviewExtension(false)}>
+                Từ chối gia hạn
+              </DropdownItem>
+              <DropdownSeparator />
+            </>
+          )}
+          {milestone.status === "PENDING_APPROVAL" && (
+            <>
+              <DropdownItem icon={<CheckCircle size={16} />} onClick={onApprove}>
+                Duyệt hoàn thành
+              </DropdownItem>
+              <DropdownItem danger icon={<XCircle size={16} />} onClick={onRevision}>
+                Yêu cầu sửa
+              </DropdownItem>
+              <DropdownSeparator />
+            </>
+          )}
+        </>
+      )}
+
+      <DropdownItem icon={<ClockCounterClockwise size={16} />} onClick={onHistory}>
+        Lịch sử thay đổi
+      </DropdownItem>
+      <DropdownSeparator />
+      <DropdownItem danger icon={<Trash size={16} />} onClick={onDelete}>
+        Xóa mốc
+      </DropdownItem>
+    </Dropdown>
+  );
+}
+
+/* ==========================================================================
+   MODAL
+   ========================================================================== */
+
+function CreateMilestoneModal({
+  open,
+  thesisId,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  thesisId: number | null;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = React.useState("");
+  const [description, setDescription] = React.useState("");
+  const [deadline, setDeadline] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  const submit = async () => {
+    if (!thesisId) return;
+    if (!name.trim() || !deadline) {
+      toast.error("Vui lòng nhập tên mốc và hạn chót.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await milestonesApi.create({
+        thesis_id: thesisId,
+        name: name.trim(),
+        description: description.trim() || undefined,
+        deadline,
+      });
+      toast.success("Đã tạo mốc tiến độ.");
+      setName("");
+      setDescription("");
+      setDeadline("");
+      onCreated();
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Không tạo được mốc.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Tạo mốc tiến độ mới"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button variant="primary" loading={saving} onClick={() => void submit()}>
+            Tạo mốc
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Input
+          label="Tên mốc tiến độ *"
+          placeholder="Ví dụ: Nộp báo cáo đề cương"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          label="Hạn chót *"
+          type="date"
+          value={deadline}
+          onChange={(e) => setDeadline(e.target.value)}
+          min={toDateInputValue(new Date())}
+        />
+        <Textarea
+          label="Mô tả công việc & sản phẩm cần nộp"
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+    </Modal>
+  );
+}
+
+function EvidenceModal({
+  open,
+  milestone,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  milestone: Milestone | null;
+  onClose: () => void;
+  onDone: (m: Milestone) => void;
+}) {
+  const [file, setFile] = React.useState<File | null>(null);
+  const [progress, setProgress] = React.useState(0);
+  const [uploading, setUploading] = React.useState(false);
+
+  const submit = async () => {
+    if (!milestone || !file) {
+      toast.error("Vui lòng chọn tệp minh chứng.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const updated = await milestonesApi.uploadEvidence(milestone.id, file, true, setProgress);
+      toast.success("Đã nộp minh chứng và gửi duyệt.");
+      onDone(updated);
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Tải lên thất bại.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Nộp minh chứng: ${milestone?.name ?? ""}`}
+      description="Sau khi nộp, mốc sẽ chuyển sang trạng thái Chờ phê duyệt."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button variant="primary" loading={uploading} disabled={!file} onClick={() => void submit()}>
+            Tải lên &amp; gửi duyệt
+          </Button>
+        </>
+      }
+    >
+      <label
+        className="flex flex-col items-center justify-center gap-1.5 py-8 px-4 rounded-[10px] text-center cursor-pointer transition-colors hover:border-[var(--accent)]"
+        style={{ border: "1px dashed var(--border-strong)", background: "var(--bg-subtle)" }}
+      >
+        <UploadSimple size={22} className="text-tertiary" />
+        <span className="text-[13px] font-medium">
+          {file ? file.name : "Kéo thả tệp vào đây hoặc bấm để chọn"}
+        </span>
+        <span className="text-[12px] text-tertiary">PDF, DOCX, ZIP hoặc ảnh · tối đa 10 MB</span>
+        <input
+          type="file"
+          className="sr-only"
+          accept=".pdf,.doc,.docx,.zip,.png,.jpg,.jpeg,.txt"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+      </label>
+
+      {uploading && (
+        <div className="mt-3">
+          <div className="h-1 rounded-full overflow-hidden bg-[var(--bg-hover)]">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progress}%`, background: "var(--accent)" }}
+            />
+          </div>
+          <p className="text-[11.5px] text-tertiary mt-1 tnum">{progress}%</p>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function ExtensionModal({
+  open,
+  milestone,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  milestone: Milestone | null;
+  onClose: () => void;
+  onDone: (m: Milestone) => void;
+}) {
+  const [newDeadline, setNewDeadline] = React.useState("");
+  const [reason, setReason] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  const submit = async () => {
+    if (!milestone) return;
+    if (!newDeadline || !reason.trim()) {
+      toast.error("Vui lòng nhập hạn mới và lý do xin gia hạn.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await milestonesApi.requestExtension(
+        milestone.id,
+        newDeadline,
+        reason.trim()
+      );
+      toast.success("Đã gửi yêu cầu gia hạn tới giảng viên.");
+      onDone(updated);
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Gửi yêu cầu thất bại.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Xin gia hạn deadline"
+      description={milestone ? `Hạn hiện tại: ${formatDate(milestone.deadline)}` : undefined}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button variant="primary" loading={saving} onClick={() => void submit()}>
+            Gửi yêu cầu
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Input
+          label="Hạn chót đề xuất mới *"
+          type="date"
+          value={newDeadline}
+          onChange={(e) => setNewDeadline(e.target.value)}
+          min={milestone ? toDateInputValue(milestone.deadline) : undefined}
+        />
+        <Textarea
+          label="Lý do xin gia hạn *"
+          rows={4}
+          placeholder="Nêu rõ khó khăn kỹ thuật hoặc lý do khách quan…"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          helperText="Giảng viên sẽ nhận được thông báo và email ngay lập tức."
+        />
+      </div>
+    </Modal>
+  );
+}
+
+function RevisionModal({
+  open,
+  milestone,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  milestone: Milestone | null;
+  onClose: () => void;
+  onDone: (m: Milestone) => void;
+}) {
+  const [note, setNote] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  const submit = async () => {
+    if (!milestone) return;
+    if (!note.trim()) {
+      toast.error("Vui lòng nhập nhận xét để sinh viên biết cần sửa gì.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await milestonesApi.requestRevision(milestone.id, note.trim());
+      toast.warning("Đã gửi yêu cầu chỉnh sửa cho sinh viên.");
+      onDone(updated);
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Thao tác thất bại.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Yêu cầu sinh viên chỉnh sửa"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button variant="danger" loading={saving} onClick={() => void submit()}>
+            Gửi yêu cầu
+          </Button>
+        </>
+      }
+    >
+      <Textarea
+        label="Nhận xét & yêu cầu cụ thể *"
+        rows={5}
+        placeholder="Chỉ ra các điểm chưa đạt trong minh chứng…"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+    </Modal>
+  );
+}
+
+function HistoryModal({
+  open,
+  milestone,
+  onClose,
+}: {
+  open: boolean;
+  milestone: Milestone | null;
+  onClose: () => void;
+}) {
+  const { data, loading } = useAsync(
+    () => milestonesApi.history(milestone?.id ?? 0),
+    [milestone?.id, open],
+    { enabled: open && !!milestone }
+  );
+
+  const entries: MilestoneHistoryEntry[] = data ?? [];
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Lịch sử thay đổi"
+      description={milestone?.name}
+      width="max-w-lg"
+      footer={
+        <Button variant="ghost" onClick={onClose}>
+          Đóng
+        </Button>
+      }
+    >
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-12 rounded-md" />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
+        <p className="text-[13px] text-tertiary">Chưa có thay đổi nào được ghi nhận.</p>
+      ) : (
+        <ol className="flex flex-col gap-3">
+          {entries.map((h) => (
+            <li key={h.id} className="border-l-2 border-[var(--accent)] pl-3">
+              <p className="text-[13px]">
+                <span className="font-medium">{h.changed_by_name}</span>{" "}
+                <span className="text-tertiary">
+                  đổi {h.field_name === "status" ? "trạng thái" : h.field_name}
+                </span>{" "}
+                {h.old_value && (
+                  <>
+                    từ{" "}
+                    <span className="chip">
+                      {STATUS_LABELS[h.old_value as MilestoneStatus] ?? h.old_value}
+                    </span>{" "}
+                  </>
+                )}
+                {h.new_value && (
+                  <>
+                    thành{" "}
+                    <span className="chip">
+                      {STATUS_LABELS[h.new_value as MilestoneStatus] ?? h.new_value}
+                    </span>
+                  </>
+                )}
+              </p>
+              {h.note && <p className="text-[12px] text-tertiary mt-0.5">{h.note}</p>}
+              <span className="text-[11.5px] text-muted tnum">{formatDateTime(h.created_at)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Modal>
   );
 }

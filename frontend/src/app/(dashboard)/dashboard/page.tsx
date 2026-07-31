@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CheckCircle,
@@ -21,45 +22,13 @@ import {
   ProgressBar,
   StatTile,
   EmptyState,
+  Skeleton,
   useMounted,
 } from "@/components/ui";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/auth";
-
-/* ==========================================================================
-   MOCK DATA (replaced by API calls)
-   ========================================================================== */
-
-const thesis = {
-  id: 1,
-  title: "Hệ thống quản lý luận văn tích hợp AI",
-  supervisor: "TS. Nguyễn Văn A",
-  status: "ONGOING" as const,
-  milestonesDone: 4,
-  milestonesTotal: 12,
-  documents: 8,
-};
-
-const upcomingMilestones = [
-  { id: 1, name: "Nộp báo cáo đề cương", deadline: "2026-07-25", status: "ONGOING" },
-  { id: 2, name: "Hoàn thiện ERD & cơ sở dữ liệu", deadline: "2026-07-28", status: "NOT_STARTED" },
-  { id: 3, name: "Demo bản mẫu giao diện", deadline: "2026-08-01", status: "ONGOING" },
-  { id: 4, name: "Nộp bản thảo chương 1–2", deadline: "2026-07-20", status: "REVISION_REQUIRED" },
-];
-
-const recentActivities = [
-  { id: 1, actor: "Bạn", action: "đã cập nhật mốc", target: "Nộp báo cáo đề cương", time: "2 giờ trước" },
-  { id: 2, actor: "Bạn", action: "đã tải lên", target: "tham_khao_AI_RAG.pdf", time: "5 giờ trước" },
-  { id: 3, actor: "TS. Nguyễn Văn A", action: "đã phản hồi mốc", target: "Thiết kế cơ sở dữ liệu", time: "1 ngày trước" },
-  { id: 4, actor: "TS. Nguyễn Văn A", action: "đã phê duyệt đề tài", target: thesis.title, time: "3 ngày trước" },
-];
-
-type MilestoneStatus =
-  | "COMPLETED"
-  | "ONGOING"
-  | "NOT_STARTED"
-  | "PENDING_APPROVAL"
-  | "REVISION_REQUIRED";
+import { useAuthStore, isLecturer } from "@/lib/auth";
+import { useAsync } from "@/lib/use-async";
+import { milestonesApi, type LecturerDashboardRow, type MilestoneStatus } from "@/lib/services";
+import { daysUntil, formatDate, formatRelative } from "@/lib/format";
 
 const STATUS: Record<
   MilestoneStatus,
@@ -72,21 +41,9 @@ const STATUS: Record<
   REVISION_REQUIRED: { label: "Cần sửa", variant: "danger" },
 };
 
-/* Days are computed against local midnight so "hôm nay" doesn't flip at an
-   arbitrary hour depending on when the deadline was recorded. */
-function daysUntil(dateStr: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
-}
-
 function DeadlineLabel({ days }: { days: number }) {
   if (days < 0)
-    return (
-      <span className="text-danger font-medium">Trễ {Math.abs(days)} ngày</span>
-    );
+    return <span className="text-danger font-medium">Trễ {Math.abs(days)} ngày</span>;
   if (days === 0) return <span className="text-danger font-medium">Hôm nay</span>;
   if (days <= 3) return <span className="text-warning font-medium">Còn {days} ngày</span>;
   return <span className="text-tertiary">Còn {days} ngày</span>;
@@ -99,34 +56,17 @@ function DeadlineLabel({ days }: { days: number }) {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const lecturerView = isLecturer(user) || user?.role === "ADMIN";
 
-  /* Resolved only after hydration: the server's clock and the student's
-     clock disagree, and a time-of-day greeting rendered on the server would
-     mismatch at the boundary hours. */
+  /* Resolved only after hydration: the server's clock and the student's clock
+     disagree, and a time-of-day greeting rendered on the server would mismatch
+     at the boundary hours. */
   const mounted = useMounted();
   const greeting = React.useMemo(() => {
     if (!mounted) return "Xin chào";
     const h = new Date().getHours();
-    return h < 12
-      ? "Chào buổi sáng"
-      : h < 18
-        ? "Chào buổi chiều"
-        : "Chào buổi tối";
+    return h < 12 ? "Chào buổi sáng" : h < 18 ? "Chào buổi chiều" : "Chào buổi tối";
   }, [mounted]);
-
-  const sortedMilestones = React.useMemo(
-    () =>
-      [...upcomingMilestones].sort(
-        (a, b) => daysUntil(a.deadline) - daysUntil(b.deadline)
-      ),
-    []
-  );
-
-  const overdue = sortedMilestones.filter((m) => daysUntil(m.deadline) < 0).length;
-  const dueSoon = sortedMilestones.filter((m) => {
-    const d = daysUntil(m.deadline);
-    return d >= 0 && d <= 7;
-  }).length;
 
   const firstName = user?.full_name?.trim().split(/\s+/).slice(-1)[0];
 
@@ -134,20 +74,24 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={`${greeting}${firstName ? `, ${firstName}` : ""}`}
-        description="Những việc cần chú ý trong tuần này."
+        description={
+          lecturerView
+            ? "Tiến độ của các đề tài bạn đang hướng dẫn."
+            : "Những việc cần chú ý trong tuần này."
+        }
         actions={
           <>
             <Button
               variant="secondary"
               icon={<FileArrowUp size={15} />}
-              onClick={() => (window.location.href = "/documents")}
+              onClick={() => router.push("/documents")}
             >
               Tải tài liệu
             </Button>
             <Button
               variant="primary"
               icon={<Robot size={15} />}
-              onClick={() => (window.location.href = "/ai-chat")}
+              onClick={() => router.push("/ai-chat")}
             >
               Hỏi trợ lý AI
             </Button>
@@ -155,22 +99,71 @@ export default function DashboardPage() {
         }
       />
 
+      {lecturerView ? <LecturerDashboard /> : <StudentDashboard />}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   SINH VIÊN (UC 4.13)
+   ========================================================================== */
+
+function StudentDashboard() {
+  const router = useRouter();
+  const { data, loading, error, refetch } = useAsync(() => milestonesApi.studentDashboard(), []);
+
+  if (loading && !data) return <DashboardSkeleton />;
+
+  if (error) {
+    return (
+      <EmptyState
+        icon={<Warning size={16} />}
+        title="Không tải được dữ liệu"
+        description={error}
+        action={
+          <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+            Thử lại
+          </Button>
+        }
+      />
+    );
+  }
+
+  if (!data) return null;
+
+  /* Chưa có đề tài là một trạng thái hợp lệ, không phải lỗi: sinh viên vừa
+     đăng ký sẽ rơi vào đây, và thứ họ cần là một lối đi tiếp chứ không phải
+     bốn ô số 0. */
+  if (!data.thesis) {
+    return (
+      <EmptyState
+        icon={<GraduationCap size={16} />}
+        title="Bạn chưa có đề tài nào"
+        description="Đề xuất một đề tài để bắt đầu theo dõi tiến độ, tải tài liệu và dùng trợ lý AI."
+        action={
+          <Button variant="primary" size="sm" onClick={() => router.push("/theses/new")}>
+            Đề xuất đề tài
+          </Button>
+        }
+      />
+    );
+  }
+
+  const { thesis, upcoming, recent_activities } = data;
+
+  return (
+    <>
       {/* Overdue is the one thing worth interrupting for, so it leads. */}
-      {overdue > 0 && (
+      {data.overdue > 0 && (
         <div
           className="flex items-start gap-2.5 px-3 py-2.5 rounded-[10px]"
-          style={{
-            background: "var(--danger-bg)",
-            border: "1px solid var(--danger-border)",
-          }}
+          style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)" }}
           role="alert"
         >
           <Warning size={16} weight="fill" className="text-danger flex-shrink-0 mt-px" />
           <p className="text-[13px] text-secondary flex-1">
-            <strong className="text-danger">
-              {overdue} mốc đã quá hạn.
-            </strong>{" "}
-            Cập nhật trạng thái hoặc xin gia hạn với giảng viên hướng dẫn.
+            <strong className="text-danger">{data.overdue} mốc đã quá hạn.</strong> Cập nhật
+            trạng thái hoặc xin gia hạn với giảng viên hướng dẫn.
           </p>
           <Link
             href="/milestones"
@@ -181,47 +174,45 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Each tile is the entry point to the screen it summarises — a
-            number you can't act on is just decoration. */}
+        {/* Each tile is the entry point to the screen it summarises — a number
+            you can't act on is just decoration. */}
         <StatTile
           label="Đề tài đang thực hiện"
           value="1"
-          sublabel={thesis.supervisor}
+          sublabel={thesis.lecturer_name}
           icon={<GraduationCap size={15} weight="duotone" />}
           tone="accent"
-          onClick={() => router.push("/theses")}
+          onClick={() => router.push(`/theses/${thesis.id}`)}
         />
         <StatTile
           label="Mốc hoàn thành"
-          value={`${thesis.milestonesDone}/${thesis.milestonesTotal}`}
-          sublabel={`${Math.round((thesis.milestonesDone / thesis.milestonesTotal) * 100)}% tiến độ`}
+          value={`${data.completed}/${data.total}`}
+          sublabel={`${data.progress_percent}% tiến độ`}
           icon={<CheckCircle size={15} weight="duotone" />}
           tone="success"
           onClick={() => router.push("/milestones")}
         />
         <StatTile
           label="Tài liệu"
-          value={thesis.documents}
-          sublabel="đã lập chỉ mục"
+          value={data.document_count}
+          sublabel="trong kho đề tài"
           icon={<Files size={15} weight="duotone" />}
           tone="info"
           onClick={() => router.push("/documents")}
         />
         <StatTile
           label="Sắp đến hạn"
-          value={dueSoon}
+          value={data.due_soon}
           sublabel="trong 7 ngày tới"
           icon={<Clock size={15} weight="duotone" />}
-          tone={dueSoon > 0 ? "warning" : "neutral"}
+          tone={data.due_soon > 0 ? "warning" : "neutral"}
           onClick={() => router.push("/milestones")}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 flex flex-col gap-4 min-w-0">
-          {/* Thesis */}
           <Panel
             title="Đề tài của bạn"
             icon={<GraduationCap size={14} />}
@@ -234,24 +225,18 @@ export default function DashboardPage() {
           >
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">
-                <p className="text-[14px] font-medium leading-snug">
-                  {thesis.title}
-                </p>
+                <p className="text-[14px] font-medium leading-snug">{thesis.title}</p>
                 <p className="text-[12.5px] text-tertiary mt-0.5">
-                  Hướng dẫn: {thesis.supervisor}
+                  Hướng dẫn: {thesis.lecturer_name}
                 </p>
               </div>
-              <Badge variant="info" dot>
-                Đang thực hiện
+              <Badge variant={thesis.status === "ONGOING" ? "info" : "neutral"} dot>
+                {thesis.status === "ONGOING" ? "Đang thực hiện" : thesis.status}
               </Badge>
             </div>
-            <ProgressBar
-              value={thesis.milestonesDone}
-              max={thesis.milestonesTotal}
-            />
+            <ProgressBar value={data.completed} max={Math.max(data.total, 1)} />
           </Panel>
 
-          {/* Milestones */}
           <Panel
             title="Mốc sắp đến hạn"
             icon={<Kanban size={14} />}
@@ -263,7 +248,7 @@ export default function DashboardPage() {
               </Link>
             }
           >
-            {sortedMilestones.length === 0 ? (
+            {upcoming.length === 0 ? (
               <EmptyState
                 compact
                 icon={<CheckCircle size={16} />}
@@ -272,17 +257,15 @@ export default function DashboardPage() {
               />
             ) : (
               <ul>
-                {sortedMilestones.map((m, i) => {
+                {upcoming.map((m, i) => {
                   const days = daysUntil(m.deadline);
-                  const s = STATUS[m.status as MilestoneStatus];
+                  const s = STATUS[m.status];
                   return (
                     <li
                       key={m.id}
                       style={{
-                        borderTop:
-                          i > 0 ? "1px solid var(--border-secondary)" : undefined,
-                        boxShadow:
-                          days < 0 ? "inset 2px 0 0 0 var(--danger)" : undefined,
+                        borderTop: i > 0 ? "1px solid var(--border-secondary)" : undefined,
+                        boxShadow: days < 0 ? "inset 2px 0 0 0 var(--danger)" : undefined,
                       }}
                     >
                       <Link
@@ -290,12 +273,12 @@ export default function DashboardPage() {
                         className="row-hover flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)]"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium truncate">
-                            {m.name}
-                          </p>
+                          <p className="text-[13px] font-medium truncate">{m.name}</p>
                           <p className="text-[12px] mt-0.5 flex items-center gap-1.5">
-                            <span className="text-muted tnum">{m.deadline}</span>
-                            <span className="text-muted" aria-hidden="true">·</span>
+                            <span className="text-muted tnum">{formatDate(m.deadline)}</span>
+                            <span className="text-muted" aria-hidden="true">
+                              ·
+                            </span>
                             <DeadlineLabel days={days} />
                           </p>
                         </div>
@@ -309,34 +292,194 @@ export default function DashboardPage() {
           </Panel>
         </div>
 
-        {/* Activity */}
-        <Panel
-          title="Hoạt động gần đây"
-          icon={<Clock size={14} />}
-          className="lg:col-span-1 h-fit"
-        >
-          <ol className="timeline-rail flex flex-col">
-            {recentActivities.map((a, i) => (
-              <li
-                key={a.id}
-                className="relative pb-3 last:pb-0"
-                style={{ paddingTop: i === 0 ? 0 : undefined }}
-              >
-                <span
-                  className={`timeline-node ${i === 0 ? "timeline-node-active" : ""}`}
-                  aria-hidden="true"
-                />
-                <p className="text-[12.5px] leading-snug">
-                  <span className="font-medium">{a.actor}</span>{" "}
-                  <span className="text-tertiary">{a.action}</span>{" "}
-                  <span className="text-secondary">{a.target}</span>
-                </p>
-                <span className="text-[11.5px] text-muted">{a.time}</span>
-              </li>
-            ))}
-          </ol>
+        <Panel title="Hoạt động gần đây" icon={<Clock size={14} />} className="lg:col-span-1 h-fit">
+          {recent_activities.length === 0 ? (
+            <p className="text-[12.5px] text-tertiary">Chưa có hoạt động nào được ghi nhận.</p>
+          ) : (
+            <ol className="timeline-rail flex flex-col">
+              {recent_activities.map((a, i) => (
+                <li key={a.id} className="relative pb-3 last:pb-0">
+                  <span
+                    className={`timeline-node ${i === 0 ? "timeline-node-active" : ""}`}
+                    aria-hidden="true"
+                  />
+                  <p className="text-[12.5px] leading-snug">
+                    <span className="font-medium">{a.actor}</span>{" "}
+                    <span className="text-tertiary">{a.action}</span>{" "}
+                    <span className="text-secondary">{a.target}</span>
+                  </p>
+                  <span className="text-[11.5px] text-muted">{formatRelative(a.created_at)}</span>
+                </li>
+              ))}
+            </ol>
+          )}
         </Panel>
       </div>
-    </div>
+    </>
+  );
+}
+
+/* ==========================================================================
+   GIẢNG VIÊN (UC 4.14)
+   ========================================================================== */
+
+function LecturerDashboard() {
+  const router = useRouter();
+  const { data, loading, error, refetch } = useAsync(() => milestonesApi.lecturerDashboard(), []);
+
+  if (loading && !data) return <DashboardSkeleton />;
+
+  if (error) {
+    return (
+      <EmptyState
+        icon={<Warning size={16} />}
+        title="Không tải được dữ liệu"
+        description={error}
+        action={
+          <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+            Thử lại
+          </Button>
+        }
+      />
+    );
+  }
+
+  const rows: LecturerDashboardRow[] = data ?? [];
+
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon={<GraduationCap size={16} />}
+        title="Chưa hướng dẫn đề tài nào"
+        description="Các đề tài sinh viên gửi duyệt sẽ xuất hiện ở đây sau khi bạn phê duyệt."
+        action={
+          <Button variant="secondary" size="sm" onClick={() => router.push("/theses")}>
+            Xem đề tài chờ duyệt
+          </Button>
+        }
+      />
+    );
+  }
+
+  const totalOverdue = rows.reduce((sum, r) => sum + r.overdue, 0);
+  const avgProgress = Math.round(
+    rows.reduce((sum, r) => sum + r.progress_percent, 0) / Math.max(rows.length, 1)
+  );
+
+  return (
+    <>
+      {totalOverdue > 0 && (
+        <div
+          className="flex items-start gap-2.5 px-3 py-2.5 rounded-[10px]"
+          style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)" }}
+          role="alert"
+        >
+          <Warning size={16} weight="fill" className="text-danger flex-shrink-0 mt-px" />
+          <p className="text-[13px] text-secondary flex-1">
+            <strong className="text-danger">{totalOverdue} mốc quá hạn</strong> trên{" "}
+            {rows.filter((r) => r.overdue > 0).length} đề tài bạn đang hướng dẫn.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatTile
+          label="Đề tài hướng dẫn"
+          value={rows.length}
+          icon={<GraduationCap size={15} weight="duotone" />}
+          tone="accent"
+          onClick={() => router.push("/theses")}
+        />
+        <StatTile
+          label="Tiến độ trung bình"
+          value={`${avgProgress}%`}
+          sublabel="trên tất cả đề tài"
+          icon={<CheckCircle size={15} weight="duotone" />}
+          tone="success"
+        />
+        <StatTile
+          label="Mốc quá hạn"
+          value={totalOverdue}
+          icon={<Warning size={15} weight="duotone" />}
+          tone={totalOverdue > 0 ? "warning" : "neutral"}
+          onClick={() => router.push("/milestones")}
+        />
+        <StatTile
+          label="Chờ phê duyệt"
+          value={rows.reduce((s, r) => s + (r.total - r.completed - r.overdue), 0)}
+          sublabel="mốc đang thực hiện"
+          icon={<Clock size={15} weight="duotone" />}
+          tone="info"
+          onClick={() => router.push("/milestones")}
+        />
+      </div>
+
+      {/* Sắp xếp đã do server làm (quá hạn nhiều nhất, rồi tiến độ thấp nhất —
+          business rule UC 4.14), nên thứ tự hiển thị chính là thứ tự cần chú ý. */}
+      <Panel title="Đề tài đang hướng dẫn" icon={<Kanban size={14} />} bodyClassName="">
+        <ul>
+          {rows.map((r, i) => (
+            <li
+              key={r.thesis_id}
+              style={{
+                borderTop: i > 0 ? "1px solid var(--border-secondary)" : undefined,
+                boxShadow: r.overdue > 0 ? "inset 2px 0 0 0 var(--danger)" : undefined,
+              }}
+            >
+              <Link
+                href={`/theses/${r.thesis_id}`}
+                className="row-hover flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-hover)]"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium truncate">{r.title}</p>
+                  <p className="text-[12px] text-tertiary truncate mt-0.5">
+                    {r.student_names.length ? r.student_names.join(", ") : "Chưa có sinh viên"}
+                    {r.last_activity_at ? ` · ${formatRelative(r.last_activity_at)}` : ""}
+                  </p>
+                </div>
+
+                <div className="w-28 flex-shrink-0 hidden sm:block">
+                  <ProgressBar value={r.completed} max={Math.max(r.total, 1)} showLabel={false} />
+                  <span className="text-[11px] text-muted tnum">
+                    {r.completed}/{r.total} mốc
+                  </span>
+                </div>
+
+                {r.overdue > 0 ? (
+                  <Badge variant="danger">{r.overdue} quá hạn</Badge>
+                ) : (
+                  <Badge variant="neutral">{r.progress_percent}%</Badge>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </>
+  );
+}
+
+/* ==========================================================================
+   TRẠNG THÁI TẢI
+   ========================================================================== */
+
+/* Khung xám giữ đúng chỗ của nội dung thật, nên khi dữ liệu về, bố cục không
+   nhảy — quan trọng hơn với 4 ô số liệu hơn là một spinner ở giữa màn hình. */
+function DashboardSkeleton() {
+  return (
+    <>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[74px] rounded-[10px]" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          <Skeleton className="h-32 rounded-[10px]" />
+          <Skeleton className="h-56 rounded-[10px]" />
+        </div>
+        <Skeleton className="h-56 rounded-[10px]" />
+      </div>
+    </>
   );
 }

@@ -1,0 +1,751 @@
+// =============================================================================
+//  NOVATHESIS — LƯỢC ĐỒ CƠ SỞ DỮ LIỆU
+// =============================================================================
+//
+//  Bản cài đặt này là ERD trong `Tài liệu dự án/ERD_Specification.md` SAU KHI đã
+//  xử lý toàn bộ ghi chú "CẦN SỬA" trong tài liệu đó:
+//
+//    • `full_name` chuyển lên `users` (tài khoản ADMIN trước đây không có chỗ
+//      lưu họ tên) và bị gỡ khỏi `students`/`lecturers`.
+//    • Bổ sung các cột xác minh email / đặt lại mật khẩu / khoá tạm thời, nếu
+//      không quy tắc "khoá 15 phút sau 5 lần sai" (UC 1.1) không cài được.
+//    • `theses ↔ students` đổi thành quan hệ nhiều-nhiều qua `thesis_members`
+//      (giao diện hiển thị nhiều sinh viên trên một đề tài).
+//    • Bổ sung 7 bảng còn thiếu: document_versions, academic_years,
+//      document_shares, milestone_history, notification_preferences,
+//      ai_suggestions, plagiarism_checks.
+//    • `feedbacks.target_id` đa hình được tách thành hai khoá ngoại nullable
+//      `milestone_id` / `document_id` kèm CHECK "đúng một cột khác NULL", giữ
+//      được toàn vẹn tham chiếu ở tầng CSDL.
+//    • `documents.tags` dùng `text[]` + index GIN thay cho chuỗi phân cách phẩy.
+//    • `citations`, `details` dùng JSONB thay cho TEXT.
+//    • Index HNSW cho pgvector và các index khoá ngoại được khai báo trong
+//      migration `..._vector_and_search_indexes` (Prisma chưa sinh được HNSW).
+//
+//  Quy ước đặt tên: cột và trường Prisma đều dùng snake_case, trùng khớp với
+//  khoá JSON mà frontend đã đọc sẵn. Điều này bỏ được một tầng ánh xạ
+//  camelCase↔snake_case cùng cả lớp lỗi đi kèm — đúng tinh thần KISS mà
+//  `Yêu cầu dự án.md` §3.3 yêu cầu.
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector, pg_trgm]
+}
+
+// -----------------------------------------------------------------------------
+//  ENUM
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  LECTURER
+  STUDENT
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+}
+
+/// Máy trạng thái đề tài. `REVISION_REQUIRED` phục vụ UC 3.10 (giảng viên trả
+/// đề tài về cho sinh viên sửa) — khác hẳn `REJECTED` của UC 3.11 vốn là trạng
+/// thái cuối, không quay lại được.
+enum ThesisStatus {
+  DRAFT
+  PENDING
+  REVISION_REQUIRED
+  ONGOING
+  COMPLETED
+  REJECTED
+}
+
+enum ThesisMemberRole {
+  OWNER
+  MEMBER
+}
+
+enum MilestoneStatus {
+  NOT_STARTED
+  ONGOING
+  PENDING_APPROVAL
+  REVISION_REQUIRED
+  COMPLETED
+}
+
+enum ExtensionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AIStatus {
+  PENDING
+  PROCESSING
+  DONE
+  ERROR
+}
+
+enum AIRole {
+  USER
+  ASSISTANT
+}
+
+enum AIRating {
+  LIKE
+  DISLIKE
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum NotificationType {
+  MILESTONE
+  THESIS
+  FEEDBACK
+  SYSTEM
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+enum ConfigCategory {
+  AI
+  STORAGE
+  SECURITY
+  GENERAL
+}
+
+enum ConfigValueType {
+  STRING
+  INT
+  BOOLEAN
+  JSON
+}
+
+// -----------------------------------------------------------------------------
+//  TÀI KHOẢN & HỒ SƠ
+// -----------------------------------------------------------------------------
+
+model User {
+  id            Int        @id @default(autoincrement())
+  email         String     @unique @db.VarChar(255)
+  password_hash String     @db.VarChar(255)
+  full_name     String     @db.VarChar(255)
+  role          UserRole   @default(STUDENT)
+  status        UserStatus @default(PENDING_VERIFICATION)
+  avatar_url    String?    @db.VarChar(512)
+
+  // UC 1.2 / 1.4 — xác minh email. Lưu BĂM của token, không lưu token thô:
+  // rò rỉ bản sao CSDL không được phép biến thành chiếm quyền tài khoản.
+  email_verified_at       DateTime?
+  verification_token_hash String?   @db.VarChar(128)
+  verification_expires_at DateTime?
+
+  // UC 1.5 / 1.6 — đặt lại mật khẩu (link dùng một lần, hiệu lực 24 giờ).
+  reset_token_hash       String?   @db.VarChar(128)
+  reset_token_expires_at DateTime?
+  reset_requested_at     DateTime?
+
+  // UC 1.1 BR-1 — khoá 15 phút sau 5 lần sai. Đếm ở server; bộ đếm phía
+  // client trong `auth-sheet.tsx` chỉ là gợi ý giao diện, mất khi F5.
+  failed_login_attempts Int       @default(0)
+  locked_until          DateTime?
+  last_login_at         DateTime?
+
+  deleted_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  student  Student?
+  lecturer Lecturer?
+
+  created_theses       Thesis[]                 @relation("ThesisCreatedBy")
+  milestones_approved  Milestone[]              @relation("MilestoneApprovedBy")
+  milestone_changes    MilestoneHistory[]
+  documents_uploaded   Document[]
+  versions_uploaded    DocumentVersion[]
+  document_shares      DocumentShare[]
+  chat_sessions        AIChatSession[]
+  ai_suggestions       AISuggestion[]
+  plagiarism_checks    PlagiarismCheck[]
+  feedbacks            Feedback[]               @relation("FeedbackAuthor")
+  feedbacks_resolved   Feedback[]               @relation("FeedbackResolver")
+  notifications        Notification[]
+  notif_preferences    NotificationPreference[]
+  system_logs          SystemLog[]
+  configs_updated      SystemConfig[]
+  refresh_tokens       RefreshToken[]
+
+  @@index([role, status])
+  @@index([deleted_at])
+  @@map("users")
+}
+
+model Student {
+  id      Int @id @default(autoincrement())
+  user_id Int @unique
+
+  /// Nullable có chủ đích: form đăng ký (`auth-sheet.tsx`) chỉ hỏi họ tên,
+  /// email và mật khẩu. MSSV do sinh viên hoặc Admin bổ sung sau ở trang Hồ sơ.
+  student_code String? @unique @db.VarChar(50)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user    User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  members ThesisMember[]
+
+  @@map("students")
+}
+
+model Lecturer {
+  id            Int     @id @default(autoincrement())
+  user_id       Int     @unique
+  lecturer_code String  @unique @db.VarChar(50)
+  department    String  @db.VarChar(100)
+  /// UC 3.9 — chặn duyệt thêm đề tài khi giảng viên đã đủ quota.
+  max_students  Int     @default(5)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user   User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  theses Thesis[]
+
+  @@map("lecturers")
+}
+
+/// UC 2.7 — Quản lý năm học. Không có bảng này thì UC 9.2 (xuất danh sách đề
+/// tài) và UC 2.6 (thống kê) không lọc được theo khoá.
+model AcademicYear {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique @db.VarChar(50)
+  start_date DateTime @db.Date
+  end_date   DateTime @db.Date
+  is_active  Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  theses Thesis[]
+
+  @@map("academic_years")
+}
+
+// -----------------------------------------------------------------------------
+//  ĐỀ TÀI
+// -----------------------------------------------------------------------------
+
+model Thesis {
+  id          Int          @id @default(autoincrement())
+  title       String       @db.VarChar(255)
+  description String?
+  field       String       @db.VarChar(100)
+  status      ThesisStatus @default(DRAFT)
+
+  lecturer_id      Int?
+  academic_year_id Int?
+  created_by       Int
+
+  /// UC 3.11 — từ chối hẳn (trạng thái cuối).
+  rejection_reason String?
+  /// UC 3.10 — yêu cầu chỉnh sửa rồi gửi lại. Khác nghĩa `rejection_reason`.
+  revision_note    String?
+  /// UC 3.13 / 9.2 — không suy ra được từ `updated_at`.
+  completed_at     DateTime?
+  submitted_at     DateTime?
+
+  deleted_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  lecturer      Lecturer?     @relation(fields: [lecturer_id], references: [id], onDelete: SetNull)
+  academic_year AcademicYear? @relation(fields: [academic_year_id], references: [id], onDelete: SetNull)
+  creator       User          @relation("ThesisCreatedBy", fields: [created_by], references: [id])
+
+  members           ThesisMember[]
+  milestones        Milestone[]
+  documents         Document[]
+  shared_documents  DocumentShare[]
+  chat_sessions     AIChatSession[]
+  ai_suggestions    AISuggestion[]
+  plagiarism_checks PlagiarismCheck[]
+
+  @@index([status])
+  @@index([lecturer_id, status])
+  @@index([academic_year_id])
+  @@index([deleted_at])
+  @@map("theses")
+}
+
+/// Thay cho `students.thesis_id` đơn trị trong ERD gốc: một đề tài có nhiều
+/// sinh viên (`theses/page.tsx` khai báo `student_names?: string[]`), và một
+/// sinh viên có thể đổi đề tài / học lại năm sau mà vẫn giữ được lịch sử.
+model ThesisMember {
+  id         Int              @id @default(autoincrement())
+  thesis_id  Int
+  student_id Int
+  role       ThesisMemberRole @default(OWNER)
+  joined_at  DateTime         @default(now())
+  left_at    DateTime?
+
+  thesis  Thesis  @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([thesis_id, student_id])
+  @@index([student_id, left_at])
+  @@map("thesis_members")
+}
+
+// -----------------------------------------------------------------------------
+//  MỐC TIẾN ĐỘ
+// -----------------------------------------------------------------------------
+
+model Milestone {
+  id          Int             @id @default(autoincrement())
+  thesis_id   Int
+  name        String          @db.VarChar(255)
+  description String?
+  deadline    DateTime
+  status      MilestoneStatus @default(NOT_STARTED)
+
+  /// UC 4.11 — nội dung giảng viên yêu cầu sinh viên sửa.
+  description_revision String?
+
+  /// UC 4.9 — minh chứng. `evidence_filename` giữ tên gốc để hiển thị; đường
+  /// dẫn vật lý đã băm nên không suy ngược ra tên được.
+  evidence_file_url String? @db.VarChar(512)
+  evidence_filename String? @db.VarChar(255)
+
+  /// UC 4.7 — xin gia hạn. Có `extension_status` để biết giảng viên đã trả lời
+  /// hay chưa; chỉ một cờ boolean thì không phân biệt được.
+  extension_requested    Boolean          @default(false)
+  extension_reason       String?
+  extension_new_deadline DateTime?
+  extension_status       ExtensionStatus?
+
+  /// UC 9.4 (Gantt) và Kanban cần thứ tự ổn định; sắp theo `deadline` thì hai
+  /// mốc cùng hạn sẽ nhảy vị trí ngẫu nhiên giữa các lần tải.
+  order_index Int @default(0)
+
+  /// UC 4.10 — kiểm toán: ai duyệt, lúc nào.
+  approved_by Int?
+  approved_at DateTime?
+
+  deleted_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  thesis   Thesis @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
+  approver User?  @relation("MilestoneApprovedBy", fields: [approved_by], references: [id], onDelete: SetNull)
+
+  history   MilestoneHistory[]
+  feedbacks Feedback[]
+
+  @@index([thesis_id, order_index])
+  @@index([deadline])
+  @@index([status])
+  @@map("milestones")
+}
+
+/// UC 4.12 — nhật ký thay đổi mốc. Append-only: không có endpoint nào sửa hoặc
+/// xoá bảng này (Business rule UC 4.12: "không được phép xóa/sửa bởi bất kỳ ai").
+model MilestoneHistory {
+  id           Int      @id @default(autoincrement())
+  milestone_id Int
+  changed_by   Int?
+  field_name   String   @db.VarChar(50)
+  old_value    String?
+  new_value    String?
+  note         String?
+  created_at   DateTime @default(now())
+
+  milestone Milestone @relation(fields: [milestone_id], references: [id], onDelete: Cascade)
+  actor     User?     @relation(fields: [changed_by], references: [id], onDelete: SetNull)
+
+  @@index([milestone_id, created_at])
+  @@map("milestone_history")
+}
+
+// -----------------------------------------------------------------------------
+//  TÀI LIỆU & VECTOR
+// -----------------------------------------------------------------------------
+
+model Document {
+  id          Int    @id @default(autoincrement())
+  thesis_id   Int
+  filename    String @db.VarChar(255)
+  file_path   String @db.VarChar(512)
+  file_size   Int
+  mime_type   String @db.VarChar(120)
+  /// UC 6.6 — trích dẫn hiển thị "tr. 12/…", cần tổng số trang để đối chiếu.
+  page_count  Int?
+
+  /// Tóm tắt do AI sinh. Tách khỏi `summary_note` để UC 6.3 (người dùng ghi chú
+  /// thêm) không ghi đè mất bản gốc của AI.
+  summary_ai   String?
+  summary_note String?
+
+  status_ai     AIStatus  @default(PENDING)
+  ai_error      String?
+  /// Watchdog: số lần thử và thời điểm bắt đầu, để phát hiện worker treo.
+  ai_attempts   Int       @default(0)
+  ai_started_at DateTime?
+  ai_model      String?   @db.VarChar(100)
+
+  /// `text[]` + index GIN thay vì chuỗi phân cách phẩy: lọc theo thẻ không còn
+  /// phải `LIKE '%AI%'` (vốn khớp nhầm cả "MAINTAIN").
+  tags String[] @default([])
+
+  uploaded_by Int
+
+  deleted_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  thesis   Thesis @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
+  uploader User   @relation(fields: [uploaded_by], references: [id])
+
+  chunks    DocumentChunk[]
+  versions  DocumentVersion[]
+  shares    DocumentShare[]
+  feedbacks Feedback[]
+
+  @@index([thesis_id, deleted_at])
+  @@index([status_ai])
+  @@map("documents")
+}
+
+/// `Yêu cầu dự án.md` §3.1 — Document Versioning là hạng mục bắt buộc. Thiết kế
+/// cũ ghi đè tệp; ở đây mỗi lần nộp lại là một dòng mới, tệp cũ vẫn tải về được.
+model DocumentVersion {
+  id             Int      @id @default(autoincrement())
+  document_id    Int
+  version_number Int
+  file_path      String   @db.VarChar(512)
+  file_size      Int
+  mime_type      String   @db.VarChar(120)
+  uploaded_by    Int
+  change_note    String?
+  is_current     Boolean  @default(false)
+  created_at     DateTime @default(now())
+
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  uploader User     @relation(fields: [uploaded_by], references: [id])
+
+  @@unique([document_id, version_number])
+  @@index([document_id, is_current])
+  @@map("document_versions")
+}
+
+/// UC 5.10 — chia sẻ tài liệu sang đề tài khác (chỉ đọc).
+/// ⚠️ Mọi truy vấn vector phải xét CẢ `documents.thesis_id` LẪN bảng này, nếu
+/// không sẽ vi phạm Tenant Isolation (`Yêu cầu dự án.md` §2.1).
+model DocumentShare {
+  id          Int      @id @default(autoincrement())
+  document_id Int
+  thesis_id   Int
+  shared_by   Int
+  permission  String   @default("READ") @db.VarChar(20)
+  created_at  DateTime @default(now())
+
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  thesis   Thesis   @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
+  sharer   User     @relation(fields: [shared_by], references: [id])
+
+  @@unique([document_id, thesis_id])
+  @@index([thesis_id])
+  @@map("document_shares")
+}
+
+/// Đoạn trích đã vector hoá.
+///
+/// `embedding` khai báo `Unsupported` vì Prisma chưa có kiểu vector gốc: mọi
+/// thao tác ghi/tìm kiếm trên cột này đi qua SQL tham số hoá trong
+/// `src/modules/ai/vector.repository.ts`. Cột để nullable để Prisma Client vẫn
+/// tạo/đọc được bản ghi phần metadata.
+model DocumentChunk {
+  id          Int    @id @default(autoincrement())
+  document_id Int
+  /// Thứ tự đoạn trong tài liệu — cần để ghép lại ngữ cảnh liền mạch khi dựng
+  /// prompt RAG.
+  chunk_index Int
+  /// Số trang nguồn, phục vụ trích dẫn "tr. 12" (UC 6.6).
+  page_number Int?
+  content     String
+  /// Kiểm soát ngân sách context khi dựng prompt (§2.4 "Resource Constrained").
+  token_count Int    @default(0)
+
+  embedding Unsupported("vector(1536)")?
+
+  created_at DateTime @default(now())
+
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
+
+  @@unique([document_id, chunk_index])
+  @@index([document_id])
+  @@map("document_chunks")
+}
+
+// -----------------------------------------------------------------------------
+//  TRỢ LÝ AI
+// -----------------------------------------------------------------------------
+
+model AIChatSession {
+  id      Int  @id @default(autoincrement())
+  /// Nullable: sinh viên chưa được duyệt đề tài vẫn hỏi trợ lý được. Khi NULL,
+  /// phạm vi RAG rỗng và AI chỉ trả lời bằng kiến thức chung.
+  thesis_id Int?
+  user_id   Int
+  title     String @default("Hội thoại mới") @db.VarChar(255)
+
+  /// UC 6.8 — xoá mềm, giữ dữ liệu cho thống kê UC 9.3.
+  deleted_at DateTime?
+  created_at DateTime  @default(now())
+  /// Danh sách phiên sắp theo độ mới; dùng `created_at` sẽ đẩy phiên vừa nhắn
+  /// xuống cuối nếu nó được tạo từ lâu.
+  updated_at DateTime  @updatedAt
+
+  thesis   Thesis?         @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  messages AIChatMessage[]
+
+  @@index([user_id, deleted_at, updated_at])
+  @@map("ai_chat_sessions")
+}
+
+model AIChatMessage {
+  id         Int    @id @default(autoincrement())
+  session_id Int
+  role       AIRole
+  content    String
+
+  /// JSONB (không phải TEXT): UC 9.3 cần đếm tài liệu nào được trích dẫn nhiều
+  /// nhất. Cấu trúc mỗi phần tử khớp `Citation` trong `ai-chat/page.tsx`:
+  /// `{ chunk_id, document_id, doc_title, page, score, snippet }`.
+  /// `chunk_id` cho phép truy ngược về `document_chunks` kể cả khi tài liệu bị
+  /// đổi tên (UC 5.6).
+  citations Json?
+
+  rating        AIRating?
+  feedback_note String?
+
+  /// UC 9.3 — model có thể đổi theo thời gian nên phải ghi lại theo từng câu.
+  model_name  String? @db.VarChar(100)
+  tokens_used Int?
+
+  /// Câu trả lời bị bấm "Dừng" giữa chừng có `finished_at = null` → giao diện
+  /// biết đó là câu chưa hoàn chỉnh.
+  finished_at DateTime?
+  latency_ms  Int?
+
+  created_at DateTime @default(now())
+
+  session AIChatSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@index([session_id, created_at])
+  @@map("ai_chat_messages")
+}
+
+/// UC 6.10–6.13 — gợi ý lộ trình do AI đề xuất.
+model AISuggestion {
+  id         Int              @id @default(autoincrement())
+  thesis_id  Int
+  created_by Int
+  /// `[{ name, description, deadline, order_index }]`
+  payload    Json
+  status     SuggestionStatus @default(PENDING)
+  model_name String?          @db.VarChar(100)
+  /// UC 6.13 — mỗi lần tạo lại tăng temperature để kết quả khác đi.
+  attempt    Int              @default(1)
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
+
+  thesis  Thesis @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [created_by], references: [id])
+
+  @@index([thesis_id, status])
+  @@map("ai_suggestions")
+}
+
+/// UC 6.15 (bổ sung) — tab "Kiểm tra trùng lặp" đã có giao diện trong
+/// `ai-chat/page.tsx` nhưng tài liệu UC chưa mô tả và không có bảng lưu.
+model PlagiarismCheck {
+  id         Int      @id @default(autoincrement())
+  thesis_id  Int
+  input_text String
+  similarity Decimal  @db.Decimal(5, 2)
+  /// `[{ source, document_id, percent }]`
+  matches    Json
+  checked_by Int
+  created_at DateTime @default(now())
+
+  thesis  Thesis @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
+  checker User   @relation(fields: [checked_by], references: [id])
+
+  @@index([thesis_id, created_at])
+  @@map("plagiarism_checks")
+}
+
+// -----------------------------------------------------------------------------
+//  PHẢN HỒI
+// -----------------------------------------------------------------------------
+
+/// Khoá ngoại đa hình `(target_type, target_id)` trong ERD gốc được tách thành
+/// hai cột nullable + CHECK "đúng một cột khác NULL" (xem migration). Giữ được
+/// ràng buộc toàn vẹn ở tầng CSDL, nên xoá milestone/document không để lại
+/// bình luận mồ côi.
+model Feedback {
+  id           Int  @id @default(autoincrement())
+  milestone_id Int?
+  document_id  Int?
+  user_id      Int
+  content      String
+  parent_id    Int?
+  /// Ràng buộc "thread tối đa 3 cấp" (UC 7.3) được cưỡng chế bằng CHECK
+  /// `depth <= 2` thay vì bắt tầng ứng dụng đếm đệ quy mỗi lần chèn.
+  depth        Int  @default(0)
+
+  file_url  String? @db.VarChar(512)
+  file_name String? @db.VarChar(255)
+
+  is_resolved Boolean   @default(false)
+  resolved_by Int?
+  resolved_at DateTime?
+
+  /// UC 7.5 — xoá mềm: xoá cứng bình luận cha sẽ làm mồ côi cả nhánh trả lời.
+  deleted_at DateTime?
+  edited_at  DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  milestone Milestone? @relation(fields: [milestone_id], references: [id], onDelete: Cascade)
+  document  Document?  @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  author    User       @relation("FeedbackAuthor", fields: [user_id], references: [id], onDelete: Cascade)
+  resolver  User?      @relation("FeedbackResolver", fields: [resolved_by], references: [id], onDelete: SetNull)
+
+  parent  Feedback?  @relation("FeedbackThread", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies Feedback[] @relation("FeedbackThread")
+
+  @@index([milestone_id, created_at])
+  @@index([document_id, created_at])
+  @@index([parent_id])
+  @@map("feedbacks")
+}
+
+// -----------------------------------------------------------------------------
+//  THÔNG BÁO
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id      Int              @id @default(autoincrement())
+  user_id Int
+  type    NotificationType
+  title   String           @db.VarChar(255)
+  content String
+
+  /// Bấm vào thông báo phải nhảy đúng mốc/tài liệu liên quan (UC 8.1).
+  link String? @db.VarChar(512)
+
+  is_read Boolean   @default(false)
+  read_at DateTime?
+
+  /// Khoá chống trùng cho job nhắc deadline: mỗi mốc chỉ nhắc một lần cho mỗi
+  /// ngưỡng (7/3/1/quá hạn), tránh spam khi cron chạy lại.
+  dedupe_key String? @db.VarChar(160)
+
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, dedupe_key])
+  @@index([user_id, created_at])
+  @@map("notifications")
+}
+
+/// UC 8.7 — bật/tắt từng kênh theo từng loại sự kiện.
+model NotificationPreference {
+  user_id Int
+  type    NotificationType
+  in_app  Boolean          @default(true)
+  email   Boolean          @default(true)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, type])
+  @@map("notification_preferences")
+}
+
+// -----------------------------------------------------------------------------
+//  VẬN HÀNH
+// -----------------------------------------------------------------------------
+
+model SystemLog {
+  id         Int      @id @default(autoincrement())
+  user_id    Int?
+  level      LogLevel @default(INFO)
+  action     String   @db.VarChar(255)
+  ip_address String?  @db.VarChar(45)
+  user_agent String?  @db.VarChar(512)
+  /// JSONB: dữ liệu thực tế là JSON, để TEXT thì không truy vấn được.
+  details    Json?
+  created_at DateTime @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([created_at])
+  @@index([level, created_at])
+  @@index([action])
+  @@map("system_logs")
+}
+
+model SystemConfig {
+  id           Int             @id @default(autoincrement())
+  config_key   String          @unique @db.VarChar(100)
+  config_value String          @db.VarChar(1000)
+  value_type   ConfigValueType @default(STRING)
+  category     ConfigCategory  @default(GENERAL)
+  description  String?
+  /// ⚠️ Bảng này KHÔNG dùng để lưu API key. Khoá bí mật đọc từ biến môi trường
+  /// (`Yêu cầu dự án.md` §2.1). `is_secret` chỉ để che giá trị trên giao diện.
+  is_secret    Boolean         @default(false)
+  updated_by   Int?
+  updated_at   DateTime        @updatedAt
+
+  updater User? @relation(fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@map("system_configs")
+}
+
+/// Phiên đăng nhập. Lưu băm của refresh token; thu hồi ở đây là cách duy nhất
+/// khiến "vô hiệu hoá tài khoản buộc đăng xuất mọi phiên" (UC 2.4) thành hiện
+/// thực — access token JWT tự nó không thu hồi được.
+model RefreshToken {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  token_hash String    @unique @db.VarChar(128)
+  expires_at DateTime
+  revoked_at DateTime?
+  user_agent String?   @db.VarChar(512)
+  ip_address String?   @db.VarChar(45)
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, revoked_at])
+  @@map("refresh_tokens")
+}

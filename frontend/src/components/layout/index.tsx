@@ -27,6 +27,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useAuthStore, type UserRole } from "@/lib/auth";
+import { notificationsApi } from "@/lib/services";
 import {
   Avatar,
   Dropdown,
@@ -549,19 +550,62 @@ function ThemeSwitch() {
 }
 
 /* ==========================================================================
+   SỐ THÔNG BÁO CHƯA ĐỌC
+   ========================================================================== */
+
+/**
+ * Chuông thông báo tự lấy số của nó.
+ *
+ * Hỏi lại mỗi 60 giây thay vì mở WebSocket: một con số trên chuông không đáng
+ * để duy trì kết nối thường trực, và endpoint `/unread-count` là một câu COUNT
+ * trên index bộ phận `WHERE is_read = false`.
+ *
+ * Chỉ hỏi lại khi tab đang hiển thị — polling nền trong ba mươi tab bỏ quên là
+ * cách chắc chắn nhất để tự tạo tải cho chính máy chủ của mình.
+ */
+function useUnreadCount(enabled: boolean): number {
+  const [count, setCount] = React.useState(0);
+  const pathname = usePathname();
+
+  React.useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+
+    const load = () => {
+      if (document.visibilityState !== "visible") return;
+      notificationsApi
+        .unreadCount()
+        .then((r) => {
+          if (!cancelled) setCount(r.count);
+        })
+        .catch(() => undefined);
+    };
+
+    load();
+    const timer = setInterval(load, 60_000);
+    document.addEventListener("visibilitychange", load);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", load);
+    };
+    // Điều hướng cũng là một tín hiệu: vừa rời trang Thông báo thì con số phải
+    // phản ánh những gì người dùng vừa đọc.
+  }, [enabled, pathname]);
+
+  return count;
+}
+
+/* ==========================================================================
    TOPBAR
    ========================================================================== */
 
-export function Topbar({
-  onOpenMobileNav,
-  unreadCount = 0,
-}: {
-  onOpenMobileNav: () => void;
-  unreadCount?: number;
-}) {
+export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const unreadCount = useUnreadCount(Boolean(user));
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# Tệp người dùng tải lên — riêng tư, không bao giờ commit.
+storage/
+!storage/.gitkeep
+
+# Font tải về lúc `npm run setup` (dùng cho PDF tiếng Việt).
+assets/fonts/*.ttf

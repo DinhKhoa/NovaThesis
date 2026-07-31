@@ -1,1 +1,36 @@
-﻿**/node_modules/
+**/node_modules/
+
+# --- Bí mật -----------------------------------------------------------------
+# `Yêu cầu dự án.md` §2.1 yêu cầu đích danh: không hardcode khoá, dùng .env và
+# đưa .env vào .gitignore.
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.local.example
+
+# --- Kết quả build ----------------------------------------------------------
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# --- Tệp người dùng ---------------------------------------------------------
+# Tài liệu luận văn, minh chứng, ảnh đại diện — dữ liệu thật, không thuộc về mã nguồn.
+backend/storage/
+!backend/storage/.gitkeep
+
+# Font tải về lúc `npm run setup` (~1 MB nhị phân).
+backend/assets/fonts/*.ttf
+
+# --- Backend Python cũ ------------------------------------------------------
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# --- Khác -------------------------------------------------------------------
+*.log
+.DS_Store
+coverage/

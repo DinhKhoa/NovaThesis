@@ -3,32 +3,40 @@
 import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
+  ArrowClockwise,
   ArrowLeft,
-  GraduationCap,
-  Clock,
+  ChatCircleDots,
   CheckCircle,
-  XCircle,
+  Clock,
+  Files,
+  GraduationCap,
+  ListBullets,
+  PaperPlaneTilt,
   PencilSimple,
+  Robot,
   Trash,
   UserPlus,
-  ArrowClockwise,
-  ListBullets,
-  Files,
-  ChatCircleDots,
-  Robot,
+  Warning,
+  XCircle,
 } from "@phosphor-icons/react";
 import {
-  Card,
-  Button,
   Badge,
-  Modal,
-  Textarea,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
   Input,
-  
+  Modal,
+  Skeleton,
+  Textarea,
 } from "@/components/ui";
 import { useAuthStore, isLecturer, isStudent } from "@/lib/auth";
 import { toast } from "@/lib/toast";
-import { mockTheses, statusMap, Thesis } from "../page";
+import { isApiError } from "@/lib/api";
+import { useAsync } from "@/lib/use-async";
+import { thesesApi, type Thesis } from "@/lib/services";
+import { formatDateTime, formatDate } from "@/lib/format";
+import { statusMap } from "../page";
 
 export default function ThesisDetailPage() {
   const params = useParams();
@@ -36,112 +44,110 @@ export default function ThesisDetailPage() {
   const { user } = useAuthStore();
   const id = Number(params.id);
 
-  const [thesis, setThesis] = React.useState<Thesis | null>(() => {
-    return mockTheses.find((t) => t.id === id) || mockTheses[0];
-  });
-
   const [activeTab, setActiveTab] = React.useState<"info" | "history">("info");
-
-  // Approval Modals State (UC 3.6, 3.7)
-  const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
-  const [rejectionReason, setRejectionReason] = React.useState("");
   const [processing, setProcessing] = React.useState(false);
 
-  // Edit State (UC 3.4)
-  const [editModalOpen, setEditModalOpen] = React.useState(false);
-  const [editTitle, setEditTitle] = React.useState(thesis?.title || "");
-  const [editDesc, setEditDesc] = React.useState(thesis?.description || "");
+  const [rejectOpen, setRejectOpen] = React.useState(false);
+  const [rejectionReason, setRejectionReason] = React.useState("");
+  const [revisionOpen, setRevisionOpen] = React.useState(false);
+  const [revisionNote, setRevisionNote] = React.useState("");
 
-  // Delete State (UC 3.5)
-  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editTitle, setEditTitle] = React.useState("");
+  const [editDesc, setEditDesc] = React.useState("");
+  const [editField, setEditField] = React.useState("");
 
-  if (!thesis) {
-    return <div className="p-8 text-center text-tertiary">Đề tài không tồn tại</div>;
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+
+  const {
+    data: thesis,
+    loading,
+    error,
+    refetch,
+    setData,
+  } = useAsync(() => thesesApi.get(id), [id], { enabled: Number.isFinite(id) });
+
+  const { data: history, refetch: refetchHistory } = useAsync(
+    () => thesesApi.history(id),
+    [id],
+    { enabled: Number.isFinite(id) && activeTab === "history" }
+  );
+
+  /* Mọi thao tác đổi trạng thái đều đi qua đây: server trả về bản ghi mới, ta
+     ghi đè state bằng chính nó thay vì tự đoán kết quả. Cập nhật lạc quan ở
+     đây sẽ nói dối người dùng mỗi khi FSM phía server từ chối. */
+  const run = React.useCallback(
+    async (action: () => Promise<Thesis>, successMessage: string) => {
+      setProcessing(true);
+      try {
+        const updated = await action();
+        setData(updated);
+        void refetchHistory();
+        toast.success(successMessage);
+        return true;
+      } catch (err) {
+        toast.error(isApiError(err) ? err.message : "Thao tác thất bại");
+        return false;
+      } finally {
+        setProcessing(false);
+      }
+    },
+    [setData, refetchHistory]
+  );
+
+  if (loading && !thesis) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-8 w-40 rounded-md" />
+        <Skeleton className="h-44 rounded-[10px]" />
+        <Skeleton className="h-64 rounded-[10px]" />
+      </div>
+    );
+  }
+
+  if (error || !thesis) {
+    return (
+      <EmptyState
+        icon={<Warning size={16} />}
+        title="Không mở được đề tài"
+        description={error ?? "Đề tài không tồn tại hoặc bạn không có quyền xem."}
+        action={
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              Thử lại
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => router.push("/theses")}>
+              Về danh sách
+            </Button>
+          </div>
+        }
+      />
+    );
   }
 
   const statusInfo = statusMap[thesis.status];
+  const supervisor = isLecturer(user) && thesis.lecturer_id !== null;
+  const owner = isStudent(user);
+  const admin = user?.role === "ADMIN";
 
-  // GV Approve Handler (UC 3.6)
-  const handleApprove = async () => {
-    setProcessing(true);
-    try {
-      setThesis((prev) => (prev ? { ...prev, status: "ONGOING" } : null));
-      toast.success("Đã phê duyệt đề tài thành công!");
-    } catch {
-      toast.error("Phê duyệt thất bại");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // GV Reject Handler (UC 3.7)
-  const handleReject = async () => {
-    if (!rejectionReason.trim()) {
-      toast.error("Vui lòng nhập lý do từ chối");
-      return;
-    }
-    setProcessing(true);
-    try {
-      setThesis((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "REJECTED",
-              rejection_reason: rejectionReason,
-            }
-          : null
-      );
-      toast.warning("Đã từ chối đề tài và gửi nhận xét cho sinh viên");
-      setRejectModalOpen(false);
-    } catch {
-      toast.error("Từ chối thất bại");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // SV Resubmit Handler (UC 3.8)
-  const handleResubmit = async () => {
-    setProcessing(true);
-    try {
-      setThesis((prev) => (prev ? { ...prev, status: "PENDING", rejection_reason: undefined } : null));
-      toast.success("Đã gửi lại đề tài để Giảng viên phê duyệt!");
-    } catch {
-      toast.error("Thao tác thất bại");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // Save Edit Handler (UC 3.4)
-  const handleSaveEdit = async () => {
-    setProcessing(true);
-    try {
-      setThesis((prev) => (prev ? { ...prev, title: editTitle, description: editDesc } : null));
-      toast.success("Đã cập nhật thông tin đề tài!");
-      setEditModalOpen(false);
-    } catch {
-      toast.error("Cập nhật thất bại");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // Delete Handler (UC 3.5)
-  const handleDelete = async () => {
-    try {
-      toast.success("Đã xóa đề tài thành công!");
-      router.push("/theses");
-    } catch {
-      toast.error("Xóa đề tài thất bại");
-    }
-  };
+  /* Nút chỉ hiện khi thao tác thực sự khả thi: bày một nút "Sửa" rồi trả về
+     403 khi bấm là để người dùng tự phát hiện luật nghiệp vụ bằng cách va vào
+     nó. Điều kiện dưới đây phản chiếu `can()` ở `backend/src/domain/access.ts`. */
+  const canEdit =
+    admin ||
+    (owner && (thesis.status === "DRAFT" || thesis.status === "REVISION_REQUIRED")) ||
+    (supervisor && thesis.status !== "COMPLETED");
+  const canDelete = admin || (owner && thesis.status === "DRAFT");
+  const canSubmit =
+    (owner || admin) && (thesis.status === "DRAFT" || thesis.status === "REVISION_REQUIRED");
+  const canReview = (supervisor || admin) && thesis.status === "PENDING";
+  const canComplete = (supervisor || admin) && thesis.status === "ONGOING";
 
   return (
     <div>
       <div className="mb-4">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/theses")}
           className="btn-ghost text-tertiary hover:text-primary text-[13px] inline-flex items-center gap-1.5 p-0"
         >
           <ArrowLeft size={16} />
@@ -149,166 +155,247 @@ export default function ThesisDetailPage() {
         </button>
       </div>
 
-      {/* Header Banner */}
       <Card className="p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-3">
-            <Badge variant={statusInfo.variant} dot>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Badge variant={statusInfo.variant} dot={thesis.status === "PENDING"}>
               {statusInfo.label}
             </Badge>
-            <span className="text-[12px] text-tertiary font-mono">
-              Lĩnh vực: {thesis.field}
-            </span>
+            <span className="text-[12px] text-tertiary">Lĩnh vực: {thesis.field}</span>
+            {thesis.academic_year && (
+              <span className="text-[12px] text-tertiary">Năm học: {thesis.academic_year}</span>
+            )}
           </div>
 
-          {/* Action Buttons based on Role & Status */}
-          <div className="flex items-center gap-2">
-            {/* Lecturer approval buttons */}
-            {isLecturer(user) && thesis.status === "PENDING" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {canSubmit && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<PaperPlaneTilt size={16} />}
+                loading={processing}
+                onClick={() => void run(() => thesesApi.submit(thesis.id), "Đã gửi đề tài cho giảng viên duyệt.")}
+              >
+                Gửi duyệt
+              </Button>
+            )}
+
+            {canReview && (
               <>
                 <Button
                   variant="primary"
                   size="sm"
                   icon={<CheckCircle size={16} />}
-                  onClick={handleApprove}
                   loading={processing}
+                  onClick={() => void run(() => thesesApi.approve(thesis.id), "Đã phê duyệt đề tài.")}
                 >
                   Phê duyệt
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<ArrowClockwise size={16} />}
+                  onClick={() => setRevisionOpen(true)}
+                >
+                  Yêu cầu sửa
                 </Button>
                 <Button
                   variant="danger"
                   size="sm"
                   icon={<XCircle size={16} />}
-                  onClick={() => setRejectModalOpen(true)}
+                  onClick={() => setRejectOpen(true)}
                 >
                   Từ chối
                 </Button>
               </>
             )}
 
-            {/* Student Resubmit */}
-            {isStudent(user) && thesis.status === "REJECTED" && (
+            {canComplete && (
               <Button
                 variant="primary"
                 size="sm"
-                icon={<ArrowClockwise size={16} />}
-                onClick={handleResubmit}
+                icon={<CheckCircle size={16} />}
                 loading={processing}
+                onClick={async () => {
+                  const ok = await run(
+                    () => thesesApi.complete(thesis.id),
+                    "Đã đánh dấu đề tài hoàn thành."
+                  );
+                  // Server chặn khi còn mốc dang dở và trả 409 kèm số lượng.
+                  // Hỏi lại rồi mới ép, thay vì âm thầm bỏ qua kiểm tra.
+                  if (!ok && confirm("Vẫn còn mốc chưa hoàn thành. Bạn có chắc muốn kết thúc đề tài?")) {
+                    void run(
+                      () => thesesApi.complete(thesis.id, true),
+                      "Đã đánh dấu đề tài hoàn thành."
+                    );
+                  }
+                }}
               >
-                Gửi lại để duyệt
+                Đánh dấu hoàn thành
               </Button>
             )}
 
-            {/* Edit / Delete for Owner */}
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<PencilSimple size={16} />}
-              onClick={() => {
-                setEditTitle(thesis.title);
-                setEditDesc(thesis.description);
-                setEditModalOpen(true);
-              }}
-            >
-              Sửa
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              icon={<Trash size={16} />}
-              onClick={() => setDeleteModalOpen(true)}
-            >
-              Xóa
-            </Button>
+            {canEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<PencilSimple size={16} />}
+                onClick={() => {
+                  setEditTitle(thesis.title);
+                  setEditDesc(thesis.description);
+                  setEditField(thesis.field);
+                  setEditOpen(true);
+                }}
+              >
+                Sửa
+              </Button>
+            )}
+
+            {canDelete && (
+              <Button
+                variant="danger"
+                size="sm"
+                icon={<Trash size={16} />}
+                onClick={() => setDeleteOpen(true)}
+              >
+                Xóa
+              </Button>
+            )}
           </div>
         </div>
 
-        <h1 className="text-xl font-bold tracking-tight mb-3 leading-snug">
-          {thesis.title}
-        </h1>
+        <h1 className="text-xl font-bold tracking-tight mb-3 leading-snug">{thesis.title}</h1>
 
         <div className="flex flex-wrap items-center gap-6 text-[13px] text-secondary border-t border-[var(--border-secondary)] pt-4 mt-4">
           <span className="flex items-center gap-2">
             <GraduationCap size={18} className="text-accent" />
-            GVHD: <strong className="text-primary font-medium">{thesis.lecturer_name}</strong>
+            GVHD:{" "}
+            <strong className="text-primary font-medium">{thesis.lecturer_name}</strong>
           </span>
 
           <span className="flex items-center gap-2">
             <UserPlus size={18} className="text-accent" />
-            Sinh viên thực hiện:{" "}
+            Sinh viên:{" "}
             <strong className="text-primary font-medium">
-              {thesis.student_names?.join(", ") || "Chưa gán sinh viên"}
+              {thesis.student_names.length ? thesis.student_names.join(", ") : "Chưa gán sinh viên"}
             </strong>
           </span>
 
-          <span className="flex items-center gap-2 text-tertiary font-mono">
+          <span className="flex items-center gap-2 text-tertiary tnum">
             <Clock size={16} />
-            Cập nhật: {thesis.updated_at}
+            Cập nhật: {formatDateTime(thesis.updated_at)}
           </span>
         </div>
       </Card>
 
-      {/* Tabs Bar */}
       <div className="flex items-center gap-2 border-b border-[var(--border-primary)] mb-6">
-        <button
-          className={`px-4 py-2.5 text-[14px] font-medium border-b-2 transition-colors ${
-            activeTab === "info"
-              ? "border-[var(--accent)] text-[var(--accent)]"
-              : "border-transparent text-tertiary hover:text-primary"
-          }`}
-          onClick={() => setActiveTab("info")}
-        >
-          Thông tin chi tiết
-        </button>
-        <button
-          className={`px-4 py-2.5 text-[14px] font-medium border-b-2 transition-colors ${
-            activeTab === "history"
-              ? "border-[var(--accent)] text-[var(--accent)]"
-              : "border-transparent text-tertiary hover:text-primary"
-          }`}
-          onClick={() => setActiveTab("history")}
-        >
-          Lịch sử hoạt động
-        </button>
+        {(
+          [
+            ["info", "Thông tin chi tiết"],
+            ["history", "Lịch sử hoạt động"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            className={`px-4 py-2.5 text-[14px] font-medium border-b-2 transition-colors ${
+              activeTab === key
+                ? "border-[var(--accent)] text-[var(--accent)]"
+                : "border-transparent text-tertiary hover:text-primary"
+            }`}
+            onClick={() => setActiveTab(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Tab Content: Info */}
       {activeTab === "info" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2 p-6">
             <h2 className="text-base font-semibold mb-3">Mô tả / Đề cương nghiên cứu</h2>
             <p className="text-[14px] leading-relaxed text-secondary whitespace-pre-line mb-6">
-              {thesis.description}
+              {thesis.description || "Chưa có mô tả."}
             </p>
 
-            {/* Rejection Alert Box */}
+            {/* Hai loại phản hồi khác nhau nên hiện khác nhau: "cần sửa rồi gửi
+                lại" (UC 3.10) là việc còn làm tiếp được, "từ chối" (UC 3.11) là
+                trạng thái cuối. */}
+            {thesis.status === "REVISION_REQUIRED" && thesis.revision_note && (
+              <div
+                className="p-4 rounded-xl mb-4"
+                style={{ background: "var(--warning-bg)", border: "1px solid var(--warning-border)" }}
+              >
+                <h3 className="text-[14px] font-semibold text-warning flex items-center gap-2 mb-1">
+                  <ArrowClockwise size={18} />
+                  Giảng viên yêu cầu chỉnh sửa
+                </h3>
+                <p className="text-[13px] text-secondary">{thesis.revision_note}</p>
+              </div>
+            )}
+
             {thesis.rejection_reason && (
-              <div className="p-4 rounded-xl mb-6 bg-[var(--danger-bg)] border border-[rgba(248,113,113,0.3)]">
-                <h3 className="text-[14px] font-semibold text-[var(--danger)] flex items-center gap-2 mb-1">
+              <div
+                className="p-4 rounded-xl mb-4"
+                style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)" }}
+              >
+                <h3 className="text-[14px] font-semibold text-danger flex items-center gap-2 mb-1">
                   <XCircle size={18} />
-                  Lý do giảng viên yêu cầu chỉnh sửa:
+                  Lý do từ chối
                 </h3>
                 <p className="text-[13px] text-secondary">{thesis.rejection_reason}</p>
               </div>
             )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-[var(--border-secondary)]">
+              {[
+                ["Mốc tiến độ", thesis.milestone_count],
+                ["Tài liệu", thesis.document_count],
+                ["Ngày tạo", formatDate(thesis.created_at)],
+                ["Hoàn thành", thesis.completed_at ? formatDate(thesis.completed_at) : "—"],
+              ].map(([label, value]) => (
+                <div key={String(label)}>
+                  <p className="eyebrow mb-0.5">{label}</p>
+                  <p className="text-[13px] font-medium tnum">{value}</p>
+                </div>
+              ))}
+            </div>
           </Card>
 
-          {/* Sidebar Quick Shortcuts */}
           <div className="flex flex-col gap-4">
             <Card className="p-5">
               <h3 className="text-[14px] font-semibold mb-3">Không gian làm việc</h3>
               <div className="flex flex-col gap-2">
-                <Button variant="secondary" className="justify-start" icon={<ListBullets size={15} />} onClick={() => router.push("/milestones")}>
-                  Quản lý Milestone
+                <Button
+                  variant="secondary"
+                  className="justify-start"
+                  icon={<ListBullets size={15} />}
+                  onClick={() => router.push(`/milestones?thesis=${thesis.id}`)}
+                >
+                  Quản lý mốc tiến độ
                 </Button>
-                <Button variant="secondary" className="justify-start" icon={<Files size={15} />} onClick={() => router.push("/documents")}>
-                  Kho tài liệu & RAG
+                <Button
+                  variant="secondary"
+                  className="justify-start"
+                  icon={<Files size={15} />}
+                  onClick={() => router.push(`/documents?thesis=${thesis.id}`)}
+                >
+                  Kho tài liệu &amp; RAG
                 </Button>
-                <Button variant="secondary" className="justify-start" icon={<Robot size={15} />} onClick={() => router.push("/ai-chat")}>
-                  Hỏi đáp Trợ lý AI
+                <Button
+                  variant="secondary"
+                  className="justify-start"
+                  icon={<Robot size={15} />}
+                  onClick={() => router.push(`/ai-chat?thesis=${thesis.id}`)}
+                >
+                  Hỏi đáp trợ lý AI
                 </Button>
-                <Button variant="secondary" className="justify-start" icon={<ChatCircleDots size={15} />} onClick={() => router.push("/feedbacks")}>
-                  Phản hồi GVHD
+                <Button
+                  variant="secondary"
+                  className="justify-start"
+                  icon={<ChatCircleDots size={15} />}
+                  onClick={() => router.push(`/feedbacks?thesis=${thesis.id}`)}
+                >
+                  Phản hồi giảng viên
                 </Button>
               </div>
             </Card>
@@ -316,66 +403,143 @@ export default function ThesisDetailPage() {
         </div>
       )}
 
-      {/* Tab Content: History Timeline */}
       {activeTab === "history" && (
         <Card className="p-6 max-w-3xl">
-          <h2 className="text-base font-semibold mb-4">Lịch sử thay đổi trạng thái đề tài</h2>
-
-          <div className="flex flex-col gap-4">
-            {[
-              { time: "2026-07-15 10:30", actor: "TS. Nguyễn Văn A", event: "Đã duyệt đề tài chuyển sang Đang thực hiện" },
-              { time: "2026-07-10 14:20", actor: "Lê Văn C", event: "Đã cập nhật mô tả đề cương theo yêu cầu" },
-              { time: "2026-07-01 09:00", actor: "Lê Văn C", event: "Khởi tạo và gửi đề xuất đề tài" },
-            ].map((item, idx) => (
-              <div key={idx} className="flex gap-4 items-start border-l-2 border-[var(--accent)] pl-4 py-1">
-                <div>
-                  <p className="text-[14px] font-medium text-primary">{item.event}</p>
-                  <span className="text-[12px] text-tertiary">
-                    {item.actor} • {item.time}
-                  </span>
+          <h2 className="text-base font-semibold mb-4">Lịch sử thay đổi đề tài</h2>
+          {!history ? (
+            <div className="flex flex-col gap-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-12 rounded-md" />
+              ))}
+            </div>
+          ) : history.length === 0 ? (
+            <p className="text-[13px] text-tertiary">Chưa có hoạt động nào được ghi nhận.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {history.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex gap-4 items-start border-l-2 border-[var(--accent)] pl-4 py-1"
+                >
+                  <div>
+                    <p className="text-[14px] font-medium text-primary">{item.event}</p>
+                    <span className="text-[12px] text-tertiary tnum">
+                      {item.actor_name} • {formatDateTime(item.created_at)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
-      {/* Reject Modal */}
+      {/* ---------------- Yêu cầu chỉnh sửa (UC 3.10) ---------------- */}
       <Modal
-        open={rejectModalOpen}
-        onClose={() => setRejectModalOpen(false)}
-        title="Từ chối / Yêu cầu chỉnh sửa đề tài"
+        open={revisionOpen}
+        onClose={() => setRevisionOpen(false)}
+        title="Yêu cầu sinh viên chỉnh sửa đề tài"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setRejectModalOpen(false)}>
+            <Button variant="ghost" onClick={() => setRevisionOpen(false)}>
               Hủy
             </Button>
-            <Button variant="danger" loading={processing} onClick={handleReject}>
-              Gửi từ chối
+            <Button
+              variant="primary"
+              loading={processing}
+              onClick={async () => {
+                if (!revisionNote.trim()) return toast.error("Vui lòng nhập nội dung cần sửa.");
+                const ok = await run(
+                  () => thesesApi.requestRevision(thesis.id, revisionNote.trim()),
+                  "Đã gửi yêu cầu chỉnh sửa cho sinh viên."
+                );
+                if (ok) {
+                  setRevisionOpen(false);
+                  setRevisionNote("");
+                }
+              }}
+            >
+              Gửi yêu cầu
             </Button>
           </>
         }
       >
         <Textarea
-          label="Lý do từ chối / Hướng dẫn chỉnh sửa *"
+          label="Nội dung cần chỉnh sửa *"
           rows={4}
-          placeholder="Nhập lý do cụ thể để sinh viên biết hướng chỉnh sửa..."
+          placeholder="Nêu rõ những điểm sinh viên cần bổ sung hoặc thu hẹp phạm vi…"
+          value={revisionNote}
+          onChange={(e) => setRevisionNote(e.target.value)}
+          helperText="Đề tài sẽ quay về cho sinh viên sửa và gửi lại."
+        />
+      </Modal>
+
+      {/* ---------------- Từ chối (UC 3.11) ---------------- */}
+      <Modal
+        open={rejectOpen}
+        onClose={() => setRejectOpen(false)}
+        title="Từ chối đề tài"
+        description="Từ chối là trạng thái cuối — đề tài này sẽ không thể kích hoạt lại."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRejectOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              variant="danger"
+              loading={processing}
+              onClick={async () => {
+                if (!rejectionReason.trim()) return toast.error("Vui lòng nhập lý do từ chối.");
+                const ok = await run(
+                  () => thesesApi.reject(thesis.id, rejectionReason.trim()),
+                  "Đã từ chối đề tài."
+                );
+                if (ok) {
+                  setRejectOpen(false);
+                  setRejectionReason("");
+                }
+              }}
+            >
+              Xác nhận từ chối
+            </Button>
+          </>
+        }
+      >
+        <Textarea
+          label="Lý do từ chối *"
+          rows={4}
+          placeholder="Nêu lý do cụ thể để sinh viên hiểu vì sao đề tài không được chấp nhận…"
           value={rejectionReason}
           onChange={(e) => setRejectionReason(e.target.value)}
         />
       </Modal>
 
-      {/* Edit Modal */}
+      {/* ---------------- Sửa ---------------- */}
       <Modal
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
         title="Chỉnh sửa thông tin đề tài"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setEditModalOpen(false)}>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>
               Hủy
             </Button>
-            <Button variant="primary" loading={processing} onClick={handleSaveEdit}>
+            <Button
+              variant="primary"
+              loading={processing}
+              onClick={async () => {
+                const ok = await run(
+                  () =>
+                    thesesApi.update(thesis.id, {
+                      title: editTitle,
+                      description: editDesc,
+                      field: editField,
+                    }),
+                  "Đã cập nhật đề tài."
+                );
+                if (ok) setEditOpen(false);
+              }}
+            >
               Cập nhật
             </Button>
           </>
@@ -383,30 +547,42 @@ export default function ThesisDetailPage() {
       >
         <div className="flex flex-col gap-4">
           <Input label="Tiêu đề" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
-          <Textarea label="Mô tả" rows={5} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+          <Input
+            label="Lĩnh vực"
+            value={editField}
+            onChange={(e) => setEditField(e.target.value)}
+          />
+          <Textarea
+            label="Mô tả"
+            rows={6}
+            value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)}
+          />
         </div>
       </Modal>
 
-      {/* Delete Modal */}
-      <Modal
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title="Xác nhận xóa đề tài"
-        footer={
+      {/* ---------------- Xóa ---------------- */}
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Xóa đề tài?"
+        confirmLabel="Xóa đề tài"
+        onConfirm={async () => {
+          try {
+            await thesesApi.remove(thesis.id);
+            toast.success("Đã xóa đề tài.");
+            router.push("/theses");
+          } catch (err) {
+            toast.error(isApiError(err) ? err.message : "Xóa đề tài thất bại");
+          }
+        }}
+        message={
           <>
-            <Button variant="ghost" onClick={() => setDeleteModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="danger" onClick={handleDelete}>
-              Xóa đề tài
-            </Button>
+            Đề tài <strong className="text-primary">{thesis.title}</strong> sẽ bị ẩn khỏi hệ thống
+            cùng toàn bộ mốc tiến độ và tài liệu của nó. Chỉ xóa được đề tài đang ở trạng thái Nháp.
           </>
         }
-      >
-        <p className="text-[14px] text-secondary">
-          Bạn có chắc chắn muốn xóa đề tài <strong className="text-primary">{thesis.title}</strong>? Đề tài sẽ bị chuyển trạng thái xóa (soft delete).
-        </p>
-      </Modal>
+      />
     </div>
   );
 }

@@ -1,118 +1,132 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import {
   Bell,
+  ChatCircleText,
   Check,
   Checks,
-  Trash,
   Clock,
   Gear,
-  Kanban,
   GraduationCap,
-  ChatCircleText,
+  Kanban,
+  Trash,
+  Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Card, Button, Badge, Modal } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Modal, Skeleton } from "@/components/ui";
 import { toast } from "@/lib/toast";
+import { isApiError } from "@/lib/api";
+import { useAsync } from "@/lib/use-async";
+import {
+  notificationsApi,
+  type NotificationItem,
+  type NotificationPreference,
+  type NotificationType,
+} from "@/lib/services";
+import { formatRelative } from "@/lib/format";
 
-/* ========================================
-   TYPES (ERD Notifications Table)
-   ======================================== */
+const TYPE_META: Record<
+  NotificationType,
+  { icon: React.ReactNode; label: string; description: string }
+> = {
+  MILESTONE: {
+    icon: <Kanban size={18} className="text-warning" />,
+    label: "Mốc tiến độ",
+    description: "Nhắc hạn trước 7/3/1 ngày và cảnh báo khi đã quá hạn",
+  },
+  FEEDBACK: {
+    icon: <ChatCircleText size={18} className="text-info" />,
+    label: "Phản hồi & nhận xét",
+    description: "Khi giảng viên hoặc sinh viên trả lời bình luận",
+  },
+  THESIS: {
+    icon: <GraduationCap size={18} className="text-success" />,
+    label: "Đề tài",
+    description: "Kết quả duyệt đề tài và thay đổi trạng thái",
+  },
+  SYSTEM: {
+    icon: <Bell size={18} className="text-accent" />,
+    label: "Hệ thống",
+    description: "Thông báo bảo trì và bảo mật — không thể tắt trong ứng dụng",
+  },
+};
 
-export interface NotificationItem {
-  id: number;
-  title: string;
-  content: string;
-  is_read: boolean;
-  type: "MILESTONE" | "THESIS" | "FEEDBACK" | "SYSTEM";
-  created_at: string;
-}
-
-const mockNotifications: NotificationItem[] = [
-  {
-    id: 1,
-    title: "Nhắc nhở: Milestone sắp đến hạn!",
-    content: "Milestone 'Nộp Báo cáo Đề cương Luận văn' của bạn còn 6 ngày nữa là đến hạn (2026-07-25).",
-    is_read: false,
-    type: "MILESTONE",
-    created_at: "Hôm nay, 08:30",
-  },
-  {
-    id: 2,
-    title: "Giảng viên đã nhận xét bài báo cáo",
-    content: "TS. Nguyễn Văn A đã để lại bình luận trên milestone 'Thiết kế ERD Database'.",
-    is_read: false,
-    type: "FEEDBACK",
-    created_at: "Hôm qua, 16:45",
-  },
-  {
-    id: 3,
-    title: "Đề tài đã được phê duyệt!",
-    content: "Đề tài 'Hệ thống NovaThesis tích hợp AI' của bạn đã chuyển sang trạng thái Đang thực hiện.",
-    is_read: true,
-    type: "THESIS",
-    created_at: "2026-07-15 10:30",
-  },
-  {
-    id: 4,
-    title: "Cập nhật hệ thống AI pgvector",
-    content: "Hệ thống đã nâng cấp mô hình Vector Search giúp tăng 30% tốc độ RAG.",
-    is_read: true,
-    type: "SYSTEM",
-    created_at: "2026-07-10 12:00",
-  },
-];
+const TYPES = Object.keys(TYPE_META) as NotificationType[];
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = React.useState<NotificationItem[]>(mockNotifications);
+  const router = useRouter();
   const [filter, setFilter] = React.useState<"ALL" | "UNREAD">("ALL");
+  const [typeFilter, setTypeFilter] = React.useState<"ALL" | NotificationType>("ALL");
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
-  // Settings Modal State (UC 8.2, 8.7)
-  const [settingsModalOpen, setSettingsModalOpen] = React.useState(false);
-  const [emailNotify, setEmailNotify] = React.useState(true);
-  const [reminderNotify, setReminderNotify] = React.useState(true);
-  const [feedbackNotify, setFeedbackNotify] = React.useState(true);
+  const { data, loading, error, refetch, setData } = useAsync(
+    () =>
+      notificationsApi.list({
+        filter,
+        per_page: 30,
+        ...(typeFilter !== "ALL" ? { type: typeFilter } : {}),
+      }),
+    [filter, typeFilter]
+  );
 
-  // Filter Logic (UC 8.3)
-  const filteredNotifications = React.useMemo(() => {
-    if (filter === "UNREAD") return notifications.filter((n) => !n.is_read);
-    return notifications;
-  }, [notifications, filter]);
+  const items: NotificationItem[] = data?.data ?? [];
+  const unreadCount = data?.unread_count ?? 0;
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
-  // Mark Read (UC 8.4)
-  const handleMarkRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+  /* Cập nhật lạc quan: đánh dấu đã đọc là thao tác không thể hỏng theo cách
+     nào đáng kể, và chờ round-trip mới đổi màu dòng làm giao diện có cảm giác
+     ì. Thất bại thì tải lại để state khớp server. */
+  const markRead = async (n: NotificationItem) => {
+    if (n.is_read) return;
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            data: prev.data.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
+            unread_count: Math.max(0, prev.unread_count - 1),
+          }
+        : prev
     );
-    toast.info("Đã đánh dấu đã đọc");
+    try {
+      await notificationsApi.markRead(n.id);
+    } catch {
+      void refetch();
+    }
   };
 
-  // Mark All Read (UC 8.5)
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    toast.success("Đã đánh dấu tất cả là đã đọc!");
+  const open = async (n: NotificationItem) => {
+    await markRead(n);
+    if (n.link) router.push(n.link);
   };
 
-  // Delete Notification (UC 8.6)
-  const handleDelete = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    toast.warning("Đã xóa thông báo");
+  const markAllRead = async () => {
+    try {
+      const { updated } = await notificationsApi.markAllRead();
+      toast.success(updated > 0 ? `Đã đánh dấu ${updated} thông báo là đã đọc.` : "Không còn thông báo chưa đọc.");
+      void refetch();
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Thao tác thất bại");
+    }
   };
 
-  // Save Settings (UC 8.2, 8.7)
-  const handleSaveSettings = () => {
-    toast.success("Đã lưu cài đặt nhận thông báo!");
-    setSettingsModalOpen(false);
-  };
-
-  const typeIcons: Record<string, React.ReactNode> = {
-    MILESTONE: <Kanban size={18} className="text-warning" />,
-    FEEDBACK: <ChatCircleText size={18} className="text-info" />,
-    THESIS: <GraduationCap size={18} className="text-success" />,
-    SYSTEM: <Bell size={18} className="text-accent" />,
+  const remove = async (n: NotificationItem) => {
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            data: prev.data.filter((x) => x.id !== n.id),
+            total: prev.total - 1,
+            unread_count: n.is_read ? prev.unread_count : Math.max(0, prev.unread_count - 1),
+          }
+        : prev
+    );
+    try {
+      await notificationsApi.remove(n.id);
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Xóa thất bại");
+      void refetch();
+    }
   };
 
   return (
@@ -122,19 +136,11 @@ export default function NotificationsPage() {
         description="Nhắc hạn, phản hồi của giảng viên và thay đổi trạng thái đề tài."
         actions={
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              icon={<Gear size={15} />}
-              onClick={() => setSettingsModalOpen(true)}
-            >
-              Cài đặt thông báo
+            <Button variant="secondary" icon={<Gear size={15} />} onClick={() => setSettingsOpen(true)}>
+              Cài đặt
             </Button>
             {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                icon={<Checks size={15} />}
-                onClick={handleMarkAllRead}
-              >
+              <Button variant="ghost" icon={<Checks size={15} />} onClick={markAllRead}>
                 Đọc tất cả ({unreadCount})
               </Button>
             )}
@@ -142,70 +148,119 @@ export default function NotificationsPage() {
         }
       />
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {(
+          [
+            ["ALL", `Tất cả${data ? ` (${data.total})` : ""}`],
+            ["UNREAD", `Chưa đọc (${unreadCount})`],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            className={`px-3.5 py-1.5 text-[13px] font-medium rounded-lg transition-colors ${
+              filter === key
+                ? "bg-[var(--accent-subtle)] text-[var(--accent)]"
+                : "text-tertiary hover:text-primary"
+            }`}
+            onClick={() => setFilter(key)}
+          >
+            {label}
+          </button>
+        ))}
+
+        <span className="w-px h-4 bg-[var(--border-primary)] mx-1" aria-hidden="true" />
+
         <button
-          className={`px-3.5 py-1.5 text-[13px] font-medium rounded-lg transition-colors ${
-            filter === "ALL"
-              ? "bg-[var(--accent-subtle)] text-[var(--accent)]"
-              : "text-tertiary hover:text-primary"
+          className={`px-3 py-1.5 text-[12.5px] rounded-lg transition-colors ${
+            typeFilter === "ALL" ? "text-primary font-medium" : "text-tertiary hover:text-primary"
           }`}
-          onClick={() => setFilter("ALL")}
+          onClick={() => setTypeFilter("ALL")}
         >
-          Tất cả ({notifications.length})
+          Mọi loại
         </button>
-        <button
-          className={`px-3.5 py-1.5 text-[13px] font-medium rounded-lg transition-colors ${
-            filter === "UNREAD"
-              ? "bg-[var(--accent-subtle)] text-[var(--accent)]"
-              : "text-tertiary hover:text-primary"
-          }`}
-          onClick={() => setFilter("UNREAD")}
-        >
-          Chưa đọc ({unreadCount})
-        </button>
+        {TYPES.map((t) => (
+          <button
+            key={t}
+            className={`px-3 py-1.5 text-[12.5px] rounded-lg transition-colors ${
+              typeFilter === t ? "text-primary font-medium" : "text-tertiary hover:text-primary"
+            }`}
+            onClick={() => setTypeFilter(t)}
+          >
+            {TYPE_META[t].label}
+          </button>
+        ))}
       </div>
 
-      {/* Notifications List (UC 8.1, 8.3, 8.8) */}
-      <div className="flex flex-col gap-3">
-        {filteredNotifications.length === 0 ? (
-          <Card className="p-12 text-center text-tertiary">
-            Không có thông báo nào.
-          </Card>
-        ) : (
-          filteredNotifications.map((n) => (
+      {error ? (
+        <EmptyState
+          icon={<Warning size={16} />}
+          title="Không tải được thông báo"
+          description={error}
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              Thử lại
+            </Button>
+          }
+        />
+      ) : loading && !data ? (
+        <div className="flex flex-col gap-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-[10px]" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={<Bell size={16} />}
+          title={filter === "UNREAD" ? "Không có thông báo chưa đọc" : "Chưa có thông báo nào"}
+          description={
+            filter === "UNREAD"
+              ? "Bạn đã đọc hết. Quay lại tab “Tất cả” để xem lịch sử."
+              : "Thông báo về mốc tiến độ, phản hồi và đề tài sẽ xuất hiện tại đây."
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {items.map((n) => (
             <Card
               key={n.id}
               className={`p-4 flex items-start justify-between gap-4 transition-colors ${
                 !n.is_read ? "border-l-4 border-l-[var(--accent)] bg-[var(--bg-secondary)]" : ""
               }`}
             >
-              <div className="flex items-start gap-3 flex-1">
-                <div className="p-2 rounded-xl bg-[var(--bg-surface)] mt-0.5 flex-shrink-0">
-                  {typeIcons[n.type]}
-                </div>
+              <button
+                className="flex items-start gap-3 flex-1 text-left min-w-0"
+                onClick={() => void open(n)}
+              >
+                <span className="p-2 rounded-xl bg-[var(--bg-surface)] mt-0.5 flex-shrink-0">
+                  {TYPE_META[n.type].icon}
+                </span>
 
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className={`text-[14px] ${!n.is_read ? "font-semibold text-primary" : "font-medium text-secondary"}`}>
+                <span className="flex-1 min-w-0">
+                  <span className="flex items-center gap-2 mb-1">
+                    <span
+                      className={`text-[14px] ${
+                        !n.is_read ? "font-semibold text-primary" : "font-medium text-secondary"
+                      }`}
+                    >
                       {n.title}
-                    </h3>
+                    </span>
                     {!n.is_read && <Badge variant="info">Mới</Badge>}
-                  </div>
-                  <p className="text-[13px] text-tertiary leading-relaxed mb-2">{n.content}</p>
-                  <span className="text-[11px] font-mono text-muted flex items-center gap-1">
-                    <Clock size={12} /> {n.created_at}
                   </span>
-                </div>
-              </div>
+                  <span className="block text-[13px] text-tertiary leading-relaxed mb-2">
+                    {n.content}
+                  </span>
+                  <span className="text-[11px] tnum text-muted flex items-center gap-1">
+                    <Clock size={12} /> {formatRelative(n.created_at)}
+                  </span>
+                </span>
+              </button>
 
-              {/* Action Buttons */}
               <div className="flex items-center gap-1 flex-shrink-0">
                 {!n.is_read && (
                   <button
                     className="btn-ghost p-1.5 rounded-lg text-tertiary hover:text-accent"
                     title="Đánh dấu đã đọc"
-                    onClick={() => handleMarkRead(n.id)}
+                    onClick={() => void markRead(n)}
                   >
                     <Check size={16} />
                   </button>
@@ -213,73 +268,131 @@ export default function NotificationsPage() {
                 <button
                   className="btn-ghost p-1.5 rounded-lg text-tertiary hover:text-danger"
                   title="Xóa thông báo"
-                  onClick={() => handleDelete(n.id)}
+                  onClick={() => void remove(n)}
                 >
                   <Trash size={16} />
                 </button>
               </div>
             </Card>
-          ))
-        )}
-      </div>
-
-      {/* Modal: Notification Preferences (UC 8.2, 8.7) */}
-      <Modal
-        open={settingsModalOpen}
-        onClose={() => setSettingsModalOpen(false)}
-        title="Cài đặt thông báo"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setSettingsModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="primary" onClick={handleSaveSettings}>
-              Lưu Cài đặt
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4 text-[14px]">
-          <label className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)] cursor-pointer">
-            <div>
-              <span className="font-medium block">Thông báo qua Email</span>
-              <span className="text-[12px] text-tertiary">Gửi email khi có nhắc nhở milestone hoặc nhận xét mới</span>
-            </div>
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-[var(--accent)]"
-              checked={emailNotify}
-              onChange={(e) => setEmailNotify(e.target.checked)}
-            />
-          </label>
-
-          <label className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)] cursor-pointer">
-            <div>
-              <span className="font-medium block">Nhắc nhở Milestone sắp đến hạn</span>
-              <span className="text-[12px] text-tertiary">Cảnh báo tự động trước 7 ngày và 1 ngày</span>
-            </div>
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-[var(--accent)]"
-              checked={reminderNotify}
-              onChange={(e) => setReminderNotify(e.target.checked)}
-            />
-          </label>
-
-          <label className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)] cursor-pointer">
-            <div>
-              <span className="font-medium block">Thông báo Phản hồi & Nhận xét</span>
-              <span className="text-[12px] text-tertiary">Báo tức thì khi Giảng viên / Sinh viên trả lời comment</span>
-            </div>
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-[var(--accent)]"
-              checked={feedbackNotify}
-              onChange={(e) => setFeedbackNotify(e.target.checked)}
-            />
-          </label>
+          ))}
         </div>
-      </Modal>
+      )}
+
+      <PreferencesModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
+  );
+}
+
+/* ==========================================================================
+   CÀI ĐẶT NHẬN THÔNG BÁO (UC 8.7)
+   ========================================================================== */
+
+function PreferencesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data, loading } = useAsync(() => notificationsApi.preferences(), [open], {
+    enabled: open,
+  });
+  /* Bản nháp chỉ tồn tại sau khi người dùng bấm vào một ô; trước đó hiển thị
+     thẳng dữ liệu từ server. Suy ra lúc render nên không cần effect đồng bộ. */
+  const [edited, setDraft] = React.useState<NotificationPreference[] | null>(null);
+  const draft = edited ?? data;
+  const [saving, setSaving] = React.useState(false);
+
+  const toggle = (type: NotificationType, channel: "in_app" | "email") => {
+    setDraft((prev) =>
+      prev?.map((p) => (p.type === type ? { ...p, [channel]: !p[channel] } : p)) ?? prev
+    );
+  };
+
+  const save = async () => {
+    if (!draft) return;
+    setSaving(true);
+    try {
+      await notificationsApi.savePreferences(draft);
+      toast.success("Đã lưu cài đặt nhận thông báo.");
+      onClose();
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Không lưu được cài đặt");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Cài đặt thông báo"
+      description="Chọn kênh nhận cho từng loại sự kiện."
+      width="max-w-lg"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button variant="primary" loading={saving} disabled={!draft} onClick={save}>
+            Lưu cài đặt
+          </Button>
+        </>
+      }
+    >
+      {loading || !draft ? (
+        <div className="flex flex-col gap-2">
+          {TYPES.map((t) => (
+            <Skeleton key={t} className="h-16 rounded-lg" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 pb-1">
+            <span className="eyebrow">Loại thông báo</span>
+            <span className="eyebrow w-16 text-center">Trong app</span>
+            <span className="eyebrow w-16 text-center">Email</span>
+          </div>
+
+          {draft.map((pref) => {
+            const meta = TYPE_META[pref.type];
+            /* Thông báo hệ thống mang cả cảnh báo bảo mật; server ép in_app=true
+               nên khoá luôn ô này thay vì để người dùng bấm rồi thấy nó bật lại. */
+            const lockInApp = pref.type === "SYSTEM";
+
+            return (
+              <div
+                key={pref.type}
+                className="grid grid-cols-[1fr_auto_auto] gap-3 items-center p-3 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)]"
+              >
+                <div className="min-w-0">
+                  <span className="font-medium text-[13.5px] flex items-center gap-2">
+                    {meta.icon}
+                    {meta.label}
+                  </span>
+                  <span className="text-[12px] text-tertiary block mt-0.5">{meta.description}</span>
+                </div>
+
+                <label className="w-16 flex justify-center">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-[var(--accent)]"
+                    checked={pref.in_app || lockInApp}
+                    disabled={lockInApp}
+                    onChange={() => toggle(pref.type, "in_app")}
+                    aria-label={`Thông báo trong ứng dụng cho ${meta.label}`}
+                  />
+                </label>
+
+                <label className="w-16 flex justify-center">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-[var(--accent)]"
+                    checked={pref.email}
+                    onChange={() => toggle(pref.type, "email")}
+                    aria-label={`Email cho ${meta.label}`}
+                  />
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Modal>
   );
 }
