@@ -93,10 +93,10 @@ export { dateField, toUtcMidnight } from "../../middleware/validate";
 /**
  * UC 4.1 BR — "Deadline không được nằm ngoài khoảng thời gian của đề tài".
  *
- * Khung thời gian nằm trên CHÍNH đề tài (`theses.start_date` / `end_date`).
- * Trước đây nó nằm ở bảng `academic_years` — một khái niệm của riêng từng
- * trường, không dùng được cho một nền tảng công khai. Hai cột này giữ lại đúng
- * phần có ích của nó mà không bắt cả hệ thống phải có "năm học đang hoạt động".
+ * Khung thời gian nằm trên CHÍNH đề tài (`theses.start_date` / `end_date`), do
+ * người tạo đề tài tự đặt. NovaThesis là nền tảng công khai dùng cho nhiều cơ sở
+ * và nhiều nhóm nghiên cứu độc lập, nên không tồn tại một lịch chung mà hệ thống
+ * có thể áp cho mọi người.
  *
  * Cả hai cột đều tuỳ chọn, và hai đầu được kiểm tra ĐỘC LẬP: một đề tài mới chỉ
  * biết ngày bắt đầu vẫn được ràng buộc ở đầu đó, thay vì mất trắng ràng buộc chỉ

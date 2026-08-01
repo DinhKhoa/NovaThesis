@@ -87,9 +87,9 @@ const listQuerySchema = z
         .optional()
     ),
     field: z.preprocess(anyToUndefined, optionalText(100, "Lĩnh vực")),
-    /* Lọc theo KỲ NGHIÊN CỨU thay cho năm học.
-       `from`/`to` lọc trên `theses.start_date`: đề tài bắt đầu trong khoảng này.
-       Linh hoạt hơn một mã năm học cố định, và không cần bảng tra nào. */
+    /* Lọc theo KỲ NGHIÊN CỨU: `from`/`to` áp lên `theses.start_date`, tức là
+       "đề tài bắt đầu trong khoảng này". Một khoảng ngày tự do linh hoạt hơn
+       một danh sách kỳ cố định, và không cần bảng tra nào. */
     from: optionalDateField("Ngày bắt đầu khoảng lọc"),
     to: optionalDateField("Ngày kết thúc khoảng lọc"),
   })
@@ -109,12 +109,21 @@ const createSchema = z.object({
   { message: "Ngày kết thúc phải sau ngày bắt đầu.", path: ["end_date"] }
 );
 
-const updateSchema = z.object({
-  title: text(10, 255, "Tên đề tài").optional(),
-  description: text(10, 10_000, "Mô tả đề tài").optional(),
-  field: text(2, 100, "Lĩnh vực nghiên cứu").optional(),
-  lecturer_id: z.coerce.number().int().positive("Giảng viên không hợp lệ.").optional(),
-});
+const updateSchema = z
+  .object({
+    title: text(10, 255, "Tên đề tài").optional(),
+    description: text(10, 10_000, "Mô tả đề tài").optional(),
+    field: text(2, 100, "Lĩnh vực nghiên cứu").optional(),
+    lecturer_id: z.coerce.number().int().positive("Giảng viên không hợp lệ.").optional(),
+    /* Kỳ nghiên cứu sửa được sau khi tạo: một bản nháp thường chưa biết mình
+       chạy trong khoảng nào, và khoảng đó có thể lùi khi đề tài được duyệt muộn. */
+    start_date: optionalDateField("Ngày bắt đầu kỳ nghiên cứu"),
+    end_date: optionalDateField("Ngày kết thúc kỳ nghiên cứu"),
+  })
+  .refine(
+    (v) => v.start_date === undefined || v.end_date === undefined || v.end_date > v.start_date,
+    { message: "Ngày kết thúc phải sau ngày bắt đầu.", path: ["end_date"] }
+  );
 
 const approveSchema = z.object({ note: optionalText(2000, "Ghi chú phê duyệt") });
 
@@ -389,10 +398,14 @@ thesesRouter.patch(
       description?: string;
       field?: string;
       lecturer_id?: number;
+      start_date?: Date;
+      end_date?: Date;
     } = {};
     if (body.title !== undefined) data.title = body.title;
     if (body.description !== undefined) data.description = body.description;
     if (body.field !== undefined) data.field = body.field;
+    if (body.start_date !== undefined) data.start_date = body.start_date;
+    if (body.end_date !== undefined) data.end_date = body.end_date;
 
     if (body.lecturer_id !== undefined && body.lecturer_id !== thesis.lecturer_id) {
       // UC 3.12 dành việc đổi GVHD của đề tài đã gửi đi cho Admin, qua endpoint

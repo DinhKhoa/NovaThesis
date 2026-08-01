@@ -6,7 +6,7 @@ import { ToastContainer, useStoredFlag } from "@/components/ui";
 import { RequireAuth } from "@/lib/guards";
 import { useToastStore } from "@/lib/toast";
 
-const COLLAPSE_KEY = "nova.sidebar.collapsed";
+const COLLAPSE_KEY = "nova_sidebar_collapsed";
 
 export default function DashboardLayout({
   children,

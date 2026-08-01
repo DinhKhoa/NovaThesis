@@ -30,44 +30,20 @@ export type AuthMode = "login" | "register";
 
    Bộ đếm số lần sai nằm ở SERVER (`users.failed_login_attempts`), khóa bằng
    `users.locked_until`. Trước đây phía này giữ một bộ đếm riêng trong React
-   state kèm câu "thử lại sau 15 phút" viết cứng, dẫn tới hai vấn đề: F5 là mất
-   sạch trạng thái khóa trên giao diện, và con số 15 phút đứng yên trong khi
-   thời gian thật vẫn chạy.
+   state kèm câu "thử lại sau 15 phút" viết cứng, dẫn tới hai vấn đề: con số 15
+   phút đứng yên trong khi thời gian thật vẫn chạy, và bộ đếm phía client chẳng
+   liên quan gì tới bộ đếm thật ở server.
 
-   Giờ nguồn sự thật duy nhất là `locked_until` do server trả về trong lỗi 429
-   (`code: "ACCOUNT_LOCKED"`). Ta chỉ ghi nó xuống `localStorage` theo email để
-   sống qua lần tải trang, và đếm ngược từ đó.
+   Nguồn sự thật duy nhất là `locked_until` do server trả kèm lỗi 429
+   (`code: "ACCOUNT_LOCKED"`). Client KHÔNG lưu nó ở đâu cả — không localStorage,
+   không cookie.
+
+   Hệ quả cần biết: tải lại trang thì đồng hồ biến mất. Người dùng bấm "Đăng
+   nhập" một lần là server trả 429 kèm thời điểm hết khóa và đồng hồ hiện lại
+   ngay. Đây là đánh đổi có ý thức, và đổi lại được một thứ quan trọng hơn: không
+   có endpoint nào cho phép hỏi "email này có đang bị khóa không" — một endpoint
+   như vậy chính là công cụ dò xem email nào đã đăng ký.
    ========================================================================== */
-
-const LOCK_KEY_PREFIX = "nova.lock.";
-
-const lockKey = (email: string) => `${LOCK_KEY_PREFIX}${email.trim().toLowerCase()}`;
-
-/** Thời điểm hết khóa đã lưu, hoặc `null` nếu chưa khóa / đã hết hạn. */
-function readLock(email: string): number | null {
-  if (typeof window === "undefined" || !email.trim()) return null;
-  const raw = window.localStorage.getItem(lockKey(email));
-  if (!raw) return null;
-
-  const until = Number(raw);
-  // Giá trị hỏng hoặc đã qua thì dọn luôn, đừng để rác tích lại trong
-  // localStorage của người dùng.
-  if (!Number.isFinite(until) || until <= Date.now()) {
-    window.localStorage.removeItem(lockKey(email));
-    return null;
-  }
-  return until;
-}
-
-function writeLock(email: string, until: number): void {
-  if (typeof window === "undefined" || !email.trim()) return;
-  window.localStorage.setItem(lockKey(email), String(until));
-}
-
-function clearLock(email: string): void {
-  if (typeof window === "undefined" || !email.trim()) return;
-  window.localStorage.removeItem(lockKey(email));
-}
 
 /** "14:59" — mm:ss, vì "còn 1 phút" ở giây thứ 89 là nói dối. */
 function formatCountdown(ms: number): string {
@@ -193,24 +169,23 @@ export function AuthSheet({
 	const [errors, setErrors] = React.useState<FieldErrors>({});
 	const [registered, setRegistered] = React.useState<string | null>(null);
 
-	/* Khóa được tra theo email đang gõ, nên đổi email là đổi luôn trạng thái
-	   khóa — tài khoản A bị khóa không được chặn người ta đăng nhập tài khoản B
-	   trên cùng máy. Suy ra lúc render thay vì đồng bộ bằng effect: cách kia
-	   thêm một lượt render và một khoảnh khắc nút hiện ra rồi mới bị vô hiệu. */
-	const [lockNonce, setLockNonce] = React.useState(0);
-	const lockedUntil = React.useMemo(
-		() => readLock(form.email),
-		// `lockNonce` là tín hiệu đọc lại sau khi ghi hoặc xoá khóa.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[form.email, lockNonce],
-	);
+	/* Thời điểm hết khóa, kèm email mà nó áp cho.
+	   Gắn email vào là cần thiết: tài khoản A bị khóa không được chặn người ta
+	   đăng nhập tài khoản B trên cùng máy. */
+	const [lock, setLock] = React.useState<{ email: string; until: number } | null>(null);
+
+	/* Không gọi `Date.now()` ở đây: đó là một hàm không thuần khiết, và đọc nó
+	   trong lúc render nghĩa là kết quả render phụ thuộc vào thời điểm React chạy
+	   hàm — React cảnh báo đúng. Việc hết hạn do `LockCountdown` phát hiện và gọi
+	   `onExpire`, vốn là một sự kiện. */
+	const lockedUntil =
+		lock && lock.email === form.email.trim().toLowerCase() ? lock.until : null;
 	const locked = lockedUntil !== null;
 
 	const releaseLock = React.useCallback(() => {
-		clearLock(form.email);
-		setLockNonce((n) => n + 1);
+		setLock(null);
 		setErrors({});
-	}, [form.email]);
+	}, []);
 
 	/* Switching modes clears the previous form's complaints. The email carries
      over on purpose — someone who just failed to sign in and is now
@@ -236,7 +211,6 @@ export function AuthSheet({
 
 		try {
 			await login({ email: form.email, password: form.password });
-			clearLock(form.email);
 			window.location.href = "/dashboard";
 		} catch (err) {
 			if (!isApiError(err)) {
@@ -252,8 +226,7 @@ export function AuthSheet({
 					: Date.now() + (err.retry_after_seconds ?? 0) * 1000;
 
 				if (Number.isFinite(until) && until > Date.now()) {
-					writeLock(form.email, until);
-					setLockNonce((n) => n + 1);
+					setLock({ email: form.email.trim().toLowerCase(), until });
 				}
 				setErrors({ general: err.message });
 				return;

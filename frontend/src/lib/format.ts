@@ -116,7 +116,7 @@ export function toDateInputValue(value: string | Date | null | undefined): strin
 }
 
 /**
- * Kỳ nghiên cứu của đề tài — thay cho cột "Năm học" cũ.
+ * Kỳ nghiên cứu của đề tài.
  *
  * Xử lý cả trường hợp chỉ có một đầu: đề tài mới thường biết ngày bắt đầu trước
  * khi biết ngày kết thúc, và in ra "01/09/2025 – " thì tệ hơn là nói rõ

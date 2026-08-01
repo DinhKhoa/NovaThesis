@@ -16,7 +16,7 @@ import {
   Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Badge, Button, Card, EmptyState, Select, Skeleton } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, Select, Skeleton } from "@/components/ui";
 import { isAdmin, isLecturer, useAuthStore } from "@/lib/auth";
 import { useAsync } from "@/lib/use-async";
 import { isApiError } from "@/lib/api";
@@ -84,13 +84,28 @@ export default function ReportsPage() {
 
   const [exporting, setExporting] = React.useState<"csv" | "xlsx" | null>(null);
 
+  /* Khoảng kỳ nghiên cứu cho tệp xuất ra. Business rule UC 9.2-3: bộ lọc trên
+     giao diện phải phản ánh CHÍNH XÁC trong tệp, nên hai giá trị này đi thẳng
+     vào query của endpoint xuất chứ không lọc lại ở client. */
+  const [from, setFrom] = React.useState("");
+  const [to, setTo] = React.useState("");
+
   const { data: overview, loading, error, refetch } = useAsync(() => reportsApi.overview(), []);
 
   const exportTheses = async (format: "csv" | "xlsx") => {
+    if (from && to && to < from) {
+      toast.error("Ngày kết thúc khoảng lọc phải sau ngày bắt đầu.");
+      return;
+    }
+
     setExporting(format);
     try {
+      const query = new URLSearchParams({ format });
+      if (from) query.set("from", from);
+      if (to) query.set("to", to);
+
       await reportsApi.download(
-        `/reports/theses/export?format=${format}`,
+        `/reports/theses/export?${query.toString()}`,
         format === "csv" ? "Danh_sach_de_tai.csv" : "Danh_sach_de_tai.xlsx"
       );
       toast.success("Đã tải xuống danh sách đề tài.");
@@ -138,7 +153,24 @@ export default function ReportsPage() {
         description="Xuất dữ liệu tiến độ, danh sách đề tài và xem lượt sử dụng AI trong phạm vi của bạn."
         actions={
           canExportList ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-end gap-2 flex-wrap">
+              {/* Lọc theo kỳ nghiên cứu: đề tài BẮT ĐẦU trong khoảng này.
+                  Bỏ trống cả hai = xuất toàn bộ phạm vi của bạn. */}
+              <Input
+                label="Từ ngày"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                wrapperClassName="w-[9.5rem]"
+              />
+              <Input
+                label="Đến ngày"
+                type="date"
+                value={to}
+                min={from || undefined}
+                onChange={(e) => setTo(e.target.value)}
+                wrapperClassName="w-[9.5rem]"
+              />
               <Button
                 variant="secondary"
                 icon={<FileCsv size={15} />}

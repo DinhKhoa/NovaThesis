@@ -2,6 +2,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { readCookie, writeCookie } from "@/lib/client-cookies";
 import {
   CaretDown,
   CaretUp,
@@ -34,20 +35,23 @@ export function useMounted(): boolean {
   );
 }
 
-/** Boolean preference persisted to localStorage, SSR-safe. */
+/**
+ * Tuỳ chọn dạng bật/tắt, lưu bằng COOKIE và an toàn với SSR.
+ *
+ * Trước đây dùng `localStorage`. Hệ thống không dùng `localStorage` ở bất kỳ đâu
+ * nữa — xem `lib/client-cookies.ts` để biết lý do cho từng loại dữ liệu.
+ */
 export function useStoredFlag(key: string, fallback = false) {
   const mounted = useMounted();
   const [override, setOverride] = React.useState<boolean | null>(null);
 
   const stored =
-    mounted && override === null
-      ? window.localStorage.getItem(key) === "1"
-      : (override ?? fallback);
+    mounted && override === null ? readCookie(key) === "1" : (override ?? fallback);
 
   const set = React.useCallback(
     (next: boolean) => {
       setOverride(next);
-      window.localStorage.setItem(key, next ? "1" : "0");
+      writeCookie(key, next ? "1" : "0");
     },
     [key]
   );

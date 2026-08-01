@@ -14,8 +14,8 @@
 //    • Bổ sung 6 bảng còn thiếu: document_versions, document_shares,
 //      milestone_history, notification_preferences, ai_suggestions,
 //      plagiarism_checks.
-//    • `academic_years` ĐÃ BỎ. "Năm học" là khái niệm của riêng một trường;
-//      thay bằng `theses.start_date` / `end_date` do người tạo đề tài tự đặt.
+//    • Khung thời gian của đề tài nằm ở `theses.start_date` / `end_date`, do
+//      người tạo đề tài tự đặt — hệ thống không áp một lịch chung nào.
 //    • `feedbacks.target_id` đa hình được tách thành hai khoá ngoại nullable
 //      `milestone_id` / `document_id` kèm CHECK "đúng một cột khác NULL", giữ
 //      được toàn vẹn tham chiếu ở tầng CSDL.
@@ -256,12 +256,12 @@ model Thesis {
   lecturer_id Int?
   created_by  Int
 
-  /// KỲ NGHIÊN CỨU — thay cho bảng `academic_years` đã bỏ.
+  /// KỲ NGHIÊN CỨU.
   ///
-  /// "Năm học" là khái niệm của riêng từng trường; một nền tảng công khai không
-  /// áp được một lịch chung cho mọi người dùng. Hai cột này giữ lại đúng phần có
-  /// ích của nó — mốc thời gian để đối chiếu deadline và để phân kỳ báo cáo —
-  /// nhưng do chính người tạo đề tài đặt.
+  /// NovaThesis là nền tảng công khai dùng cho nhiều cơ sở và nhiều nhóm nghiên
+  /// cứu độc lập, nên không tồn tại một lịch chung mà hệ thống áp được cho mọi
+  /// người dùng. Khoảng thời gian do chính người tạo đề tài đặt, và dùng cho hai
+  /// việc: đối chiếu hạn chót của mốc tiến độ, và phân kỳ trong báo cáo.
   ///
   /// Tuỳ chọn: đề tài đang ở dạng nháp chưa cần biết mình chạy trong khoảng nào.
   /// `@db.Date` chứ không phải timestamp: đây là ngày, không phải thời điểm, và

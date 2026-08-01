@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/ThemeProvider";
 import {
 	ArrowRight,
 	ChatCircleDots,

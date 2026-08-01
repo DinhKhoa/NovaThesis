@@ -40,42 +40,36 @@ export interface PaginatedResponse<T> {
 }
 
 /* ========================================
-   TOKEN MANAGEMENT
-   ======================================== */
+   QUẢN LÝ TOKEN
 
-const ACCESS_KEY = "nova_access_token";
-const REFRESH_KEY = "nova_refresh_token";
+   KHÔNG dùng `localStorage`, và cũng không dùng `sessionStorage`.
+
+   • Refresh token nằm trong cookie `httpOnly` do backend đặt (xem
+     `backend/src/lib/cookies.ts`). JavaScript của trang không đọc được nó, nên
+     một thư viện phụ thuộc bị chèn mã độc hay một lỗ XSS ở bất kỳ đâu cũng
+     không lấy được phiên đăng nhập 14 ngày.
+
+   • Access token chỉ nằm trong biến `accessToken` bên dưới — bộ nhớ của trang.
+     Tải lại trang là mất, và đó là chủ đích: `initialize()` gọi `/auth/refresh`
+     một lần để lấy token mới, cookie đi kèm tự động.
+
+   Cái giá phải trả: mỗi lần tải trang có thêm một request. Đổi lại, không có
+   bất kỳ chỗ nào trên máy người dùng lưu thứ có thể dùng để đăng nhập.
+   ======================================== */
 
 let accessToken: string | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
-  if (typeof window === "undefined") return;
-  if (token) localStorage.setItem(ACCESS_KEY, token);
-  else localStorage.removeItem(ACCESS_KEY);
 }
 
 export function getAccessToken(): string | null {
-  if (accessToken) return accessToken;
-  if (typeof window !== "undefined") {
-    accessToken = localStorage.getItem(ACCESS_KEY);
-  }
   return accessToken;
 }
 
-export function setRefreshToken(token: string | null): void {
-  if (typeof window === "undefined") return;
-  if (token) localStorage.setItem(REFRESH_KEY, token);
-  else localStorage.removeItem(REFRESH_KEY);
-}
-
-export function getRefreshToken(): string | null {
-  return typeof window === "undefined" ? null : localStorage.getItem(REFRESH_KEY);
-}
-
+/** Xoá token trong bộ nhớ. Cookie do backend xoá qua `/auth/logout`. */
 export function clearTokens(): void {
-  setAccessToken(null);
-  setRefreshToken(null);
+  accessToken = null;
 }
 
 /* ========================================
@@ -94,25 +88,24 @@ export function clearTokens(): void {
  */
 let refreshing: Promise<boolean> | null = null;
 
-async function refreshSession(): Promise<boolean> {
+/**
+ * Đổi cookie refresh thành access token mới.
+ *
+ * Không nhận và không gửi tham số nào: cookie đi kèm nhờ `credentials: "include"`.
+ * Vì vậy hàm này dùng được cho cả hai tình huống — access token vừa hết hạn giữa
+ * phiên, và trang vừa được tải lại nên chưa có token nào trong bộ nhớ.
+ */
+export async function refreshSession(): Promise<boolean> {
   refreshing ??= (async () => {
-    const refresh_token = getRefreshToken();
-    if (!refresh_token) return false;
-
     try {
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token }),
+        credentials: "include",
       });
       if (!response.ok) return false;
 
-      const body = (await response.json()) as {
-        access_token: string;
-        refresh_token?: string;
-      };
+      const body = (await response.json()) as { access_token: string };
       setAccessToken(body.access_token);
-      if (body.refresh_token) setRefreshToken(body.refresh_token);
       return true;
     } catch {
       return false;
@@ -152,7 +145,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetch(url, { ...options, headers });
+    response = await fetch(url, { ...options, headers, credentials: "include" });
   } catch {
     // Backend chưa chạy hoặc mất mạng. Phân biệt rõ với lỗi do server trả về,
     // vì cách xử lý của người dùng khác hẳn nhau.
@@ -260,6 +253,9 @@ export const api = {
       const token = getAccessToken();
 
       xhr.open("POST", url);
+      // Cùng lý do như `credentials: "include"` ở nhánh fetch: cookie phiên phải
+      // đi kèm, nếu không request tải tệp sẽ không làm mới được token khi hết hạn.
+      xhr.withCredentials = true;
       if (token) {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       }

@@ -57,6 +57,8 @@ export default function ThesisDetailPage() {
   const [editTitle, setEditTitle] = React.useState("");
   const [editDesc, setEditDesc] = React.useState("");
   const [editField, setEditField] = React.useState("");
+  const [editStart, setEditStart] = React.useState("");
+  const [editEnd, setEditEnd] = React.useState("");
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
@@ -252,6 +254,8 @@ export default function ThesisDetailPage() {
                   setEditTitle(thesis.title);
                   setEditDesc(thesis.description);
                   setEditField(thesis.field);
+                  setEditStart(thesis.start_date ?? "");
+                  setEditEnd(thesis.end_date ?? "");
                   setEditOpen(true);
                 }}
               >
@@ -542,6 +546,8 @@ export default function ThesisDetailPage() {
                       title: editTitle,
                       description: editDesc,
                       field: editField,
+                      ...(editStart ? { start_date: editStart } : {}),
+                      ...(editEnd ? { end_date: editEnd } : {}),
                     }),
                   "Đã cập nhật đề tài."
                 );
@@ -560,6 +566,25 @@ export default function ThesisDetailPage() {
             value={editField}
             onChange={(e) => setEditField(e.target.value)}
           />
+          {/* Kỳ nghiên cứu. Hạn chót mọi mốc tiến độ phải nằm trong khoảng này
+              (`assertDeadlineWithinThesis` ở backend), nên thu hẹp khoảng sau khi
+              đã có mốc sẽ bị server từ chối kèm lý do cụ thể. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Kỳ nghiên cứu — từ ngày"
+              type="date"
+              value={editStart}
+              onChange={(e) => setEditStart(e.target.value)}
+              helperText="Bỏ trống nếu chưa xác định"
+            />
+            <Input
+              label="đến ngày"
+              type="date"
+              value={editEnd}
+              min={editStart || undefined}
+              onChange={(e) => setEditEnd(e.target.value)}
+            />
+          </div>
           <Textarea
             label="Mô tả"
             rows={6}

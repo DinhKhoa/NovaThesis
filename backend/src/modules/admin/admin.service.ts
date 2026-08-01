@@ -641,9 +641,8 @@ export async function buildStatistics(user: AuthUser) {
   const thesisWhere: Prisma.ThesisWhereInput = { deleted_at: null, ...scope };
 
   /* Phiên chat có thể không gắn đề tài (sinh viên chưa được duyệt đề tài vẫn hỏi
-     trợ lý được). Trước đây chỗ này còn một bộ lọc theo năm học; nó đã bỏ cùng
-     với bảng `academic_years`. Giữ biến để chữ ký các truy vấn bên dưới không
-     đổi, và để chỗ cắm cho bộ lọc khoảng thời gian nếu sau này cần. */
+     trợ lý được), nên hiện không lọc gì. Giữ biến để chỗ cắm cho bộ lọc khoảng
+     thời gian nếu sau này thống kê cần phân kỳ. */
   const sessionWhere: Prisma.AIChatSessionWhereInput = {};
 
   const weeks = weekStarts(USAGE_WEEKS);

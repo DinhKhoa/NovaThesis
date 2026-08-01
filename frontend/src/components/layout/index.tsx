@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/ThemeProvider";
 import {
 	Bell,
 	BookOpen,
@@ -917,13 +917,17 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 	const { user } = useAuthStore();
 	const [paletteOpen, setPaletteOpen] = React.useState(false);
 	const { count: unreadCount, refresh: refreshUnread } = useUnreadCount(Boolean(user));
-	const [shortcutKey, setShortcutKey] = React.useState("⌘K");
+
+	/* Nhãn phím tắt phụ thuộc hệ điều hành — một thứ chỉ biết được ở client.
+	   `useMounted()` dựa trên `useSyncExternalStore`, nên nó không gọi `setState`
+	   trong effect và không tạo thêm một lượt render như cách cũ. */
+	const mounted = useMounted();
+	const shortcutKey =
+		mounted && /Win|Linux/.test(navigator.platform || navigator.userAgent)
+			? "Ctrl K"
+			: "⌘K";
 
 	React.useEffect(() => {
-		if (typeof navigator !== "undefined" && /Win|Linux/.test(navigator.platform || navigator.userAgent)) {
-			setShortcutKey("Ctrl K");
-		}
-
 		const onKey = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
 				e.preventDefault();

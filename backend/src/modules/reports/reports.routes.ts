@@ -94,8 +94,8 @@ const exportQuerySchema = z.object({
       .optional()
   ),
   field: z.preprocess(anyToUndefined, optionalText(100, "Lĩnh vực")),
-  /* Lọc theo KỲ NGHIÊN CỨU: đề tài bắt đầu trong khoảng này. Thay cho
-     `academic_year_id` cũ — xem migration `..._drop_academic_years`. */
+  /* Lọc theo KỲ NGHIÊN CỨU: đề tài bắt đầu trong khoảng này. Bộ lọc trên giao
+     diện phải phản ánh CHÍNH XÁC trong tệp xuất ra (business rule UC 9.2-3). */
   from: optionalDateField("Ngày bắt đầu khoảng lọc"),
   to: optionalDateField("Ngày kết thúc khoảng lọc"),
   lecturer_id: z.preprocess(anyToUndefined, positiveId("Giảng viên").optional()),

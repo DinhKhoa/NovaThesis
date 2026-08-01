@@ -106,6 +106,16 @@ const schema = z.object({
   RATE_LIMIT_MAX: int(300),
   AUTH_RATE_LIMIT_MAX: int(10),
 
+  /**
+   * `SameSite` của cookie phiên đăng nhập.
+   *
+   * `lax` đúng khi frontend và backend cùng tên miền đăng ký (khác cổng vẫn là
+   * same-site theo chuẩn). Triển khai hai tên miền khác nhau hẳn thì phải đổi
+   * sang `none`, và khi đó bắt buộc `NODE_ENV=production` để cookie có `secure`
+   * — trình duyệt từ chối `SameSite=None` mà không `Secure`.
+   */
+  COOKIE_SAMESITE: str("lax").pipe(z.enum(["lax", "strict", "none"])),
+
   SEED_ADMIN_EMAIL: str("admin@novathesis.edu.vn"),
   SEED_PASSWORD: str("Admin@123456"),
   LOG_LEVEL: str("info"),
@@ -130,6 +140,9 @@ export const EMBEDDING_DIM = 1536;
 export const env = {
   ...raw,
   isProd: raw.NODE_ENV === "production",
+
+  /** Kiểu đã hẹp lại cho `res.cookie()` — xem `lib/cookies.ts`. */
+  cookieSameSite: raw.COOKIE_SAMESITE as "lax" | "strict" | "none",
   isTest: raw.NODE_ENV === "test",
 
   /** Thư mục lưu trữ tuyệt đối — mọi đường dẫn tệp đều được kiểm tra nằm trong đây. */

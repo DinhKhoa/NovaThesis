@@ -3,9 +3,11 @@
 /**
  * CHẶN TRUY CẬP THEO ĐƯỜNG DẪN
  *
- * Token nằm trong `localStorage` (xem `lib/api.ts`), mà middleware của Next chạy
- * ở phía máy chủ nên không đọc được nó. Vì vậy hàng rào điều hướng bắt buộc phải
- * nằm ở client — đây chính là nó.
+ * Access token chỉ nằm trong bộ nhớ của trang (xem `lib/api.ts`), còn refresh
+ * token nằm trong cookie `httpOnly` mà JavaScript không đọc được. Middleware của
+ * Next chạy trước khi trang có bất kỳ trạng thái nào, nên nó không biết người
+ * dùng là ai. Vì vậy hàng rào điều hướng bắt buộc phải nằm ở client — đây chính
+ * là nó.
  *
  * Hai nguyên tắc, cả hai đều quan trọng như nhau:
  *

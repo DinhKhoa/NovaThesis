@@ -180,10 +180,10 @@ function NewThesisForm() {
             )}
           </div>
 
-          {/* KỲ NGHIÊN CỨU — thay cho "Năm học" trước đây tự gán theo năm học
-              đang mở của hệ thống. NovaThesis là nền tảng công khai, không có
-              một lịch chung cho mọi người dùng, nên khoảng thời gian do chính
-              người tạo đề tài đặt.
+          {/* KỲ NGHIÊN CỨU — khoảng thời gian do chính người tạo đề tài đặt.
+              NovaThesis là nền tảng công khai dùng cho nhiều cơ sở và nhiều nhóm
+              nghiên cứu độc lập, nên không có một lịch chung nào áp được cho mọi
+              người dùng.
 
               Tuỳ chọn, và bỏ trống được: một bản nháp chưa cần biết mình chạy
               trong khoảng nào. Đặt rồi thì mọi hạn chót của mốc tiến độ phải nằm

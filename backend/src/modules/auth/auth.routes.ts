@@ -13,7 +13,13 @@ import { Router, type RequestHandler } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { asyncHandler, noContent } from "../../lib/http";
-import { badRequest, tooLarge } from "../../lib/errors";
+import { badRequest, tooLarge, unauthorized } from "../../lib/errors";
+import {
+  assertSameOrigin,
+  clearRefreshCookie,
+  readRefreshCookie,
+  setRefreshCookie,
+} from "../../lib/cookies";
 import { logger } from "../../lib/logger";
 import { audit, AuditAction } from "../../lib/audit";
 import { currentUser, requireAuth } from "../../middleware/auth";
@@ -82,8 +88,6 @@ const tokenField = z
       .max(512, "Liên kết không hợp lệ hoặc đã hết hạn.")
   );
 
-const refreshSchema = z.object({ refresh_token: tokenField });
-const logoutSchema = z.object({ refresh_token: tokenField.optional() });
 
 const profileSchema = z.object({
   full_name: text(2, 255, "Họ và tên").optional(),
@@ -160,21 +164,47 @@ authRouter.post(
     const body = req.body as z.infer<typeof loginSchema>;
     const result = await login(body.email, body.password, req);
 
+    /* Refresh token đi trong cookie `httpOnly`, KHÔNG đi trong thân phản hồi.
+       Trả nó ra body nghĩa là JavaScript của trang đọc được, và mọi script chạy
+       trên trang cũng vậy — xem ghi chú đầu `lib/cookies.ts`. */
+    setRefreshCookie(res, result.refresh_token);
+
     res.json({
       access_token: result.access_token,
-      refresh_token: result.refresh_token,
       user: profileDTO(result.user),
     });
   })
 );
 
+/**
+ * Xoay vòng phiên.
+ *
+ * Không nhận tham số nào: refresh token đọc từ cookie. Frontend chỉ cần gọi
+ * endpoint này với `credentials: "include"`.
+ */
 authRouter.post(
   "/refresh",
   authLimiter,
-  validateBody(refreshSchema),
   asyncHandler(async (req, res) => {
-    const body = req.body as z.infer<typeof refreshSchema>;
-    res.json(await rotateSession(body.refresh_token, req));
+    assertSameOrigin(req);
+
+    const token = readRefreshCookie(req);
+    if (!token) {
+      // Xoá cookie rác nếu có, để lần tải trang sau không thử lại vô ích.
+      clearRefreshCookie(res);
+      throw unauthorized("Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.");
+    }
+
+    try {
+      const session = await rotateSession(token, req);
+      setRefreshCookie(res, session.refresh_token);
+      res.json({ access_token: session.access_token });
+    } catch (err) {
+      // Token hỏng, hết hạn hoặc đã bị thu hồi: dọn cookie luôn. Giữ lại sẽ
+      // khiến mọi lần tải trang sau đó đều gọi refresh rồi thất bại.
+      clearRefreshCookie(res);
+      throw err;
+    }
   })
 );
 
@@ -185,12 +215,15 @@ authRouter.post(
 authRouter.post(
   "/logout",
   requireAuth,
-  validateBody(logoutSchema),
   asyncHandler(async (req, res) => {
-    const user = currentUser(req);
-    const body = req.body as z.infer<typeof logoutSchema>;
+    assertSameOrigin(req);
 
-    await logout(user.id, currentSessionId(req), body.refresh_token);
+    const user = currentUser(req);
+    const token = readRefreshCookie(req);
+
+    await logout(user.id, currentSessionId(req), token ?? undefined);
+    clearRefreshCookie(res);
+
     audit({ action: AuditAction.AUTH_LOGOUT, req, details: { email: user.email } });
 
     noContent(res);

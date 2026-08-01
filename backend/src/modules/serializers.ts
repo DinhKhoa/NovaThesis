@@ -142,9 +142,8 @@ export function toThesisDTO(thesis: ThesisWithRelations) {
     lecturer_department: thesis.lecturer?.department ?? null,
     student_names: students.map((s) => s.user.full_name),
     student_ids: students.map((s) => s.id),
-    /* KỲ NGHIÊN CỨU — thay cho `academic_year` cũ.
-       Cột `@db.Date` nên trả "YYYY-MM-DD": thêm phần giờ vào sẽ khiến
-       `<input type="date">` của trình duyệt bỏ trắng. */
+    /* KỲ NGHIÊN CỨU. Cột `@db.Date` nên trả "YYYY-MM-DD": thêm phần giờ vào
+       sẽ khiến `<input type="date">` của trình duyệt bỏ trắng. */
     start_date: thesis.start_date ? thesis.start_date.toISOString().slice(0, 10) : null,
     end_date: thesis.end_date ? thesis.end_date.toISOString().slice(0, 10) : null,
     rejection_reason: thesis.rejection_reason,

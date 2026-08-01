@@ -200,9 +200,7 @@ async function main(): Promise<void> {
   const passwordHash = await hashPassword(PASSWORD);
   const now = new Date();
 
-  /* --- Kỳ nghiên cứu mẫu ---------------------------------------------
-     Trước đây đây là một bản ghi `academic_years` với `is_active = true`. Bảng
-     đó đã bỏ; khoảng thời gian giờ nằm trên chính đề tài. */
+  /* --- Kỳ nghiên cứu mẫu --------------------------------------------- */
   const PERIOD_START = new Date("2025-09-01");
   const PERIOD_END = new Date("2026-08-31");
 

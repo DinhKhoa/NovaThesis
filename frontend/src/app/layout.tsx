@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Be_Vietnam_Pro, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import { THEME_COOKIE, ThemeProvider, type ThemeSetting } from "@/components/ThemeProvider";
 
 /*
  * Geist ships no `vietnamese` subset, so every tone mark (ệ, ữ, ạ) fell back
@@ -41,11 +42,28 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /*
+   * Đọc tuỳ chọn giao diện NGAY TRÊN SERVER.
+   *
+   * Đây là lợi ích thực dụng của việc lưu tuỳ chọn bằng cookie thay vì
+   * `localStorage`: class `dark` có mặt trong HTML đầu tiên gửi về, nên không có
+   * khung hình nào hiện giao diện sáng rồi mới nháy sang tối. Với
+   * `localStorage`, server không đọc được nên buộc phải chèn một script chặn
+   * render — chính cách `next-themes` phải làm.
+   *
+   * Chế độ "system" là ngoại lệ duy nhất: server không biết
+   * `prefers-color-scheme` của người xem, nên phần đó do client quyết định ngay
+   * sau khi hydrate.
+   */
+  const stored = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme: ThemeSetting =
+    stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+
   return (
     /*
      * No height constraint on `html`/`body`: `globals.css` already gives the
@@ -53,16 +71,14 @@ export default function RootLayout({
      * `overflow: hidden` scroll lock clip page content instead of just
      * freezing it.
      */
-    <html lang="vi" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
+    <html
+      lang="vi"
+      suppressHydrationWarning
+      className={`${sans.variable} ${mono.variable}${theme === "dark" ? " dark" : ""}`}
+      style={theme === "system" ? undefined : { colorScheme: theme }}
+    >
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <ThemeProvider initialTheme={theme}>{children}</ThemeProvider>
       </body>
     </html>
   );

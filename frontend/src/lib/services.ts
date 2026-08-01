@@ -59,7 +59,7 @@ export interface Thesis {
   lecturer_department: string | null;
   student_names: string[];
   student_ids: number[];
-  /** Kỳ nghiên cứu, dạng "YYYY-MM-DD". Thay cho `academic_year` cũ. */
+  /** Kỳ nghiên cứu, dạng "YYYY-MM-DD". Cả hai đều tuỳ chọn. */
   start_date: string | null;
   end_date: string | null;
   rejection_reason: string | null;
@@ -108,8 +108,14 @@ export const thesesApi = {
     start_date?: string;
     end_date?: string;
   }) => api.post<Thesis>("/theses", data),
-  update: (id: number, data: Partial<Pick<Thesis, "title" | "description" | "field">>) =>
-    api.patch<Thesis>(`/theses/${id}`, data),
+  update: (
+    id: number,
+    data: Partial<Pick<Thesis, "title" | "description" | "field">> & {
+      /** Kỳ nghiên cứu, "YYYY-MM-DD". Sửa được sau khi tạo. */
+      start_date?: string;
+      end_date?: string;
+    }
+  ) => api.patch<Thesis>(`/theses/${id}`, data),
   remove: (id: number) => api.delete<void>(`/theses/${id}`),
   submit: (id: number) => api.post<Thesis>(`/theses/${id}/submit`),
   approve: (id: number) => api.post<Thesis>(`/theses/${id}/approve`),
