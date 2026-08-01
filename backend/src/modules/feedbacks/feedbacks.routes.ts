@@ -19,7 +19,7 @@ import { asyncHandler, noContent, paginated, parsePage, paginationSchema } from 
 import { badRequest, forbidden, tooLarge } from "../../lib/errors";
 import { audit, AuditAction } from "../../lib/audit";
 import { ATTACHMENT_MIME, assertAllowedType, deleteFile, saveBuffer, type StoredFile } from "../../lib/storage";
-import { currentUser, requireAuth } from "../../middleware/auth";
+import { currentUser, requireAuth, requireContributor } from "../../middleware/auth";
 import { text, idParam, validateBody, validateParams, validateQuery } from "../../middleware/validate";
 import { uploadLimiter } from "../../middleware/rate-limit";
 import { assertThesisAccess } from "../../domain/access";
@@ -234,6 +234,7 @@ feedbacksRouter.get(
 feedbacksRouter.post(
   "/",
   requireAuth,
+  requireContributor,
   uploadLimiter,
   attachment,
   validateBody(createSchema),
@@ -345,6 +346,7 @@ feedbacksRouter.post(
 feedbacksRouter.patch(
   "/:id",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
@@ -392,6 +394,7 @@ feedbacksRouter.patch(
 feedbacksRouter.delete(
   "/:id",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -445,6 +448,7 @@ feedbacksRouter.delete(
 feedbacksRouter.post(
   "/:id/resolve",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(resolveSchema),
   asyncHandler(async (req, res) => {

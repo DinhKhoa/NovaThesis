@@ -5,8 +5,11 @@ import { useSearchParams } from "next/navigation";
 import {
   ArrowUp,
   Check,
+  CheckCircle,
+  Clock,
   Copy,
   FileText,
+  GraduationCap,
   ListChecks,
   MagnifyingGlass,
   Plus,
@@ -36,7 +39,6 @@ import {
   Tabs,
   Textarea,
 } from "@/components/ui";
-import { useAuthStore } from "@/lib/auth";
 import { RequireRole } from "@/lib/guards";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
@@ -47,10 +49,12 @@ import {
   streamChat,
   thesesApi,
   type AISuggestion,
+  type AIStatus,
+  type AnswerMode,
   type ChatMessage,
   type ChatSession,
+  type ChatSource,
   type Citation,
-  type Milestone,
   type PlagiarismResult,
   type Thesis,
 } from "@/lib/services";
@@ -59,35 +63,6 @@ import { formatDate, formatPercent, formatRelative, formatTime } from "@/lib/for
 /* ==========================================================================
    CẦU NỐI VỚI TẦNG DỊCH VỤ
    ========================================================================== */
-
-/**
- * Gỡ lớp bọc `{ data: [...] }`.
- *
- * `ai.routes.ts` trả danh sách trong một phong bì (`GET /ai/sessions`,
- * `/ai/sessions/:id/messages`, `/ai/suggestions`, `/ai/suggestions/:id/accept`)
- * trong khi `services.ts` khai báo kiểu trả về là mảng trần. Sửa `services.ts`
- * nằm ngoài phạm vi trang này, mà tin vào kiểu khai báo thì lần tải đầu tiên đã
- * nổ "sessions.map is not a function" — nên chuẩn hoá ngay tại đây.
- */
-function asList<T>(payload: T[] | { data: T[] } | null | undefined): T[] {
-  if (Array.isArray(payload)) return payload;
-  const inner = (payload as { data?: T[] } | null | undefined)?.data;
-  return Array.isArray(inner) ? inner : [];
-}
-
-/**
- * Sự kiện `done` của backend còn kèm `message` — bản ghi chính thức đã có id
- * thật trong CSDL — và cờ `incomplete`, nhưng `ChatStreamHandlers` trong
- * `services.ts` mới khai báo ba trường. Mô tả phần còn lại ở đây thay vì chạm
- * vào tầng dịch vụ.
- */
-interface ChatDonePayload {
-  message_id: number;
-  model_name: string;
-  latency_ms: number;
-  message?: ChatMessage;
-  incomplete?: boolean;
-}
 
 /** Id tạm của tin nhắn đang nhận token. Số âm nên không thể trùng id thật. */
 const STREAMING_MESSAGE_ID = -1;
@@ -122,13 +97,6 @@ async function openSourceDocument(documentId: number): Promise<void> {
   }
 }
 
-const SUGGESTED_PROMPTS = [
-  "Tóm tắt các tài liệu tôi đã tải lên trong đề tài này",
-  "Đề cương luận văn của tôi còn thiếu phần nào?",
-  "Tìm các đoạn nói về kiến trúc RAG trong tài liệu tham khảo",
-  "Giải thích sự khác nhau giữa HNSW và IVFFlat",
-];
-
 /* ==========================================================================
    MESSAGE RENDERING
    ========================================================================== */
@@ -159,6 +127,40 @@ function renderInline(text: string, keyPrefix: string) {
   });
 }
 
+/**
+ * Nhãn mở đầu khối kiến thức ngoài tài liệu.
+ *
+ * Phải khớp TỪNG KÝ TỰ với `GENERAL_KNOWLEDGE_MARKER` trong
+ * `backend/src/services/ai/rag.ts`. Lệch một dấu cách thì khối cảnh báo không
+ * được tách ra, và phần AI tự suy luận sẽ hiển thị y hệt phần có trích dẫn —
+ * đúng thứ nguy hiểm nhất mà chế độ HYBRID phải tránh.
+ */
+const GENERAL_KNOWLEDGE_MARKER = "⚠ Ngoài tài liệu của bạn:";
+
+function Paragraphs({
+  text,
+  streaming,
+  keyPrefix,
+}: {
+  text: string;
+  streaming?: boolean;
+  keyPrefix: string;
+}) {
+  const paragraphs = text.split("\n\n");
+  return (
+    <>
+      {paragraphs.map((p, i) => (
+        <p key={`${keyPrefix}-${i}`}>
+          {renderInline(p, `${keyPrefix}-${i}`)}
+          {streaming && i === paragraphs.length - 1 && (
+            <span className="stream-caret" aria-hidden="true" />
+          )}
+        </p>
+      ))}
+    </>
+  );
+}
+
 function MessageBody({
   content,
   streaming,
@@ -166,17 +168,44 @@ function MessageBody({
   content: string;
   streaming?: boolean;
 }) {
-  const paragraphs = content.split("\n\n");
+  /* Tách phần dựa-trên-tài-liệu khỏi phần kiến-thức-chung.
+
+     Đây là lý do tồn tại của chế độ HYBRID. Cho phép trợ lý dùng kiến thức ngoài
+     tài liệu mà không tách bạch hai phần thì tệ hơn hẳn chế độ STRICT: một câu
+     model tự suy ra sẽ đọc y như một câu có nguồn, và người dùng không có cách
+     nào phân biệt. Khối dưới đây có nền cảnh báo riêng và nói thẳng điều đó. */
+  const markerAt = content.indexOf(GENERAL_KNOWLEDGE_MARKER);
+  const grounded = markerAt === -1 ? content : content.slice(0, markerAt).trimEnd();
+  const general =
+    markerAt === -1
+      ? null
+      : content.slice(markerAt + GENERAL_KNOWLEDGE_MARKER.length).trimStart();
+
   return (
     <div className="text-[13.5px] leading-[1.65] text-secondary flex flex-col gap-2">
-      {paragraphs.map((p, i) => (
-        <p key={i}>
-          {renderInline(p, `p${i}`)}
-          {streaming && i === paragraphs.length - 1 && (
-            <span className="stream-caret" aria-hidden="true" />
-          )}
-        </p>
-      ))}
+      {grounded && (
+        <Paragraphs
+          text={grounded}
+          keyPrefix="g"
+          streaming={streaming && general === null}
+        />
+      )}
+
+      {general !== null && (
+        <div
+          className="mt-1 px-3 py-2.5 rounded-[10px] flex flex-col gap-2"
+          style={{
+            background: "var(--warning-bg)",
+            border: "1px solid var(--warning-border)",
+          }}
+        >
+          <span className="text-[11.5px] font-semibold text-warning flex items-center gap-1.5">
+            <Warning size={13} weight="fill" />
+            Ngoài tài liệu của bạn — không có nguồn trích dẫn
+          </span>
+          <Paragraphs text={general} keyPrefix="x" streaming={streaming} />
+        </div>
+      )}
     </div>
   );
 }
@@ -262,8 +291,15 @@ function Citations({ citations }: { citations: Citation[] }) {
   );
 }
 
-/* Bộ chọn phạm vi đề tài. Ẩn khi chỉ có đúng một đề tài: một danh sách thả
-   xuống với duy nhất một lựa chọn không cho người dùng thêm thông tin nào. */
+/**
+ * Bộ chọn phạm vi đề tài — cấp cao nhất của mô hình "notebook".
+ *
+ * LUÔN hiển thị, kể cả khi chỉ có một đề tài. Trước đây nó tự ẩn trong trường
+ * hợp đó, với lý do "một lựa chọn duy nhất không cho thêm thông tin gì". Lý do
+ * ấy sai ở một chỗ quan trọng: người dùng không nhìn ô này để CHỌN, họ nhìn để
+ * biết câu hỏi sắp tới sẽ được đối chiếu với kho tài liệu nào. Ẩn đi thì phạm vi
+ * trở thành trạng thái vô hình.
+ */
 function ThesisScopeSelect({
   theses,
   value,
@@ -273,14 +309,28 @@ function ThesisScopeSelect({
   value: number | null;
   onChange: (id: number) => void;
 }) {
-  if (theses.length <= 1) return null;
+  if (theses.length === 0) return null;
+
+  const only = theses.length === 1 ? theses[0] : null;
+
+  if (only) {
+    return (
+      <div
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-[8px] min-w-0"
+        style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-secondary)" }}
+        title={only.title}
+      >
+        <GraduationCap size={13} className="text-tertiary flex-shrink-0" />
+        <span className="text-[12px] text-secondary truncate">{only.title}</span>
+      </div>
+    );
+  }
 
   return (
     <Select
       value={value ?? ""}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-auto max-w-[15rem]"
-      aria-label="Phạm vi đề tài"
+      aria-label="Đề tài — phạm vi tài liệu của trợ lý"
     >
       {theses.map((t) => (
         <option key={t.id} value={t.id}>
@@ -288,6 +338,227 @@ function ThesisScopeSelect({
         </option>
       ))}
     </Select>
+  );
+}
+
+/* ==========================================================================
+   BẢNG NGUỒN (kiểu NotebookLM)
+   ========================================================================== */
+
+const SOURCE_STATUS: Record<
+  AIStatus,
+  { icon: React.ReactNode; label: string; usable: boolean }
+> = {
+  DONE: {
+    icon: <CheckCircle size={12} weight="fill" className="text-success" />,
+    label: "Đã lập chỉ mục",
+    usable: true,
+  },
+  PENDING: {
+    icon: <Clock size={12} className="text-warning" />,
+    label: "Đang chờ lập chỉ mục",
+    usable: false,
+  },
+  PROCESSING: {
+    icon: <Clock size={12} className="text-warning" />,
+    label: "Đang lập chỉ mục",
+    usable: false,
+  },
+  ERROR: {
+    icon: <Warning size={12} weight="fill" className="text-danger" />,
+    label: "Lỗi xử lý — không dùng làm nguồn được",
+    usable: false,
+  },
+};
+
+/**
+ * Danh sách tài liệu kèm ô tick, quyết định trợ lý được đọc những gì.
+ *
+ * Đây là phần thiếu lớn nhất so với NotebookLM trước đợt sửa này: mọi câu hỏi
+ * đều truy xuất TOÀN BỘ tài liệu của đề tài, nên tải năm tài liệu thuộc năm chủ
+ * đề lên rồi hỏi thì trợ lý trộn trích dẫn từ cả năm và không có cách nào biết
+ * câu hỏi nhắm vào cái nào.
+ */
+function SourcePanel({
+  sources,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+  loading,
+  error,
+  onRetry,
+  onUpload,
+  disabled,
+}: {
+  sources: ChatSource[];
+  selectedIds: Set<number>;
+  onToggle: (id: number) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onUpload: () => void;
+  /** Khoá thao tác trong lúc trợ lý đang trả lời — đổi nguồn giữa chừng là vô nghĩa. */
+  disabled: boolean;
+}) {
+  const usable = sources.filter((s) => SOURCE_STATUS[s.status_ai].usable);
+  const allSelected = usable.length > 0 && usable.every((s) => selectedIds.has(s.id));
+
+  return (
+    <Card hoverable={false} className="p-2 flex flex-col gap-2 min-w-0">
+      <div className="flex items-center justify-between gap-2 px-1">
+        <span className="eyebrow">
+          Nguồn{" "}
+          <span className="tnum normal-case tracking-normal">
+            {selectedIds.size}/{sources.length}
+          </span>
+        </span>
+        {usable.length > 0 && (
+          <button
+            onClick={allSelected ? onClearAll : onSelectAll}
+            disabled={disabled}
+            className="text-[11px] text-accent hover:underline disabled:opacity-40 disabled:no-underline"
+          >
+            {allSelected ? "Bỏ chọn" : "Chọn tất cả"}
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-px max-h-[18rem] overflow-y-auto">
+        {loading && sources.length === 0 ? (
+          [0, 1, 2].map((i) => <Skeleton key={i} className="h-9 rounded-md" />)
+        ) : error ? (
+          <EmptyState
+            compact
+            icon={<Warning size={15} />}
+            title="Không tải được nguồn"
+            description={error}
+            action={
+              <Button variant="secondary" size="sm" onClick={onRetry}>
+                Thử lại
+              </Button>
+            }
+          />
+        ) : sources.length === 0 ? (
+          <EmptyState
+            compact
+            icon={<FileText size={15} />}
+            title="Chưa có tài liệu nào"
+            description="Tải tài liệu lên để trợ lý có nguồn đối chiếu."
+          />
+        ) : (
+          sources.map((s) => {
+            const status = SOURCE_STATUS[s.status_ai];
+            const checked = selectedIds.has(s.id);
+            return (
+              <label
+                key={s.id}
+                className={`flex items-start gap-2 px-1.5 py-1.5 rounded-md transition-colors ${
+                  status.usable && !disabled
+                    ? "cursor-pointer hover:bg-[var(--bg-hover)]"
+                    : "cursor-not-allowed opacity-60"
+                }`}
+                title={s.summary ?? s.filename}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={!status.usable || disabled}
+                  onChange={() => onToggle(s.id)}
+                  className="mt-0.5 flex-shrink-0"
+                  aria-label={`Dùng “${s.filename}” làm nguồn`}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12px] text-secondary truncate">
+                    {s.filename}
+                  </span>
+                  {/* Trạng thái lập chỉ mục hiện NGAY TẠI ĐÂY. Trước đây phải
+                      sang trang Tài liệu mới biết tệp nào đã xử lý xong, nên hỏi
+                      về một tệp còn PENDING chỉ nhận lại "không tìm thấy" mà
+                      không hiểu vì sao. */}
+                  <span
+                    className="flex items-center gap-1 text-[10.5px] text-muted"
+                    title={s.ai_error ?? status.label}
+                  >
+                    {status.icon}
+                    {status.label}
+                    {s.page_count ? ` · ${s.page_count} trang` : ""}
+                  </span>
+                </span>
+              </label>
+            );
+          })
+        )}
+      </div>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={<Plus size={13} />}
+        onClick={onUpload}
+        className="w-full"
+      >
+        Thêm tài liệu
+      </Button>
+    </Card>
+  );
+}
+
+/** Chuyển giữa "chỉ tài liệu" và "tài liệu + kiến thức AI". */
+function AnswerModeToggle({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: AnswerMode;
+  onChange: (mode: AnswerMode) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div
+      className="inline-flex items-center gap-0.5 p-0.5 rounded-[8px]"
+      style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-secondary)" }}
+      role="radiogroup"
+      aria-label="Chế độ trả lời"
+    >
+      {(
+        [
+          {
+            mode: "STRICT" as const,
+            label: "Chỉ tài liệu",
+            hint: "Không tìm thấy trong tài liệu thì trợ lý nói thẳng là không có.",
+          },
+          {
+            mode: "HYBRID" as const,
+            label: "Tài liệu + AI",
+            hint: "Được bổ sung kiến thức chung, nhưng phần đó luôn tách riêng và có cảnh báo.",
+          },
+        ] as const
+      ).map((opt) => {
+        const active = value === opt.mode;
+        return (
+          <button
+            key={opt.mode}
+            role="radio"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => onChange(opt.mode)}
+            title={opt.hint}
+            className="px-2 py-1 rounded-[6px] text-[11.5px] transition-colors disabled:opacity-40"
+            style={{
+              background: active ? "var(--bg-surface)" : "transparent",
+              color: active ? "var(--fg-primary)" : "var(--fg-tertiary)",
+              fontWeight: active ? 600 : 400,
+              boxShadow: active ? "var(--shadow-sm)" : undefined,
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -346,10 +617,7 @@ function AIChatWorkspace() {
     loading: sessionsLoading,
     error: sessionsError,
     refetch: refetchSessions,
-  } = useAsync(
-    async () => asList<ChatSession>(await aiApi.sessions(thesisId ?? undefined)),
-    [thesisId]
-  );
+  } = useAsync(() => aiApi.sessions(thesisId ?? undefined), [thesisId]);
 
   const sessions = sessionsData ?? [];
 
@@ -368,11 +636,9 @@ function AIChatWorkspace() {
     error: messagesError,
     refetch: refetchMessages,
     setData: setMessages,
-  } = useAsync(
-    async () => asList<ChatMessage>(await aiApi.messages(historyOf ?? 0)),
-    [historyOf],
-    { enabled: historyOf !== null }
-  );
+  } = useAsync(() => aiApi.messages(historyOf ?? 0), [historyOf], {
+    enabled: historyOf !== null,
+  });
 
   const messages = React.useMemo(() => messagesData ?? [], [messagesData]);
 
@@ -382,6 +648,71 @@ function AIChatWorkspace() {
   const [prompt, setPrompt] = React.useState("");
   const [streaming, setStreaming] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState<number | null>(null);
+
+  /* ---- Nguồn và chế độ trả lời (kiểu NotebookLM) ---- */
+
+  /**
+   * Danh sách tài liệu có thể làm nguồn.
+   *
+   * Nạp theo ĐỀ TÀI chứ không theo phiên: bảng nguồn phải hiện ngay cả khi chưa
+   * có phiên nào (người dùng chọn nguồn TRƯỚC rồi mới hỏi câu đầu tiên — đúng
+   * thứ tự của NotebookLM). Khi đã có phiên, `sessionId` vào deps để lựa chọn đã
+   * lưu của phiên đó được nạp lại.
+   */
+  const {
+    data: sourceList,
+    loading: sourcesLoading,
+    error: sourcesError,
+    refetch: refetchSources,
+  } = useAsync(async () => {
+    if (sessionId !== null) return aiApi.sources(sessionId);
+
+    // Chưa có phiên: mượn danh sách tài liệu của đề tài, mặc định chọn hết.
+    if (thesisId === null) return { uses_all: true, data: [] };
+    const page = await documentsApi.list({ thesis_id: thesisId, per_page: 200 });
+    return {
+      uses_all: true,
+      data: page.data.map((d) => ({
+        id: d.id,
+        filename: d.filename,
+        status_ai: d.status_ai,
+        ai_error: d.ai_error ?? null,
+        page_count: d.page_count ?? null,
+        summary: d.summary_ai ? d.summary_ai.slice(0, 240) : null,
+        thesis_id: d.thesis_id,
+        selected: true,
+      })),
+    };
+  }, [sessionId, thesisId]);
+
+  const sources: ChatSource[] = React.useMemo(() => sourceList?.data ?? [], [sourceList]);
+
+  /**
+   * Nguồn đang tick.
+   *
+   * `null` = chưa đụng tới, lấy theo những gì server trả về. Tách bạch "chưa
+   * chọn gì" khỏi "đã bỏ chọn hết" là bắt buộc: hai trạng thái này có cùng số 0
+   * nhưng ý nghĩa ngược nhau — một cái là dùng tất cả, cái kia là không dùng gì.
+   */
+  const [pickedSources, setPickedSources] = React.useState<Set<number> | null>(null);
+
+  const selectedSourceIds = React.useMemo(() => {
+    if (pickedSources) return pickedSources;
+    return new Set(sources.filter((s) => s.selected).map((s) => s.id));
+  }, [pickedSources, sources]);
+
+  const [answerMode, setAnswerMode] = React.useState<AnswerMode>("HYBRID");
+
+  /* Có tài liệu nhưng không tick cái nào — khác hẳn "kho tài liệu rỗng", và cần
+     một cách xử lý khác hẳn: tick lại, chứ không phải đi tải thêm tệp. */
+  const noSourceSelected = sources.length > 0 && selectedSourceIds.size === 0;
+
+  /* Gợi ý câu hỏi dựng từ chính các nguồn đang chọn, thay cho bốn câu viết cứng
+     giống nhau ở mọi đề tài. */
+  const { data: suggestedPrompts } = useAsync(
+    () => aiApi.suggestedPrompts({ thesis_id: thesisId, session_id: sessionId }),
+    [thesisId, sessionId]
+  );
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const composerRef = React.useRef<HTMLTextAreaElement>(null);
@@ -425,6 +756,9 @@ function AIChatWorkspace() {
       setSessionId(null);
       setHistoryOf(null);
       setMessages([]);
+      // Nguồn thuộc về đề tài cũ. Giữ lại tập đã tick sẽ lọc kho tài liệu mới
+      // bằng những id không còn nằm trong đó — kết quả là phạm vi rỗng.
+      setPickedSources(null);
     },
     [stopStreaming, setMessages]
   );
@@ -437,6 +771,15 @@ function AIChatWorkspace() {
     if (composerRef.current) composerRef.current.style.height = "auto";
     setStreaming(true);
 
+    /* Tập nguồn chỉ gửi kèm khi TẠO phiên mới. Phiên đã tồn tại thì server đọc
+       nguồn từ CSDL — gửi thêm ở đây chỉ tạo cơ hội cho hai giá trị lệch nhau,
+       và lịch sử hội thoại sẽ chứa những câu trả lời dựa trên phạm vi khác nhau
+       mà không ghi lại điều đó ở đâu cả. */
+    const sourcesForNewSession =
+      sessionId === null && selectedSourceIds.size > 0 && selectedSourceIds.size < sources.length
+        ? [...selectedSourceIds]
+        : undefined;
+
     abortRef.current = streamChat(
       {
         session_id: sessionId ?? undefined,
@@ -444,6 +787,8 @@ function AIChatWorkspace() {
         // phạm vi đề tài của nó, gửi thêm chỉ tạo cơ hội cho hai giá trị lệch nhau.
         thesis_id: sessionId === null ? (thesisId ?? undefined) : undefined,
         prompt: text,
+        ...(sessionId === null ? { answer_mode: answerMode } : {}),
+        ...(sourcesForNewSession ? { document_ids: sourcesForNewSession } : {}),
       },
       {
         onSession: ({ session_id, user_message }) => {
@@ -485,8 +830,7 @@ function AIChatWorkspace() {
           );
         },
 
-        onDone: (payload) => {
-          const done = payload as ChatDonePayload;
+        onDone: (done) => {
           setMessages((prev) =>
             (prev ?? []).map((m) => {
               if (m.id !== STREAMING_MESSAGE_ID) return m;
@@ -570,6 +914,12 @@ function AIChatWorkspace() {
     if (streaming) stopStreaming();
     setSessionId(id);
     setHistoryOf(id);
+    // Mỗi phiên có tập nguồn riêng; xoá lựa chọn cục bộ để `useAsync` nạp lại
+    // đúng tập của phiên vừa mở.
+    setPickedSources(null);
+
+    const target = sessions.find((s) => s.id === id);
+    if (target?.answer_mode) setAnswerMode(target.answer_mode);
   };
 
   /* Không gọi `aiApi.createSession` ở đây: backend tự tạo phiên khi nhận câu hỏi
@@ -580,7 +930,69 @@ function AIChatWorkspace() {
     setSessionId(null);
     setHistoryOf(null);
     setMessages([]);
+    setPickedSources(null);
     composerRef.current?.focus();
+  };
+
+  /* ---- Thao tác trên bảng nguồn ----------------------------------------- */
+
+  /**
+   * Lưu tập nguồn lên server.
+   *
+   * Chỉ gọi khi phiên đã tồn tại. Chưa có phiên thì lựa chọn còn nằm ở client và
+   * sẽ đi kèm câu hỏi đầu tiên — tạo sẵn một phiên rỗng chỉ để lưu vài ô tick sẽ
+   * để lại một dãy hội thoại trống mỗi lần người dùng đổi ý.
+   */
+  const persistSources = React.useCallback(
+    (next: Set<number>) => {
+      if (sessionId === null) return;
+
+      // Tick hết = quay lại quy ước "dùng tất cả", nên gửi mảng rỗng. Gửi đủ
+      // danh sách cũng chạy đúng, nhưng khi có tài liệu mới tải lên sau đó nó sẽ
+      // KHÔNG tự nằm trong phạm vi — trái với thứ người dùng vừa chọn.
+      const payload = next.size === sources.length ? [] : [...next];
+
+      void aiApi.setSources(sessionId, payload).catch((err) => {
+        toast.error(isApiError(err) ? err.message : "Không lưu được lựa chọn nguồn.");
+        // Trả về trạng thái của server thay vì giữ một lựa chọn không được ghi
+        // — nếu không, người dùng tưởng đã đổi phạm vi trong khi thật ra chưa.
+        setPickedSources(null);
+        void refetchSources();
+      });
+    },
+    [sessionId, sources.length, refetchSources]
+  );
+
+  const toggleSource = (id: number) => {
+    const next = new Set(selectedSourceIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setPickedSources(next);
+    persistSources(next);
+  };
+
+  const selectAllSources = () => {
+    const next = new Set(
+      sources.filter((s) => SOURCE_STATUS[s.status_ai].usable).map((s) => s.id)
+    );
+    setPickedSources(next);
+    persistSources(next);
+  };
+
+  const clearAllSources = () => {
+    const next = new Set<number>();
+    setPickedSources(next);
+    // Không gọi `persistSources`: mảng rỗng ở server nghĩa là "dùng tất cả",
+    // ngược hẳn ý người dùng. Trạng thái "không dùng nguồn nào" chỉ tồn tại ở
+    // client và khung chat sẽ nhắc tick lại trước khi gửi câu hỏi.
+  };
+
+  const changeAnswerMode = (mode: AnswerMode) => {
+    setAnswerMode(mode);
+    if (sessionId === null) return;
+    void aiApi.setAnswerMode(sessionId, mode).catch((err) => {
+      toast.error(isApiError(err) ? err.message : "Không đổi được chế độ trả lời.");
+    });
   };
 
   const confirmDeleteSession = async () => {
@@ -607,7 +1019,7 @@ function AIChatWorkspace() {
     <div className="flex flex-col gap-3">
       <PageHeader
         title="Trợ lý AI"
-        description="Hỏi đáp dựa trên tài liệu trong đề tài của bạn. Mọi câu trả lời đều kèm nguồn trích dẫn."
+        description="Chọn đề tài, chọn nguồn, rồi hỏi. Mọi câu dựa trên tài liệu đều kèm trích dẫn."
       />
 
       <Tabs
@@ -625,16 +1037,49 @@ function AIChatWorkspace() {
         ]}
       />
 
+      {/* Thanh phạm vi — luôn hiển thị ở mọi kích thước màn hình.
+          Đây là hai thứ quyết định câu trả lời sẽ ra sao: hỏi trong đề tài nào,
+          và có được dùng kiến thức ngoài tài liệu hay không. Trước đây cả hai
+          đều vô hình: bộ chọn đề tài nằm trong cột bị `hidden lg:flex` và tự ẩn
+          khi chỉ có một đề tài, còn chế độ trả lời thì không tồn tại. */}
       {tool === "chat" && (
-        <div className="grid grid-cols-1 lg:grid-cols-[15rem_1fr] gap-3 items-start">
-          {/* Sessions */}
-          <Card hoverable={false} className="p-2 hidden lg:flex flex-col gap-2">
-            <ThesisScopeSelect
-              theses={theses}
-              value={thesisId}
-              onChange={changeThesis}
-            />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="min-w-0 max-w-[22rem] flex-1">
+            <ThesisScopeSelect theses={theses} value={thesisId} onChange={changeThesis} />
+          </div>
+          <AnswerModeToggle
+            value={answerMode}
+            onChange={changeAnswerMode}
+            disabled={streaming}
+          />
+        </div>
+      )}
 
+      {tool === "chat" && (
+        /* Ba cột: NGUỒN → HỘI THOẠI → KHUNG CHAT.
+           Trên màn hình nhỏ chúng xếp chồng theo đúng thứ tự đó, nên hai cột
+           điều khiển không còn bị ẩn hoàn toàn như trước. */
+        <div className="grid grid-cols-1 lg:grid-cols-[14rem_13rem_1fr] gap-3 items-start">
+          <SourcePanel
+            sources={sources}
+            selectedIds={selectedSourceIds}
+            onToggle={toggleSource}
+            onSelectAll={selectAllSources}
+            onClearAll={clearAllSources}
+            loading={sourcesLoading}
+            error={sourcesError}
+            onRetry={() => void refetchSources()}
+            onUpload={() =>
+              window.open(
+                thesisId ? `/documents?thesis=${thesisId}` : "/documents",
+                "_self"
+              )
+            }
+            disabled={streaming}
+          />
+
+          {/* Sessions */}
+          <Card hoverable={false} className="p-2 flex flex-col gap-2">
             <Button
               variant="secondary"
               size="sm"
@@ -748,10 +1193,17 @@ function AIChatWorkspace() {
                   <EmptyState
                     icon={<Sparkle size={15} />}
                     title="Hỏi bất cứ điều gì về đề tài của bạn"
-                    description="Trợ lý chỉ trả lời dựa trên tài liệu bạn đã tải lên, và luôn dẫn nguồn."
+                    description={
+                      answerMode === "STRICT"
+                        ? "Trợ lý chỉ trả lời dựa trên nguồn bạn đã chọn, và luôn dẫn nguồn."
+                        : "Trợ lý ưu tiên nguồn bạn đã chọn. Phần nằm ngoài tài liệu sẽ được tách riêng và đánh dấu."
+                    }
                   />
+                  {/* Gợi ý dựng từ chính các nguồn đang chọn — thay cho bốn câu
+                      viết cứng giống hệt nhau ở mọi đề tài, vốn hay hỏi về
+                      những thứ tài liệu không hề nhắc tới. */}
                   <div className="flex flex-col gap-1.5 mt-1">
-                    {SUGGESTED_PROMPTS.map((p) => (
+                    {(suggestedPrompts ?? []).map((p) => (
                       <button
                         key={p}
                         onClick={() => {
@@ -883,6 +1335,27 @@ function AIChatWorkspace() {
               className="p-2.5 flex-shrink-0"
               style={{ borderTop: "1px solid var(--border-secondary)" }}
             >
+              {/* Bỏ tick hết nguồn là một trạng thái hợp lệ nhưng vô dụng. Nói
+                  ngay tại đây thay vì để người dùng gõ xong một câu hỏi rồi mới
+                  nhận lại "không có tài liệu nào để đối chiếu". */}
+              {noSourceSelected && (
+                <div
+                  className="flex items-center gap-2 px-2.5 py-2 mb-2 rounded-[8px] text-[12px]"
+                  style={{
+                    background: "var(--warning-bg)",
+                    border: "1px solid var(--warning-border)",
+                    color: "var(--warning)",
+                  }}
+                  role="status"
+                >
+                  <Warning size={13} weight="fill" className="flex-shrink-0" />
+                  <span className="flex-1">Chưa chọn nguồn nào ở bảng bên trái.</span>
+                  <button onClick={selectAllSources} className="font-medium hover:underline">
+                    Chọn tất cả
+                  </button>
+                </div>
+              )}
+
               <div
                 className="flex items-end gap-2 p-1.5 rounded-[10px] transition-colors focus-within:border-[var(--accent)]"
                 style={{
@@ -921,7 +1394,7 @@ function AIChatWorkspace() {
                 ) : (
                   <button
                     onClick={send}
-                    disabled={!prompt.trim()}
+                    disabled={!prompt.trim() || noSourceSelected}
                     aria-label="Gửi câu hỏi"
                     className="btn btn-primary btn-icon flex-shrink-0"
                   >
@@ -932,7 +1405,16 @@ function AIChatWorkspace() {
               <p className="text-[11px] text-muted mt-1.5 px-1">
                 <kbd className="kbd">Enter</kbd> để gửi ·{" "}
                 <kbd className="kbd">Shift</kbd>+<kbd className="kbd">Enter</kbd> để
-                xuống dòng. Câu trả lời chỉ dựa trên tài liệu bạn có quyền truy cập.
+                xuống dòng.{" "}
+                {sources.length > 0 && (
+                  <>
+                    Đang dùng{" "}
+                    <span className="tnum">
+                      {selectedSourceIds.size}/{sources.length}
+                    </span>{" "}
+                    nguồn.
+                  </>
+                )}
               </p>
             </div>
           </Card>
@@ -1311,10 +1793,8 @@ function RoadmapSuggestions({
   thesis: Thesis | null;
   onThesisChange: (id: number) => void;
 }) {
-  const { user } = useAuthStore();
-
   const { data, loading, error, refetch } = useAsync(
-    async () => asList<AISuggestion>(await aiApi.suggestions(thesis?.id ?? 0)),
+    () => aiApi.suggestions(thesis?.id ?? 0),
     [thesis?.id],
     { enabled: thesis !== null }
   );
@@ -1368,7 +1848,7 @@ function RoadmapSuggestions({
     if (indexes.length === 0) return;
     setBusy(`accept:${s.id}`);
     try {
-      const created = asList<Milestone>(await aiApi.acceptSuggestion(s.id, indexes));
+      const created = await aiApi.acceptSuggestion(s.id, indexes);
       toast.success(
         `Đã tạo ${created.length || indexes.length} mốc tiến độ từ gợi ý của trợ lý.`
       );

@@ -113,16 +113,52 @@ export const optionalAuth: RequestHandler = (req, _res, next) => {
     .catch(() => next());
 };
 
+/**
+ * Handler kèm danh sách vai trò nó cho phép.
+ *
+ * Danh sách được đính vào chính hàm để `tests/rbac.test.ts` duyệt stack của
+ * Express và kiểm tra được từng route, kể cả route mới thêm sau này. Không có nó
+ * thì test chỉ so sánh được tên hàm — mà tên hàm không nói lên vai trò nào.
+ */
+export type RoleGuard = RequestHandler & { readonly roles: readonly UserRole[] };
+
 /** Giới hạn theo vai trò. Dùng SAU `requireAuth`. */
-export function requireRole(...roles: UserRole[]): RequestHandler {
-  return (req: Request, _res: Response, next: NextFunction) => {
+export function requireRole(...roles: UserRole[]): RoleGuard {
+  /* Hàm có TÊN, không dùng arrow vô danh: `router.stack[i].name` là thứ duy nhất
+     hiện ra khi soi middleware, và một stack toàn `<anonymous>` thì không chẩn
+     đoán được gì. */
+  const handler = function requireRole(req: Request, _res: Response, next: NextFunction) {
     if (!req.user) return next(unauthorized());
     if (!roles.includes(req.user.role)) {
       return next(forbidden("Vai trò của bạn không được phép truy cập chức năng này."));
     }
     next();
   };
+
+  return Object.assign(handler, { roles: Object.freeze([...roles]) }) as RoleGuard;
 }
+
+/**
+ * Vai trò được phép GHI vào dữ liệu nghiệp vụ: sinh viên và giảng viên.
+ *
+ * Quản trị viên bị loại khỏi đây có chủ đích. Ranh giới là "hành chính" so với
+ * "nội dung":
+ *
+ *   • Hành chính — gán giảng viên hướng dẫn (UC 3.12), thêm/gỡ thành viên đề
+ *     tài: đây là việc của Admin, và các route đó khai `requireRole("ADMIN")`
+ *     tường minh.
+ *   • Nội dung — tạo/sửa đề tài, nộp minh chứng, đổi trạng thái mốc, tải tài
+ *     liệu, viết phản hồi: Admin KHÔNG làm thay sinh viên và giảng viên. Một
+ *     thao tác như vậy trông y hệt thao tác hợp lệ của chủ đề tài, nên nhìn vào
+ *     dữ liệu sau đó không ai truy ra được là Admin đã can thiệp.
+ *
+ * `domain/access.ts` một mình không chặn được việc này: `can()` trả `true` cho
+ * Admin ở mọi capability, vì Admin thật sự cần `edit`/`review` cho nhóm hành
+ * chính ở trên. Nên hàng rào phải nằm ở tầng vai trò, ngay tại từng route.
+ *
+ * Đối xứng với `canWrite()` trong `frontend/src/lib/permissions.ts`.
+ */
+export const requireContributor = requireRole("STUDENT", "LECTURER");
 
 /** Trả về người dùng đã xác thực, hoặc ném lỗi. Giúp handler khỏi phải `!`. */
 export function currentUser(req: Request): AuthUser {

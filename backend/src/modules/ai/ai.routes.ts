@@ -32,7 +32,14 @@ import { optionalText, text, validateBody, validateParams, validateQuery, idPara
 import { aiLimiter } from "../../middleware/rate-limit";
 import { accessibleDocumentIds, assertThesisAccess, thesisScopeFilter } from "../../domain/access";
 import { notifyMany, thesisAudience } from "../../services/notifications";
-import { currentModelName, retrieve, streamAnswer, type Citation } from "../../services/ai/rag";
+import {
+  containsGeneralKnowledge,
+  currentModelName,
+  narrowToSelection,
+  retrieve,
+  streamAnswer,
+  type Citation,
+} from "../../services/ai/rag";
 import { searchHybridChunks, searchSimilarChunks } from "../../services/ai/vector.repository";
 import { embedOne } from "../../services/ai/embeddings";
 import type { ChatTurn } from "../../services/ai/llm";
@@ -76,15 +83,47 @@ const createSessionSchema = z.object({
   title: optionalText(255, "Tiêu đề hội thoại"),
 });
 
-const renameSessionSchema = z.object({
-  title: text(1, 255, "Tiêu đề hội thoại"),
+const answerModeSchema = z.enum(["STRICT", "HYBRID"], {
+  errorMap: () => ({ message: "Chế độ trả lời chỉ nhận STRICT hoặc HYBRID." }),
 });
+
+/**
+ * Danh sách id tài liệu người dùng tick ở bảng nguồn.
+ *
+ * Giới hạn 200 phần tử: một danh sách dài vô hạn từ client sẽ đi thẳng vào mệnh
+ * đề `IN (...)` của truy vấn vector. Đây là hạn mức, không phải hàng rào bảo
+ * mật — hàng rào nằm ở `narrowToSelection()` trong `services/ai/rag.ts`.
+ */
+const documentIdsSchema = z
+  .array(z.coerce.number().int().positive("Mã tài liệu không hợp lệ."))
+  .max(200, "Chọn tối đa 200 tài liệu làm nguồn.")
+  .optional();
 
 const chatSchema = z.object({
   session_id: optionalId("Mã phiên hội thoại"),
   thesis_id: optionalId("Mã đề tài"),
   prompt: text(1, 2000, "Câu hỏi"),
+  /** Chỉ dùng khi TẠO phiên mới; phiên đã có thì đọc từ CSDL. */
+  answer_mode: answerModeSchema.optional(),
+  document_ids: documentIdsSchema,
 });
+
+const sessionSourcesSchema = z.object({
+  /** Mảng rỗng = "dùng tất cả tài liệu trong phạm vi". */
+  document_ids: z
+    .array(z.coerce.number().int().positive("Mã tài liệu không hợp lệ."))
+    .max(200, "Chọn tối đa 200 tài liệu làm nguồn."),
+});
+
+const updateSessionSchema = z
+  .object({
+    title: text(1, 255, "Tiêu đề hội thoại").optional(),
+    answer_mode: answerModeSchema.optional(),
+  })
+  .refine(
+    (v) => v.title !== undefined || v.answer_mode !== undefined,
+    "Không có thay đổi nào được gửi lên."
+  );
 
 const ratingSchema = z.object({
   // `null` là giá trị hợp lệ, không phải thiếu dữ liệu: UC 6.9 luồng phụ 1a —
@@ -129,10 +168,38 @@ const SESSION_LIST_LIMIT = 100;
 async function ownedSession(user: AuthUser, sessionId: number) {
   const session = await prisma.aIChatSession.findFirst({
     where: { id: sessionId, user_id: user.id, deleted_at: null },
-    select: { id: true, thesis_id: true, title: true },
+    select: {
+      id: true,
+      thesis_id: true,
+      title: true,
+      answer_mode: true,
+      sources: { select: { document_id: true } },
+    },
   });
   if (!session) throw notFound("Phiên hội thoại không tồn tại hoặc đã bị xóa.");
   return session;
+}
+
+/**
+ * Lọc danh sách id tài liệu về đúng những gì người dùng được phép đọc.
+ *
+ * Chạy ở tầng route để việc GHI vào `ai_chat_session_sources` không bao giờ lưu
+ * một id ngoài phạm vi. `rag.ts` vẫn lọc lại lần nữa lúc truy xuất — hai lớp có
+ * chủ đích, vì quyền có thể bị thu hồi SAU khi nguồn đã được lưu (đề tài bị gỡ
+ * chia sẻ, sinh viên rời nhóm).
+ */
+async function keepAccessibleDocuments(
+  user: AuthUser,
+  thesisId: number | null,
+  requested: number[]
+): Promise<number[]> {
+  if (requested.length === 0) return [];
+
+  const allowed = await accessibleDocumentIds(user, thesisId);
+  if (allowed === null) return [...new Set(requested)];
+
+  const permitted = new Set(allowed);
+  return [...new Set(requested)].filter((id) => permitted.has(id));
 }
 
 aiRouter.get(
@@ -191,31 +258,153 @@ aiRouter.post(
   })
 );
 
+/** Đổi tên hội thoại và/hoặc đổi chế độ trả lời. */
 aiRouter.patch(
   "/sessions/:id",
   requireAuth,
   validateParams(idParam),
-  validateBody(renameSessionSchema),
+  validateBody(updateSessionSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
     const { id } = req.params as unknown as z.infer<typeof idParam>;
-    const { title } = req.body as z.infer<typeof renameSessionSchema>;
+    const { title, answer_mode } = req.body as z.infer<typeof updateSessionSchema>;
 
     await ownedSession(user, id);
 
     const session = await prisma.aIChatSession.update({
       where: { id },
-      data: { title },
+      data: {
+        ...(title !== undefined ? { title } : {}),
+        ...(answer_mode !== undefined ? { answer_mode } : {}),
+      },
       include: { _count: { select: { messages: true } } },
     });
 
     audit({
       action: AuditAction.AI_CHAT,
       req,
-      details: { sub_action: "session_rename", session_id: id },
+      details: {
+        sub_action: "session_update",
+        session_id: id,
+        ...(title !== undefined ? { renamed: true } : {}),
+        ...(answer_mode !== undefined ? { answer_mode } : {}),
+      },
     });
 
     res.json(toChatSessionDTO(session));
+  })
+);
+
+/* ==========================================================================
+   NGUỒN CỦA PHIÊN HỘI THOẠI
+
+   Đây là phần khiến trợ lý hoạt động giống NotebookLM: mỗi hội thoại có bảng
+   nguồn riêng, và câu hỏi chỉ được đối chiếu với những tài liệu đang được tick.
+
+   Không có nó, tải năm tài liệu thuộc năm chủ đề lên cùng một đề tài rồi hỏi
+   thì trợ lý không có cách nào biết câu hỏi nhắm vào tài liệu nào — nó trộn
+   trích dẫn từ cả năm.
+   ========================================================================== */
+
+/** Danh sách tài liệu có thể dùng làm nguồn, kèm tài liệu nào đang được chọn. */
+aiRouter.get(
+  "/sessions/:id/sources",
+  requireAuth,
+  validateParams(idParam),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+
+    const session = await ownedSession(user, id);
+    const available = await accessibleDocumentIds(user, session.thesis_id);
+
+    const documents = await prisma.document.findMany({
+      where: {
+        deleted_at: null,
+        ...(available === null ? {} : { id: { in: available } }),
+      },
+      select: {
+        id: true,
+        filename: true,
+        status_ai: true,
+        ai_error: true,
+        page_count: true,
+        summary_ai: true,
+        thesis_id: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+      take: 200,
+    });
+
+    const selected = new Set(session.sources.map((s) => s.document_id));
+
+    res.json({
+      // Quy ước: chưa chọn gì nghĩa là DÙNG TẤT CẢ. Giao diện cần biết mình
+      // đang ở trạng thái nào để hiển thị "5/5 nguồn" thay vì "0/5".
+      uses_all: selected.size === 0,
+      data: documents.map((d) => ({
+        id: d.id,
+        filename: d.filename,
+        status_ai: d.status_ai,
+        ai_error: d.ai_error,
+        page_count: d.page_count,
+        // Cắt ngắn: bảng nguồn chỉ cần một dòng gợi nhớ nội dung, không cần cả
+        // bản tóm tắt — nó nhân với 200 tài liệu là một phản hồi rất nặng.
+        summary: d.summary_ai ? d.summary_ai.slice(0, 240) : null,
+        thesis_id: d.thesis_id,
+        selected: selected.size === 0 || selected.has(d.id),
+      })),
+    });
+  })
+);
+
+/** Đặt lại tập nguồn của phiên. Mảng rỗng = dùng tất cả. */
+aiRouter.put(
+  "/sessions/:id/sources",
+  requireAuth,
+  validateParams(idParam),
+  validateBody(sessionSourcesSchema),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+    const { document_ids } = req.body as z.infer<typeof sessionSourcesSchema>;
+
+    const session = await ownedSession(user, id);
+    const permitted = await keepAccessibleDocuments(user, session.thesis_id, document_ids);
+
+    // Gửi lên toàn id không được phép thì đó là lỗi thật, không phải "chọn tất
+    // cả". Im lặng quy về "tất cả" sẽ mở rộng phạm vi đúng lúc người dùng đang
+    // cố thu hẹp nó.
+    if (document_ids.length > 0 && permitted.length === 0) {
+      throw badRequest("Không tài liệu nào trong danh sách thuộc phạm vi truy cập của bạn.");
+    }
+
+    // Thay toàn bộ trong một giao dịch: xoá xong mà chèn hỏng sẽ để phiên rơi về
+    // "dùng tất cả" — âm thầm mở rộng phạm vi, đúng thứ không được phép xảy ra.
+    await prisma.$transaction([
+      prisma.aIChatSessionSource.deleteMany({ where: { session_id: id } }),
+      ...(permitted.length > 0
+        ? [
+            prisma.aIChatSessionSource.createMany({
+              data: permitted.map((document_id) => ({ session_id: id, document_id })),
+            }),
+          ]
+        : []),
+    ]);
+
+    audit({
+      action: AuditAction.AI_CHAT,
+      req,
+      details: {
+        sub_action: "session_sources",
+        session_id: id,
+        requested: document_ids.length,
+        applied: permitted.length,
+      },
+    });
+
+    res.json({ uses_all: permitted.length === 0, document_ids: permitted });
   })
 );
 
@@ -313,20 +502,42 @@ aiRouter.post(
 
     /* ---- Giai đoạn 1: mọi thứ còn báo lỗi JSON được, làm trước khi mở luồng ---- */
 
-    let session: { id: number; thesis_id: number | null };
+    let session: {
+      id: number;
+      thesis_id: number | null;
+      answer_mode: "STRICT" | "HYBRID";
+      sources: Array<{ document_id: number }>;
+    };
+
     if (body.session_id !== undefined) {
+      /* Phiên đã tồn tại thì chế độ và nguồn đọc từ CSDL, KHÔNG lấy từ body.
+         Tin vào body sẽ để một người dùng đổi phạm vi giữa chừng mà lịch sử hội
+         thoại không ghi nhận gì — câu trả lời thứ ba dựa trên nguồn khác hẳn hai
+         câu đầu, và không ai nhìn ra được điều đó khi đọc lại. */
       session = await ownedSession(user, body.session_id);
     } else {
       if (body.thesis_id !== undefined) await assertThesisAccess(user, body.thesis_id, "view");
-      session = await prisma.aIChatSession.create({
+
+      const thesisId = body.thesis_id ?? null;
+      const sources = await keepAccessibleDocuments(user, thesisId, body.document_ids ?? []);
+
+      const created = await prisma.aIChatSession.create({
         data: {
           user_id: user.id,
-          thesis_id: body.thesis_id ?? null,
+          thesis_id: thesisId,
           title: sessionTitle(prompt),
+          answer_mode: body.answer_mode ?? "HYBRID",
+          ...(sources.length > 0
+            ? { sources: { create: sources.map((document_id) => ({ document_id })) } }
+            : {}),
         },
-        select: { id: true, thesis_id: true },
+        select: { id: true, thesis_id: true, answer_mode: true },
       });
+
+      session = { ...created, sources: sources.map((document_id) => ({ document_id })) };
     }
+
+    const selectedDocumentIds = session.sources.map((s) => s.document_id);
 
     const userMessage = await prisma.aIChatMessage.create({
       data: { session_id: session.id, role: "USER", content: prompt },
@@ -364,6 +575,8 @@ aiRouter.post(
       emit(res, "session", {
         session_id: session.id,
         thesis_id: session.thesis_id,
+        answer_mode: session.answer_mode,
+        source_document_ids: selectedDocumentIds,
         user_message: toChatMessageDTO(userMessage),
       });
 
@@ -371,18 +584,25 @@ aiRouter.post(
         user,
         query: prompt,
         thesisId: session.thesis_id,
+        documentIds: selectedDocumentIds,
       });
       citations = retrieval.citations;
 
       // Gửi trích dẫn TRƯỚC khi sinh chữ: nguồn là bề mặt tin cậy của một câu trả
       // lời RAG, và người đọc có thể mở tài liệu gốc trong lúc chữ vẫn đang chạy.
-      emit(res, "citations", { citations });
+      emit(res, "citations", {
+        citations,
+        // Giao diện hiển thị "đang dùng N/M nguồn" — không có con số này, một câu
+        // trả lời thiếu sót trông giống hệt một kho tài liệu thiếu sót.
+        excluded_by_selection: retrieval.excluded_by_selection,
+      });
 
       for await (const chunk of streamAnswer({
         question: prompt,
         retrieval,
         history,
         signal: controller.signal,
+        mode: session.answer_mode,
       })) {
         // Chế độ `local` phát lại văn bản có sẵn và không hề nhìn tới `signal`;
         // không tự thoát ở đây thì "Dừng" sẽ không dừng được gì.
@@ -403,6 +623,10 @@ aiRouter.post(
           citations: citations as unknown as Prisma.InputJsonValue,
           model_name: currentModelName(),
           latency_ms: latencyMs,
+          // Chế độ HYBRID có thể chèn khối kiến thức ngoài tài liệu. Ghi lại để
+          // giao diện tô màu đúng và để thống kê trả lời được "kho tài liệu
+          // không đáp ứng nổi bao nhiêu phần trăm câu hỏi".
+          used_general_knowledge: containsGeneralKnowledge(answer),
           // Bị ngắt giữa chừng thì để trống: serializer dựa vào đúng cột này để
           // đánh dấu câu trả lời chưa hoàn chỉnh.
           finished_at: aborted ? null : new Date(),
@@ -454,6 +678,86 @@ aiRouter.post(
       res.off("close", onClose);
       if (!res.writableEnded) res.end();
     }
+  })
+);
+
+/* ==========================================================================
+   GỢI Ý CÂU HỎI MỞ ĐẦU
+
+   Thay cho bốn câu viết cứng trong `ai-chat/page.tsx`, vốn giống hệt nhau ở mọi
+   đề tài và hỏi về những thứ tài liệu có thể không hề nhắc tới.
+
+   Gợi ý dựng từ CHÍNH tên tệp và bản tóm tắt của các nguồn đang chọn, bằng mẫu
+   câu chứ không gọi mô hình: một lượt gọi LLM mỗi lần mở trang là chi phí thật,
+   trong khi thứ người dùng cần chỉ là một điểm khởi đầu để bấm.
+   ========================================================================== */
+
+const suggestedPromptsQuery = z.object({
+  thesis_id: optionalId("Mã đề tài"),
+  session_id: optionalId("Mã phiên hội thoại"),
+});
+
+/** Bỏ đuôi mở rộng và dấu gạch để tên tệp đọc được như một cụm từ. */
+function readableTitle(filename: string): string {
+  return filename
+    .replace(/\.[a-z0-9]{2,5}$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+aiRouter.get(
+  "/suggested-prompts",
+  requireAuth,
+  validateQuery(suggestedPromptsQuery),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const query = req.query as unknown as z.infer<typeof suggestedPromptsQuery>;
+
+    let thesisId = query.thesis_id ?? null;
+    let selected: number[] = [];
+
+    if (query.session_id !== undefined) {
+      const session = await ownedSession(user, query.session_id);
+      thesisId = session.thesis_id;
+      selected = session.sources.map((s) => s.document_id);
+    }
+
+    const allowed = await accessibleDocumentIds(user, thesisId);
+    const { scope } = narrowToSelection(allowed, selected);
+
+    const documents = await prisma.document.findMany({
+      where: {
+        deleted_at: null,
+        // Chỉ tài liệu đã lập chỉ mục: gợi ý hỏi về một tệp chưa xử lý xong sẽ
+        // dẫn thẳng tới câu "không tìm thấy nội dung phù hợp".
+        status_ai: "DONE",
+        ...(scope === null ? {} : { id: { in: scope } }),
+      },
+      select: { filename: true },
+      orderBy: { created_at: "desc" },
+      take: 3,
+    });
+
+    if (documents.length === 0) {
+      res.json({
+        data: [],
+        reason: "Chưa có tài liệu nào được lập chỉ mục trong phạm vi đang chọn.",
+      });
+      return;
+    }
+
+    const titles = documents.map((d) => readableTitle(d.filename));
+    const prompts = [
+      `Tóm tắt những ý chính của “${titles[0]}”`,
+      titles.length > 1
+        ? `So sánh nội dung của “${titles[0]}” và “${titles[1]}”`
+        : `Nêu các khái niệm quan trọng xuất hiện trong “${titles[0]}”`,
+      "Những nguồn này còn thiếu phần nào so với một đề cương luận văn hoàn chỉnh?",
+      "Liệt kê các định nghĩa và thuật ngữ cần làm rõ trong tài liệu đã chọn",
+    ];
+
+    res.json({ data: prompts });
   })
 );
 

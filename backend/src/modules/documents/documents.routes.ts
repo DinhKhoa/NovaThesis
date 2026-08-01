@@ -22,7 +22,7 @@ import { badRequest, conflict, forbidden, HttpError, notFound } from "../../lib/
 import { audit, AuditAction } from "../../lib/audit";
 import { signFileUrl } from "../../lib/crypto";
 import { assertAllowedType, deleteFile, DOCUMENT_MIME, saveBuffer } from "../../lib/storage";
-import { currentUser, requireAuth } from "../../middleware/auth";
+import { currentUser, requireAuth, requireContributor } from "../../middleware/auth";
 import { aiLimiter, uploadLimiter } from "../../middleware/rate-limit";
 import { cleanText, idParam, optionalText, text, validateBody, validateParams, validateQuery } from "../../middleware/validate";
 import { assertDocumentAccess, assertThesisAccess } from "../../domain/access";
@@ -253,6 +253,7 @@ documentsRouter.get(
 documentsRouter.post(
   "/",
   requireAuth,
+  requireContributor,
   uploadLimiter,
   receiveFile("file"),
   validateBody(uploadBodySchema),
@@ -343,6 +344,7 @@ documentsRouter.get(
 documentsRouter.patch(
   "/:id",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(updateBodySchema),
   asyncHandler(async (req, res) => {
@@ -393,6 +395,7 @@ documentsRouter.patch(
 documentsRouter.delete(
   "/:id",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -462,6 +465,7 @@ const DAILY_REINDEX_LIMIT = 10;
 documentsRouter.post(
   "/:id/reindex",
   requireAuth,
+  requireContributor,
   aiLimiter,
   validateParams(idParam),
   asyncHandler(async (req, res) => {
@@ -549,6 +553,7 @@ documentsRouter.get(
 documentsRouter.post(
   "/:id/versions",
   requireAuth,
+  requireContributor,
   uploadLimiter,
   validateParams(idParam),
   receiveFile("file"),
@@ -605,6 +610,7 @@ documentsRouter.post(
 documentsRouter.post(
   "/:id/share",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(shareBodySchema),
   asyncHandler(async (req, res) => {
@@ -689,6 +695,7 @@ documentsRouter.get(
 documentsRouter.delete(
   "/:id/shares/:thesis_id",
   requireAuth,
+  requireContributor,
   validateParams(shareParamsSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);

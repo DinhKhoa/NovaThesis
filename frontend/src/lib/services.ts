@@ -336,13 +336,41 @@ export interface Citation {
   snippet?: string;
 }
 
+/**
+ * Chế độ trả lời của trợ lý.
+ *
+ * `STRICT` — chỉ dùng tài liệu đã chọn. `HYBRID` — được bổ sung kiến thức chung
+ * nhưng phải tách vào khối cảnh báo riêng. Xem `services/ai/rag.ts` phía backend.
+ */
+export type AnswerMode = "STRICT" | "HYBRID";
+
 export interface ChatSession {
   id: number;
   thesis_id: number | null;
   title: string;
   message_count: number;
+  answer_mode?: AnswerMode;
   created_at: string;
   updated_at: string;
+}
+
+/** Một tài liệu có thể dùng làm nguồn cho hội thoại (bảng nguồn kiểu NotebookLM). */
+export interface ChatSource {
+  id: number;
+  filename: string;
+  status_ai: AIStatus;
+  ai_error: string | null;
+  page_count: number | null;
+  /** Tóm tắt đã cắt ngắn, dùng làm tooltip. */
+  summary: string | null;
+  thesis_id: number;
+  selected: boolean;
+}
+
+export interface ChatSourceList {
+  /** `true` khi phiên chưa chọn riêng nguồn nào — mặc định dùng tất cả. */
+  uses_all: boolean;
+  data: ChatSource[];
 }
 
 export interface ChatMessage {
@@ -355,6 +383,8 @@ export interface ChatMessage {
   model_name?: string | null;
   latency_ms?: number | null;
   incomplete?: boolean;
+  /** Câu trả lời có khối kiến thức nằm ngoài tài liệu (chế độ HYBRID). */
+  used_general_knowledge?: boolean;
   created_at: string;
   /** Chỉ tồn tại phía client trong lúc token đang về. */
   streaming?: boolean;
@@ -407,7 +437,30 @@ export const aiApi = {
     api.post<ChatSession>("/ai/sessions", data),
   renameSession: (id: number, title: string) =>
     api.patch<ChatSession>(`/ai/sessions/${id}`, { title }),
+  setAnswerMode: (id: number, answer_mode: AnswerMode) =>
+    api.patch<ChatSession>(`/ai/sessions/${id}`, { answer_mode }),
   deleteSession: (id: number) => api.delete<void>(`/ai/sessions/${id}`),
+
+  /* ---- Bảng nguồn (kiểu NotebookLM) ---- */
+  sources: (sessionId: number) =>
+    api.get<ChatSourceList>(`/ai/sessions/${sessionId}/sources`),
+  /** Mảng rỗng = quay lại "dùng tất cả tài liệu trong phạm vi". */
+  setSources: (sessionId: number, documentIds: number[]) =>
+    api.put<{ uses_all: boolean; document_ids: number[] }>(
+      `/ai/sessions/${sessionId}/sources`,
+      { document_ids: documentIds }
+    ),
+  /** Câu hỏi mở đầu dựng từ chính các nguồn đang chọn. */
+  suggestedPrompts: async (params: {
+    thesis_id?: number | null;
+    session_id?: number | null;
+  }): Promise<string[]> => {
+    const query: Record<string, number> = {};
+    if (params.thesis_id) query.thesis_id = params.thesis_id;
+    if (params.session_id) query.session_id = params.session_id;
+    return (await api.get<{ data: string[] }>("/ai/suggested-prompts", query)).data;
+  },
+
   messages: async (sessionId: number): Promise<ChatMessage[]> =>
     (await api.get<Paginated<ChatMessage>>(`/ai/sessions/${sessionId}/messages`, { per_page: 100 })).data,
   rate: (messageId: number, rating: "LIKE" | "DISLIKE" | null, note?: string) =>
@@ -434,8 +487,15 @@ export const aiApi = {
    ========================================================================== */
 
 export interface ChatStreamHandlers {
-  onSession?: (data: { session_id: number; user_message: ChatMessage }) => void;
-  onCitations?: (citations: Citation[]) => void;
+  onSession?: (data: {
+    session_id: number;
+    thesis_id: number | null;
+    answer_mode: AnswerMode;
+    /** Nguồn thực tế phiên đang dùng; mảng rỗng = tất cả tài liệu trong phạm vi. */
+    source_document_ids: number[];
+    user_message: ChatMessage;
+  }) => void;
+  onCitations?: (citations: Citation[], excludedBySelection: number) => void;
   onDelta?: (text: string) => void;
   onDone?: (data: {
     message_id: number;
@@ -460,7 +520,14 @@ export interface ChatStreamHandlers {
  * Trả về hàm huỷ, phục vụ nút "Dừng trả lời".
  */
 export function streamChat(
-  body: { session_id?: number | null; thesis_id?: number | null; prompt: string },
+  body: {
+    session_id?: number | null;
+    thesis_id?: number | null;
+    prompt: string;
+    /** Chỉ có tác dụng khi tạo phiên mới; phiên đã có thì server đọc từ CSDL. */
+    answer_mode?: AnswerMode;
+    document_ids?: number[];
+  },
   handlers: ChatStreamHandlers
 ): () => void {
   const controller = new AbortController();
@@ -520,7 +587,10 @@ export function streamChat(
                 handlers.onSession?.(payload);
                 break;
               case "citations":
-                handlers.onCitations?.(payload.citations ?? []);
+                handlers.onCitations?.(
+                  payload.citations ?? [],
+                  payload.excluded_by_selection ?? 0
+                );
                 break;
               case "delta":
                 handlers.onDelta?.(payload.text ?? "");

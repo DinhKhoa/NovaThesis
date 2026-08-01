@@ -18,7 +18,12 @@ import { prisma } from "../../lib/prisma";
 import { asyncHandler, noContent, paginated, paginationSchema, parsePage } from "../../lib/http";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors";
 import { audit, AuditAction } from "../../lib/audit";
-import { currentUser, requireAuth, requireRole } from "../../middleware/auth";
+import {
+  currentUser,
+  requireAuth,
+  requireContributor,
+  requireRole,
+} from "../../middleware/auth";
 import {
   idParam,
   optionalText,
@@ -284,6 +289,7 @@ thesesRouter.get(
 /** UC 3.1 — tạo đề tài (luôn ở trạng thái Nháp). */
 thesesRouter.post(
   "/",
+  requireContributor,
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -360,6 +366,7 @@ thesesRouter.get(
 /** UC 3.5 — chỉnh sửa thông tin đề tài. */
 thesesRouter.patch(
   "/:id",
+  requireContributor,
   validateParams(idParam),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
@@ -414,6 +421,7 @@ thesesRouter.patch(
 /** UC 3.6 — xoá đề tài nháp (xoá mềm). */
 thesesRouter.delete(
   "/:id",
+  requireContributor,
   validateParams(idParam),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -444,6 +452,7 @@ thesesRouter.delete(
 /** UC 3.7 — gửi đề tài để duyệt. */
 thesesRouter.post(
   "/:id/submit",
+  requireContributor,
   validateParams(idParam),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -493,6 +502,7 @@ thesesRouter.post(
 /** UC 3.9 — phê duyệt đề tài. */
 thesesRouter.post(
   "/:id/approve",
+  requireContributor,
   validateParams(idParam),
   validateBody(approveSchema),
   asyncHandler(async (req, res) => {
@@ -542,6 +552,7 @@ thesesRouter.post(
 /** UC 3.10 — yêu cầu sinh viên chỉnh sửa rồi gửi lại. */
 thesesRouter.post(
   "/:id/request-revision",
+  requireContributor,
   validateParams(idParam),
   validateBody(revisionSchema),
   asyncHandler(async (req, res) => {
@@ -579,6 +590,7 @@ thesesRouter.post(
 /** UC 3.11 — từ chối đề tài (trạng thái cuối). */
 thesesRouter.post(
   "/:id/reject",
+  requireContributor,
   validateParams(idParam),
   validateBody(rejectSchema),
   asyncHandler(async (req, res) => {
@@ -618,6 +630,7 @@ thesesRouter.post(
 /** UC 3.13 — đánh dấu hoàn thành. */
 thesesRouter.post(
   "/:id/complete",
+  requireContributor,
   validateParams(idParam),
   validateBody(completeSchema),
   asyncHandler(async (req, res) => {

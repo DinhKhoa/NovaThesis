@@ -103,6 +103,17 @@ enum AIRating {
   DISLIKE
 }
 
+/// Chế độ trả lời của trợ lý (ý tưởng lấy từ NotebookLM).
+///
+/// `STRICT` — chỉ dùng nội dung trong tài liệu đã chọn; không có thì nói thẳng
+/// là không tìm thấy. Đây là hành vi cũ và là điều UC 6.5 cam kết.
+/// `HYBRID` — ưu tiên tài liệu, nhưng được bổ sung kiến thức chung và BẮT BUỘC
+/// tách phần đó ra một khối riêng có cảnh báo, không gán trích dẫn cho nó.
+enum AnswerMode {
+  STRICT
+  HYBRID
+}
+
 enum SuggestionStatus {
   PENDING
   ACCEPTED
@@ -419,10 +430,11 @@ model Document {
   thesis   Thesis @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
   uploader User   @relation(fields: [uploaded_by], references: [id])
 
-  chunks    DocumentChunk[]
-  versions  DocumentVersion[]
-  shares    DocumentShare[]
-  feedbacks Feedback[]
+  chunks       DocumentChunk[]
+  versions     DocumentVersion[]
+  shares       DocumentShare[]
+  feedbacks    Feedback[]
+  chat_sources AIChatSessionSource[]
 
   @@index([thesis_id, deleted_at])
   @@index([status_ai])
@@ -512,6 +524,11 @@ model AIChatSession {
   user_id   Int
   title     String @default("Hội thoại mới") @db.VarChar(255)
 
+  /// Chế độ trả lời của phiên. Mặc định `HYBRID`: người dùng hỏi "RAG là gì"
+  /// mà tài liệu không nhắc tới thì nhận được câu trả lời có ích kèm cảnh báo,
+  /// thay vì một câu "không tìm thấy" trong khi mô hình biết rõ.
+  answer_mode AnswerMode @default(HYBRID)
+
   /// UC 6.8 — xoá mềm, giữ dữ liệu cho thống kê UC 9.3.
   deleted_at DateTime?
   created_at DateTime  @default(now())
@@ -522,9 +539,37 @@ model AIChatSession {
   thesis   Thesis?         @relation(fields: [thesis_id], references: [id], onDelete: Cascade)
   user     User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
   messages AIChatMessage[]
+  sources  AIChatSessionSource[]
 
   @@index([user_id, deleted_at, updated_at])
   @@map("ai_chat_sessions")
+}
+
+/// Tập tài liệu mà một phiên hội thoại được phép đọc — bảng "nguồn" kiểu
+/// NotebookLM.
+///
+/// Không có bảng này, mọi câu hỏi đều truy xuất TOÀN BỘ tài liệu của đề tài.
+/// Khi sinh viên tải lên năm tài liệu thuộc năm chủ đề khác nhau, trợ lý không
+/// có cách nào biết câu hỏi đang nhắm vào tài liệu nào, và câu trả lời trộn lẫn
+/// nguồn từ những chủ đề chẳng liên quan.
+///
+/// Quy ước: phiên KHÔNG có dòng nào ở đây nghĩa là "dùng tất cả tài liệu trong
+/// phạm vi" — nhờ vậy các phiên tạo trước khi có tính năng này giữ nguyên hành
+/// vi cũ mà không cần backfill.
+///
+/// ⚠️ Đây là bộ lọc THU HẸP, không phải bộ cấp quyền. Phạm vi truy cập vẫn do
+/// `accessibleDocumentIds()` quyết định; `rag.ts` lấy GIAO của hai tập.
+model AIChatSessionSource {
+  session_id  Int
+  document_id Int
+  created_at  DateTime @default(now())
+
+  session  AIChatSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  document Document      @relation(fields: [document_id], references: [id], onDelete: Cascade)
+
+  @@id([session_id, document_id])
+  @@index([document_id])
+  @@map("ai_chat_session_sources")
 }
 
 model AIChatMessage {
@@ -551,6 +596,12 @@ model AIChatMessage {
   /// biết đó là câu chưa hoàn chỉnh.
   finished_at DateTime?
   latency_ms  Int?
+
+  /// Câu trả lời này có phần nằm NGOÀI tài liệu của người dùng hay không
+  /// (chế độ `HYBRID`). Lưu lại vì hai lý do: giao diện tô màu khác cho khối đó,
+  /// và thống kê trả lời được "bao nhiêu phần trăm câu hỏi kho tài liệu không
+  /// đáp ứng nổi" — con số đó nói thẳng rằng kho tài liệu còn thiếu gì.
+  used_general_knowledge Boolean @default(false)
 
   created_at DateTime @default(now())
 

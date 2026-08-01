@@ -28,7 +28,12 @@ import {
   formatBytes,
   saveBuffer,
 } from "../../lib/storage";
-import { currentUser, requireAuth, requireRole } from "../../middleware/auth";
+import {
+  currentUser,
+  requireAuth,
+  requireContributor,
+  requireRole,
+} from "../../middleware/auth";
 import {
   idParam,
   optionalText,
@@ -170,6 +175,7 @@ const reorderSchema = z.object({
 milestonesRouter.patch(
   "/reorder",
   requireAuth,
+  requireContributor,
   validateBody(reorderSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -289,6 +295,7 @@ const createSchema = z.object({
 milestonesRouter.post(
   "/",
   requireAuth,
+  requireContributor,
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -382,6 +389,7 @@ const updateSchema = z
 milestonesRouter.patch(
   "/:id",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
@@ -468,6 +476,7 @@ milestonesRouter.patch(
 milestonesRouter.delete(
   "/:id",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
@@ -522,6 +531,7 @@ const statusSchema = z.object({
 milestonesRouter.patch(
   "/:id/status",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(statusSchema),
   asyncHandler(async (req, res) => {
@@ -573,6 +583,7 @@ const approveSchema = z.object({ note: optionalText(2000, "Nhận xét") });
 milestonesRouter.post(
   "/:id/approve",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(approveSchema),
   asyncHandler(async (req, res) => {
@@ -620,6 +631,7 @@ const revisionSchema = z.object({
 milestonesRouter.post(
   "/:id/request-revision",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(revisionSchema),
   asyncHandler(async (req, res) => {
@@ -682,6 +694,7 @@ const evidenceSchema = z.object({
 milestonesRouter.post(
   "/:id/evidence",
   requireAuth,
+  requireContributor,
   uploadLimiter,
   validateParams(idParam),
   evidenceUpload,
@@ -792,6 +805,7 @@ const extensionSchema = z.object({
 milestonesRouter.post(
   "/:id/extension",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(extensionSchema),
   asyncHandler(async (req, res) => {
@@ -881,6 +895,7 @@ const extensionReviewSchema = z
 milestonesRouter.post(
   "/:id/extension/review",
   requireAuth,
+  requireContributor,
   validateParams(idParam),
   validateBody(extensionReviewSchema),
   asyncHandler(async (req, res) => {
