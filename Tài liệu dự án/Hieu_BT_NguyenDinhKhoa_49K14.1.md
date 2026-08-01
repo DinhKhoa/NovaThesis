@@ -132,7 +132,9 @@ MỤC LỤC
 
 [3.2.2. Mô tả chi tiết bảng dữ liệu 47](#_Toc236001289)
 
-[3.3. Thiết kế giao diện người dùng 55](#_Toc236001290)
+[3.3. Thiết kế bảo mật 55](#_Toc236001290a)
+
+[3.4. Thiết kế giao diện người dùng 57](#_Toc236001290)
 
 [KẾT LUẬN CHƯƠNG 3 57](#_Toc236001291)
 
@@ -147,6 +149,8 @@ MỤC LỤC
 [4.4. Triển khai các chức năng hỗ trợ bởi AI 58](#_Toc236001296)
 
 [4.5. Đánh giá kết quả 58](#_Toc236001297)
+
+[KẾT LUẬN CHƯƠNG 4 72](#_Toc236001297a)
 
 [KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN 59](#_Toc236001298)
 
@@ -581,7 +585,7 @@ Mặc dù mang lại nhiều lợi ích, việc ứng dụng AI trong môi trư�
 
 Tìm kiếm ngữ nghĩa (Semantic search) là phương pháp truy xuất thông tin dựa trên ý nghĩa và ngữ cảnh của nội dung thay vì chỉ dựa trên sự trùng khớp của từ khóa. Khác với phương pháp tìm kiếm truyền thống, Semantic search có khả năng hiểu mối quan hệ ngữ nghĩa giữa truy vấn của người dùng và nội dung tài liệu, từ đó cung cấp các kết quả phù hợp hơn với mục đích tìm kiếm \[14\]. Trong các hệ thống tìm kiếm từ khóa (Keyword Search), kết quả thường được xác định dựa trên tần suất xuất hiện của các từ hoặc cụm từ trong tài liệu. Cách tiếp cận này có thể gặp hạn chế khi người dùng sử dụng các từ đồng nghĩa, diễn đạt khác nhau hoặc đặt câu hỏi dưới dạng ngôn ngữ tự nhiên. Semantic search được phát triển nhằm khắc phục những hạn chế này bằng cách biểu diễn văn bản dưới dạng các vector số học phản ánh ý nghĩa của nội dung.
 
-Theo Reimers và Gurevych, mô hình Sentence-BERT (SBERT) cho phép chuyển đổi câu hoặc đoạn văn thành các vector ngữ nghĩa (sentence embeddings), giúp đo lường mức độ tương đồng về ý nghĩa giữa các văn bản một cách hiệu quả \[15\]. Khi người dùng thực hiện truy vấn, hệ thống sẽ chuyển đổi truy vấn thành vector và so sánh với các vector của tài liệu trong cơ sở dữ liệu để tìm ra những nội dung có mức độ tương đồng cao nhất.
+Theo Reimers và Gurevych, mô hình Sentence-BERT (SBERT) cho phép chuyển đổi câu hoặc đoạn văn thành các vector ngữ nghĩa (sentence embeddings), giúp đo lường mức độ tương đồng về ý nghĩa giữa các văn bản một cách hiệu quả \[3\]. Khi người dùng thực hiện truy vấn, hệ thống sẽ chuyển đổi truy vấn thành vector và so sánh với các vector của tài liệu trong cơ sở dữ liệu để tìm ra những nội dung có mức độ tương đồng cao nhất.
 
 Nhờ khả năng hiểu ngữ cảnh và ý định của người dùng, Semantic search được ứng dụng rộng rãi trong các hệ thống quản lý tri thức, thư viện số, công cụ tìm kiếm học thuật và các nền tảng hỗ trợ nghiên cứu. Phương pháp này góp phần nâng cao độ chính xác của kết quả truy xuất và cải thiện trải nghiệm tìm kiếm thông tin trong môi trường dữ liệu lớn.
 
@@ -631,7 +635,7 @@ Sự phát triển của JavaScript đã góp phần hình thành hệ sinh thá
 
 1.  React
 
-React là thư viện JavaScript mã nguồn mở được phát triển bởi Meta nhằm hỗ trợ xây dựng giao diện người dùng dựa trên kiến trúc thành phần (Component-Based Architecture). Mỗi thành phần giao diện được xây dựng dưới dạng các component độc lập, có khả năng tái sử dụng và quản lý trạng thái riêng \[17\].
+React là thư viện JavaScript mã nguồn mở được phát triển bởi Meta nhằm hỗ trợ xây dựng giao diện người dùng dựa trên kiến trúc thành phần (Component-Based Architecture). Mỗi thành phần giao diện được xây dựng dưới dạng các component độc lập, có khả năng tái sử dụng và quản lý trạng thái riêng \[15\].
 
 Hình . Thư viện React
 
@@ -641,7 +645,7 @@ Một trong những đặc điểm nổi bật của React là cơ chế Virtual
 
 1.  Next.js
 
-Next.js là framework được phát triển dựa trên React nhằm đơn giản hóa quá trình xây dựng và triển khai ứng dụng web. Next.js cung cấp nhiều tính năng tích hợp như định tuyến tự động (File-Based Routing), kết xuất phía máy chủ (Server-Side Rendering - SSR), tạo trang tĩnh (Static Site Generation - SSG) và hỗ trợ xây dựng API \[17\].
+Next.js là framework được phát triển dựa trên React nhằm đơn giản hóa quá trình xây dựng và triển khai ứng dụng web. Next.js cung cấp nhiều tính năng tích hợp như định tuyến tự động (File-Based Routing), kết xuất phía máy chủ (Server-Side Rendering - SSR), tạo trang tĩnh (Static Site Generation - SSG) và hỗ trợ xây dựng API \[15\].
 
 Hình . Framework Next.js
 
@@ -653,7 +657,7 @@ Khác với React thuần túy, Next.js cung cấp một kiến trúc hoàn ch�
 
 1.  Node.js
 
-Node.js là môi trường thực thi JavaScript (JavaScript Runtime Environment) được xây dựng trên nền tảng V8 JavaScript Engine của Google Chrome.Công nghệ này cho phép thực thi mã JavaScript bên ngoài trình duyệt, từ đó mở rộng khả năng sử dụng JavaScript trong phát triển ứng dụng phía máy chủ \[18\].
+Node.js là môi trường thực thi JavaScript (JavaScript Runtime Environment) được xây dựng trên nền tảng V8 JavaScript Engine của Google Chrome.Công nghệ này cho phép thực thi mã JavaScript bên ngoài trình duyệt, từ đó mở rộng khả năng sử dụng JavaScript trong phát triển ứng dụng phía máy chủ \[16\].
 
 Hình . Môi tường Node.js
 
@@ -665,7 +669,7 @@ Bên cạnh đó, Node.js sở hữu hệ sinh thái thư viện phong phú thô
 
 1.  Express.js
 
-Express.js là framework mã nguồn mở được xây dựng trên nền tảng Node.js nhằm hỗ trợ phát triển các ứng dụng web và dịch vụ API. Framework này cung cấp tập hợp các chức năng cần thiết để xây dựng ứng dụng web như định tuyến (Routing), xử lý yêu cầu HTTP, quản lý middleware và tích hợp với cơ sở dữ liệu \[18\].
+Express.js là framework mã nguồn mở được xây dựng trên nền tảng Node.js nhằm hỗ trợ phát triển các ứng dụng web và dịch vụ API. Framework này cung cấp tập hợp các chức năng cần thiết để xây dựng ứng dụng web như định tuyến (Routing), xử lý yêu cầu HTTP, quản lý middleware và tích hợp với cơ sở dữ liệu \[16\].
 
 Hình . Framework Express.js
 
@@ -683,13 +687,13 @@ Sự kết hợp giữa Node.js và Express.js cho phép xây dựng các ứng 
 
 #### PostgreSQL
 
-Cơ sở dữ liệu là thành phần quan trọng trong các hệ thống thông tin, có nhiệm vụ lưu trữ, quản lý và cung cấp dữ liệu phục vụ cho quá trình vận hành của ứng dụng. Trong số các hệ quản trị cơ sở dữ liệu quan hệ hiện nay, PostgreSQL là một trong những giải pháp mã nguồn mở được sử dụng rộng rãi nhờ khả năng mở rộng, độ ổn định cao và tuân thủ các tiêu chuẩn SQL hiện đại \[19\].
+Cơ sở dữ liệu là thành phần quan trọng trong các hệ thống thông tin, có nhiệm vụ lưu trữ, quản lý và cung cấp dữ liệu phục vụ cho quá trình vận hành của ứng dụng. Trong số các hệ quản trị cơ sở dữ liệu quan hệ hiện nay, PostgreSQL là một trong những giải pháp mã nguồn mở được sử dụng rộng rãi nhờ khả năng mở rộng, độ ổn định cao và tuân thủ các tiêu chuẩn SQL hiện đại \[17\].
 
 Hình . Hệ quản trị cơ sở dữ liệu PostgreSQL
 
 Nguồn: [Wikipedia](https://en.wikipedia.org/wiki/PostgreSQL)
 
-Theo PostgreSQL Global Development Group, PostgreSQL là hệ quản trị cơ sở dữ liệu quan hệ hướng đối tượng (Object-Relational Database Management System - ORDBMS), hỗ trợ lưu trữ và xử lý dữ liệu thông qua mô hình bảng gồm các hàng (rows) và cột (columns) \[19\], \[20\]. Hệ quản trị này cho phép người dùng thực hiện các thao tác tạo, truy vấn, cập nhật và xóa dữ liệu thông qua ngôn ngữ SQL.
+Theo PostgreSQL Global Development Group, PostgreSQL là hệ quản trị cơ sở dữ liệu quan hệ hướng đối tượng (Object-Relational Database Management System - ORDBMS), hỗ trợ lưu trữ và xử lý dữ liệu thông qua mô hình bảng gồm các hàng (rows) và cột (columns) \[17\], \[18\]. Hệ quản trị này cho phép người dùng thực hiện các thao tác tạo, truy vấn, cập nhật và xóa dữ liệu thông qua ngôn ngữ SQL.
 
 Một trong những đặc điểm nổi bật của PostgreSQL là khả năng đảm bảo các thuộc tính ACID (Atomicity, Consistency, Isolation và Durability) trong quá trình xử lý giao dịch. Các thuộc tính này giúp bảo đảm tính toàn vẹn và nhất quán của dữ liệu, đặc biệt trong các hệ thống có nhiều người dùng truy cập đồng thời \[10\].
 
@@ -705,7 +709,7 @@ Hình . Thư viện Prisma
 
 Nguồn: [Brandfetch](https://brandfetch.com/prisma.io)
 
-Prisma là một ORM hiện đại dành cho Node.js và TypeScript, được thiết kế nhằm đơn giản hóa quá trình làm việc với cơ sở dữ liệu. Prisma cung cấp một lớp truy cập dữ liệu an toàn kiểu dữ liệu (Type-safe Database Access), cho phép lập trình viên tương tác với cơ sở dữ liệu thông qua các phương thức lập trình thay vì viết các truy vấn SQL thủ công \[21\].
+Prisma là một ORM hiện đại dành cho Node.js và TypeScript, được thiết kế nhằm đơn giản hóa quá trình làm việc với cơ sở dữ liệu. Prisma cung cấp một lớp truy cập dữ liệu an toàn kiểu dữ liệu (Type-safe Database Access), cho phép lập trình viên tương tác với cơ sở dữ liệu thông qua các phương thức lập trình thay vì viết các truy vấn SQL thủ công \[19\].
 
 Prisma bao gồm ba thành phần chính: Prisma Schema, Prisma Client và Prisma Migrate. Prisma Schema được sử dụng để mô tả cấu trúc dữ liệu của hệ thống. Prisma Client cung cấp các API hỗ trợ truy vấn dữ liệu một cách an toàn và dễ sử dụng. Prisma Migrate hỗ trợ quản lý phiên bản cơ sở dữ liệu và tự động sinh các tập lệnh cập nhật cấu trúc dữ liệu khi có thay đổi.
 
@@ -713,9 +717,9 @@ Một ưu điểm quan trọng của Prisma là khả năng tích hợp chặt c
 
 #### Pgvector
 
-Sự phát triển của các ứng dụng trí tuệ nhân tạo và tìm kiếm ngữ nghĩa đã làm xuất hiện nhu cầu lưu trữ và truy xuất dữ liệu dưới dạng vector. Pgvector là một tiện ích mở rộng (Extension) dành cho PostgreSQL được phát triển nhằm hỗ trợ lưu trữ, đánh chỉ mục và tìm kiếm dữ liệu vector trực tiếp trong cơ sở dữ liệu \[13\], \[22\].
+Sự phát triển của các ứng dụng trí tuệ nhân tạo và tìm kiếm ngữ nghĩa đã làm xuất hiện nhu cầu lưu trữ và truy xuất dữ liệu dưới dạng vector. Pgvector là một tiện ích mở rộng (Extension) dành cho PostgreSQL được phát triển nhằm hỗ trợ lưu trữ, đánh chỉ mục và tìm kiếm dữ liệu vector trực tiếp trong cơ sở dữ liệu \[13\], \[20\].
 
-Tiện ích pgvector cho phép lưu trữ các vector biểu diễn ngữ nghĩa (Embeddings) được tạo ra từ các mô hình học máy hoặc mô hình ngôn ngữ lớn. Mỗi vector thường bao gồm hàng trăm hoặc hàng nghìn giá trị số thực phản ánh ý nghĩa của văn bản, hình ảnh hoặc các loại dữ liệu khác \[13\], \[22\].
+Tiện ích pgvector cho phép lưu trữ các vector biểu diễn ngữ nghĩa (Embeddings) được tạo ra từ các mô hình học máy hoặc mô hình ngôn ngữ lớn. Mỗi vector thường bao gồm hàng trăm hoặc hàng nghìn giá trị số thực phản ánh ý nghĩa của văn bản, hình ảnh hoặc các loại dữ liệu khác \[13\], \[20\].
 
 Một trong những chức năng quan trọng của pgvector là tìm kiếm tương đồng vector (Vector Similarity Search). Khi người dùng gửi một truy vấn, hệ thống sẽ chuyển đổi truy vấn thành vector và so sánh với các vector đã được lưu trữ trong cơ sở dữ liệu để tìm ra những nội dung có mức độ tương đồng cao nhất. Các phương pháp đo khoảng cách phổ biến được hỗ trợ gồm Cosine Similarity, Euclidean Distance và Inner Product.
 
@@ -751,7 +755,9 @@ Từ những vấn đề trên, hệ thống NovaThesis được định hướn
 
 ## Phân tích yêu cầu chức năng
 
-Dựa trên kết quả khảo sát, hệ thống được xác định phục vụ hai nhóm người dùng chính gồm sinh viên và giảng viên hướng dẫn. Sinh viên sử dụng hệ thống để quản lý đề tài, cập nhật tiến độ, trao đổi với giảng viên, lưu trữ tài liệu và sử dụng các công cụ AI phục vụ nghiên cứu. Giảng viên sử dụng hệ thống để quản lý các đề tài đang hướng dẫn, theo dõi tiến độ của từng sinh viên, đưa ra nhận xét và hỗ trợ quá trình nghiên cứu thông qua các chức năng được tích hợp trên nền tảng.
+Dựa trên kết quả khảo sát, hệ thống được xác định phục vụ ba nhóm người dùng gồm sinh viên, giảng viên hướng dẫn và quản trị viên hệ thống. Sinh viên sử dụng hệ thống để quản lý đề tài, cập nhật tiến độ, trao đổi với giảng viên, lưu trữ tài liệu và sử dụng các công cụ AI phục vụ nghiên cứu. Giảng viên sử dụng hệ thống để quản lý các đề tài đang hướng dẫn, theo dõi tiến độ của từng sinh viên, đưa ra nhận xét và hỗ trợ quá trình nghiên cứu thông qua các chức năng được tích hợp trên nền tảng. Quản trị viên không tham gia vào nội dung học thuật mà chỉ quản lý tài khoản, cấu hình tham số vận hành và giám sát hoạt động chung của hệ thống.
+
+Các chức năng được phân thành chín nhóm theo tiền tố mã: QL (quản lý tài khoản), DT (đề tài), TD (tiến độ), TL (tài liệu), AI (hỗ trợ bởi trí tuệ nhân tạo), PH (phản hồi và thông báo), QT (quản trị hệ thống) và BC (báo cáo, thống kê).
 
 Bảng . Danh sách yêu cầu chức năng của hệ thống
 
@@ -771,11 +777,26 @@ Bảng . Danh sách yêu cầu chức năng của hệ thống
 | TL-02 | Tổ chức và phân loại tài liệu | Sắp xếp tài liệu theo chủ đề, thẻ gắn nhãn hoặc giai đoạn nghiên cứu. | Sinh viên |
 | TL-03 | Tra cứu tài liệu | Tìm kiếm tài liệu đã lưu trữ theo tên, thẻ hoặc nội dung. | Sinh viên, Giảng viên |
 | AI-01 | Tìm kiếm ngữ nghĩa (Semantic search) | Tìm kiếm tài liệu dựa trên ý nghĩa của truy vấn thay vì từ khóa trùng khớp. | Sinh viên, Giảng viên |
-| AI-02 | Tóm tắt tài liệu / bài báo | Sinh tóm tắt tự động cho tài liệu được tải lên nhằm hỗ trợ tra cứu nhanh. | Sinh viên |
+| AI-02 | Tóm tắt tài liệu / bài báo | Sinh tóm tắt tự động cho tài liệu được tải lên nhằm hỗ trợ tra cứu nhanh. | Sinh viên, Giảng viên |
 | AI-03 | Hỏi đáp học thuật qua RAG | Trả lời câu hỏi của người dùng dựa trên nội dung tài liệu đã lưu trữ trong hệ thống. | Sinh viên |
 | AI-04 | Đề xuất nhiệm vụ / lộ trình | Gợi ý phân chia công việc hoặc lộ trình thực hiện dựa trên tiến độ hiện tại. | Sinh viên |
+| TL-04 | Quản lý phiên bản tài liệu | Lưu từng lần nộp lại thành một phiên bản riêng, tải về được bản cũ. | Sinh viên |
+| TL-05 | Chia sẻ tài liệu | Chia sẻ một tài liệu sang đề tài khác ở chế độ chỉ đọc. | Sinh viên, Giảng viên |
+| AI-05 | Chọn nguồn cho hội thoại | Chọn tập tài liệu mà trợ lý được đọc trong từng hội thoại, để câu trả lời không trộn lẫn các chủ đề khác nhau. | Sinh viên, Giảng viên |
+| AI-06 | Chuyển chế độ trả lời | Chọn giữa chỉ dùng tài liệu và cho phép bổ sung kiến thức chung có đánh dấu. | Sinh viên, Giảng viên |
+| AI-07 | Kiểm tra trùng lặp | Đối chiếu một đoạn văn bản với kho tài liệu để phát hiện trùng lặp. | Sinh viên, Giảng viên |
 | PH-01 | Phản hồi trên milestone / tài liệu | Giảng viên để lại nhận xét trực tiếp trên từng milestone hoặc tài liệu. | Giảng viên |
 | PH-02 | Thông báo hệ thống | Gửi thông báo về các sự kiện liên quan như phản hồi mới, duyệt đề tài. | Hệ thống |
+| PH-03 | Tuỳ chọn kênh thông báo | Bật/tắt thông báo trong ứng dụng và qua email theo từng loại sự kiện. | Sinh viên, Giảng viên, Quản trị viên |
+| QT-01 | Quản lý tài khoản người dùng | Tạo, sửa, khoá, xoá mềm và đổi vai trò tài khoản. | Quản trị viên |
+| QT-02 | Xem nhật ký hệ thống | Tra cứu nhật ký hoạt động theo mức độ, hành động, người thực hiện và khoảng thời gian. | Quản trị viên |
+| QT-03 | Cấu hình tham số hệ thống | Đặt hạn mức tải lên, tham số AI và tham số nhắc hạn. | Quản trị viên |
+| QT-04 | Trang tổng quan quản trị | Xem số liệu toàn hệ thống và danh sách việc cần xử lý. | Quản trị viên |
+| QT-05 | Giám sát vận hành AI | Xem xu hướng sử dụng theo tuần, tài liệu được trích dẫn nhiều nhất, tỷ lệ đánh giá và thống kê theo mô hình. | Quản trị viên |
+| QT-06 | Phân công giảng viên hướng dẫn | Gán hoặc đổi giảng viên hướng dẫn cho một đề tài. | Quản trị viên |
+| BC-01 | Xuất báo cáo tiến độ | Kết xuất báo cáo tiến độ một đề tài ra PDF. | Sinh viên, Giảng viên, Quản trị viên |
+| BC-02 | Xuất danh sách đề tài | Kết xuất danh sách đề tài đã lọc ra CSV hoặc XLSX. | Giảng viên, Quản trị viên |
+| BC-03 | Biểu đồ Gantt tiến độ | Trực quan hoá các mốc tiến độ trên trục thời gian. | Sinh viên, Giảng viên |
 
 Nhóm chức năng quản lý đề tài đóng vai trò trung tâm của hệ thống, cho phép sinh viên khởi tạo và cập nhật hồ sơ đề tài trong suốt quá trình thực hiện, đồng thời cho phép giảng viên hướng dẫn thực hiện việc xem xét và phản hồi trực tiếp. Chức năng này được thiết kế nhằm thay thế cho quy trình đăng ký đề tài thủ công vốn tồn tại nhiều bất cập về mặt lưu trữ và tra cứu. Nhờ việc số hóa toàn bộ hồ sơ đề tài, cả sinh viên và giảng viên đều có thể theo dõi lịch sử thay đổi một cách minh bạch.
 
@@ -783,7 +804,11 @@ Nhóm chức năng quản lý tiến độ được xây dựng dựa trên mô 
 
 Nhóm chức năng quản lý tài liệu nghiên cứu hướng đến việc tập trung hóa toàn bộ tài liệu tham khảo của từng đề tài vào một không gian lưu trữ duy nhất, thay vì phân tán trên nhiều công cụ khác nhau như hiện nay. Khả năng phân loại và gắn thẻ tài liệu theo chủ đề giúp việc tra cứu trở nên thuận tiện hơn khi khối lượng tài liệu tăng lên theo thời gian. Chức năng tra cứu tài liệu truyền thống dựa trên từ khóa được bổ sung thêm bởi các chức năng AI ở nhóm tiếp theo nhằm nâng cao hiệu quả tìm kiếm.
 
-Nhóm chức năng hỗ trợ bởi AI là điểm khác biệt nổi bật của hệ thống so với các công cụ quản lý khóa luận truyền thống. Chức năng tìm kiếm ngữ nghĩa cho phép người dùng đặt câu hỏi bằng ngôn ngữ tự nhiên thay vì phải nhớ chính xác từ khóa, trong khi chức năng tóm tắt tài liệu giúp tiết kiệm thời gian đọc hiểu các bài báo dài. Chức năng hỏi đáp học thuật dựa trên kiến trúc RAG cho phép hệ thống trả lời câu hỏi của sinh viên dựa trên chính nội dung tài liệu đã được lưu trữ, qua đó giảm thiểu rủi ro cung cấp thông tin không chính xác. Cuối cùng, chức năng đề xuất nhiệm vụ hoặc lộ trình thực hiện hỗ trợ sinh viên trong việc lập kế hoạch làm việc dựa trên tiến độ hiện tại của đề tài.
+Nhóm chức năng hỗ trợ bởi AI là điểm khác biệt nổi bật của hệ thống so với các công cụ quản lý khóa luận truyền thống. Chức năng tìm kiếm ngữ nghĩa cho phép người dùng đặt câu hỏi bằng ngôn ngữ tự nhiên thay vì phải nhớ chính xác từ khóa, trong khi chức năng tóm tắt tài liệu giúp tiết kiệm thời gian đọc hiểu các bài báo dài. Chức năng hỏi đáp học thuật dựa trên kiến trúc RAG cho phép hệ thống trả lời câu hỏi của sinh viên dựa trên chính nội dung tài liệu đã được lưu trữ, qua đó giảm thiểu rủi ro cung cấp thông tin không chính xác. Chức năng đề xuất nhiệm vụ hoặc lộ trình thực hiện hỗ trợ sinh viên trong việc lập kế hoạch làm việc dựa trên tiến độ hiện tại của đề tài. Hai chức năng bổ sung sau quá trình rà soát là chọn nguồn cho từng hội thoại và chuyển chế độ trả lời; cả hai xuất phát từ một hạn chế phát hiện được khi thử nghiệm với dữ liệu thật, sẽ được trình bày ở mục 4.4.
+
+Nhóm chức năng quản trị hệ thống phục vụ vai trò quản trị viên, gồm quản lý tài khoản và phân quyền, tra cứu nhật ký hoạt động, cấu hình tham số vận hành, cùng hai màn hình giám sát: một trang tổng quan trả lời câu hỏi cần xử lý việc gì, và một bảng giám sát vận hành trợ lý AI. Việc tách hai màn hình này là có chủ đích, bởi chúng trả lời hai câu hỏi khác nhau và được đọc ở hai thời điểm khác nhau.
+
+Nhóm chức năng báo cáo và thống kê phục vụ cả ba vai trò với phạm vi dữ liệu khác nhau: sinh viên thấy số liệu đề tài của mình, giảng viên thấy các đề tài mình hướng dẫn, quản trị viên thấy toàn hệ thống. Cùng một endpoint phục vụ cả ba, vì luật phạm vi nằm ở module kiểm soát truy cập chứ không nằm ở ba nhánh điều kiện chép tay.
 
 ## Phân tích yêu cầu phi chức năng
 
@@ -968,7 +993,7 @@ Bảng . Đặc tả UC Cấu hình tham số hệ thống
 | Main flow | 1\. Admin chọn “Cấu hình hệ thống”.<br><br>2\. Hệ thống hiển thị các nhóm cấu hình (AI Settings, Upload Settings, Notification Settings) với giá trị hiện tại.<br><br>3\. Admin thay đổi các giá trị mong muốn.<br><br>4\. Admin nhấn “Lưu cấu hình”.<br><br>5\. Hệ thống kiểm tra tính hợp lệ của các giá trị nhập vào.<br><br>6\. Hệ thống lưu thay đổi và khởi tạo lại các biến môi trường/cache nếu cần.<br><br>7\. Hệ thống thông báo “Cập nhật cấu hình thành công”. |
 | Alternative flows | N/A |
 | Exception flows | 5a Giá trị nhập vào không hợp lệ: Hệ thống báo lỗi tại trường tương ứng và không lưu cấu hình. |
-| Business rules | \- Cấu hình AI: Chọn mô hình (GPT-3.5/GPT-4), độ dài tối đa (max tokens).<br><br>\- Cấu hình Upload: Dung lượng tối đa (MB), các định dạng cho phép.<br><br>\- Cấu hình Thông báo: Số ngày nhắc nhở trước deadline milestone. |
+| Business rules | \- Cấu hình AI: Chọn nhà cung cấp và mô hình (mặc định `claude-sonnet-5`; hỗ trợ thêm `gpt-4o-mini`, `gemini-2.0-flash` và phương án trích xuất cục bộ), số đoạn tài liệu đưa vào ngữ cảnh, độ dài tối đa (max tokens).<br><br>\- Cấu hình Upload: Dung lượng tối đa (MB), các định dạng cho phép.<br><br>\- Cấu hình Thông báo: Số ngày nhắc nhở trước deadline milestone. |
 | Non-functional requirement | Tham số phải được validate chặt chẽ kiểu dữ liệu (số nguyên, chuỗi định dạng) trước khi lưu. |
 
 ### Nhóm Use case Quản lý đề tài
@@ -998,7 +1023,7 @@ Bảng . Đặc tả UC Xem danh sách đề tài cá nhân
 
 **3.3. Use case Xem danh sách đề tài hướng dẫn**
 
-Bảng . Đặc tả UC Xem dánh sách đề tài hướng dẫn
+Bảng . Đặc tả UC Xem danh sách đề tài hướng dẫn
 
 |     |     |
 | --- | --- |
@@ -1060,8 +1085,8 @@ Bảng . Đặc tả UC Đính kèm file bằng chứng vào milestone
 | Main flow | 1\. Tại trang chi tiết milestone, sinh viên nhấn “Đính kèm file”.<br><br>2\. Hệ thống mở cửa sổ duyệt file cục bộ. Sinh viên chọn file.<br><br>3\. Hệ thống kiểm tra chuẩn định dạng và dung lượng tại Frontend.<br><br>4\. Hệ thống tiến hành upload file lên server/cloud storage.<br><br>5\. Server xử lý thành công, trả về URL đính kèm.<br><br>6\. Hệ thống tạo record minh chứng gắn với milestone và cập nhật danh sách hiển thị. |
 | Alternative flows | 3a File vượt quá 10MB: Hệ thống báo lỗi “Dung lượng file vượt quá 10MB” và ngừng upload.<br><br>3b File sai định dạng: Hệ thống báo lỗi “Định dạng file không được hỗ trợ”. |
 | Exception flows | 4a Mất kết nối internet lúc upload: Hệ thống báo “Upload thất bại do lỗi mạng, vui lòng thử lại”. |
-| Business rules | Hỗ trợ: PDF, Word, hình ảnh. Tối đa 10MB/file. |
-| Non-functional requirement | Quá trình upload phải có progress bar. File lưu ở Cloud (S3/Cloudinary). |
+| Business rules | Hỗ trợ: PDF, Word, hình ảnh. Tối đa 50MB/file (dùng chung hạn mức `MAX_UPLOAD_MB` với tài liệu nghiên cứu). |
+| Non-functional requirement | Quá trình upload phải có progress bar. File lưu trong thư mục riêng tư trên máy chủ (không phục vụ tĩnh), tên tệp vật lý được băm và thư mục phân cấp theo năm/tháng; mọi lượt tải về đi qua endpoint có kiểm tra quyền hoặc đường dẫn ký HMAC có thời hạn. Chuyển sang lưu trữ đối tượng là hướng phát triển. |
 
 ### Nhóm Use case Quản lý tài liệu nghiên cứu
 
@@ -1082,9 +1107,9 @@ Bảng . Đặc tả UC Upload tài liệu
 | Triggers | Sinh viên chọn chức năng tải lên tài liệu mới. |
 | Pre-conditions | Sinh viên đã đăng nhập và đang ở trong không gian của một đề tài. |
 | Post-conditions | Tài liệu được lưu trữ, bản ghi được tạo trong database với trạng thái AI là “Chờ xử lý”. |
-| Main flow | 1\. Sinh viên chọn chức năng “Tải lên tài liệu”.<br><br>2\. Hệ thống hiển thị hộp thoại chọn file.<br><br>3\. Sinh viên chọn file từ máy tính và điền thông tin (tên, mô tả ngắn nếu có).<br><br>4\. Sinh viên nhấn “Xác nhận tải lên”.<br><br>5\. Hệ thống kiểm tra định dạng và kích thước file.<br><br>6\. Hệ thống lưu file vào server (MinIO/Local) và tạo bản ghi lưu metadata vào database, trạng thái AI đặt thành “Chờ xử lý”.<br><br>7\. Hệ thống thông báo tải lên thành công và gửi event đến AI.<br><br>8\. Hệ thống cập nhật danh sách tài liệu trên màn hình. |
+| Main flow | 1\. Sinh viên chọn chức năng “Tải lên tài liệu”.<br><br>2\. Hệ thống hiển thị hộp thoại chọn file.<br><br>3\. Sinh viên chọn file từ máy tính và điền thông tin (tên, mô tả ngắn nếu có).<br><br>4\. Sinh viên nhấn “Xác nhận tải lên”.<br><br>5\. Hệ thống kiểm tra định dạng và kích thước file.<br><br>6\. Hệ thống lưu file vào thư mục riêng tư trên máy chủ và tạo bản ghi lưu metadata vào database, trạng thái AI đặt thành “Chờ xử lý”.<br><br>7\. Hệ thống thông báo tải lên thành công và gửi event đến AI.<br><br>8\. Hệ thống cập nhật danh sách tài liệu trên màn hình. |
 | Alternative flows | 5a Người dùng hủy upload giữa chừng: Hệ thống hủy luồng tải, xóa các phần dữ liệu tạm, quay lại danh sách. |
-| Exception flows | 5a Định dạng file không hợp lệ: Hệ thống báo lỗi “Chỉ hỗ trợ PDF, DOCX, TXT”. Yêu cầu chọn lại.<br><br>5b Kích thước file > 50MB: Hệ thống báo lỗi vượt quá dung lượng cho phép.<br><br>6a Lỗi kết nối lưu trữ (MinIO down): Hệ thống báo lỗi “Không thể lưu file lúc này”, rollback tiến trình. |
+| Exception flows | 5a Định dạng file không hợp lệ: Hệ thống báo lỗi “Chỉ hỗ trợ PDF, DOCX, TXT”. Yêu cầu chọn lại.<br><br>5b Kích thước file > 50MB: Hệ thống báo lỗi vượt quá dung lượng cho phép.<br><br>6a Lỗi ghi tệp (hết dung lượng đĩa, thiếu quyền ghi): Hệ thống báo lỗi “Không thể lưu file lúc này”, rollback tiến trình. |
 | Business rules | Kích thước file tối đa 50MB. Chỉ hỗ trợ định dạng PDF, DOCX, TXT. Mỗi file phải có tên. |
 | Non-functional requirement | Quá trình upload có thanh tiến trình hiển thị. Tự động đưa vào hàng đợi AI (async) để không block UX. |
 
@@ -1094,7 +1119,7 @@ Hình . Sơ đồ nhóm Use case Tương tác với trợ lý AI
 
 **6.1. Use case Tóm tắt tài liệu**
 
-Bảng . Đặc tả UC Yêu cầu tóm tắt lại
+Bảng . Đặc tả UC Tóm tắt tài liệu
 
 |     |     |
 | --- | --- |
@@ -1109,7 +1134,7 @@ Bảng . Đặc tả UC Yêu cầu tóm tắt lại
 | Post-conditions | Tài liệu có bản tóm tắt tự động lưu trong cơ sở dữ liệu. |
 | Main flow | 1\. Hệ thống nội bộ nhận sự kiện tài liệu được tải lên thành công.<br><br>2\. Hệ thống trích xuất văn bản (text) từ tài liệu (PDF, DOCX).<br><br>3\. Hệ thống phân chia văn bản thành các đoạn (chunks) nếu văn bản quá dài.<br><br>4\. Hệ thống gửi nội dung đến API của Hệ thống AI để yêu cầu tóm tắt.<br><br>5\. Hệ thống AI xử lý và trả về kết quả tóm tắt.<br><br>6\. Hệ thống lưu bản tóm tắt vào cơ sở dữ liệu, liên kết với tài liệu vừa upload.<br><br>7\. Hệ thống cập nhật trạng thái xử lý AI của tài liệu thành “Hoàn thành”. |
 | Alternative flows | 3a Văn bản ngắn: Bỏ qua bước chia chunk, gửi toàn bộ nội dung cho AI.<br><br>6a Người dùng yêu cầu Tóm tắt lại: Sinh viên bấm nút “Tóm tắt lại” trên trang chi tiết tài liệu. Hệ thống chuyển trạng thái sang “Đang xử lý”, gửi yêu cầu sinh tóm tắt mới tới AI. Khi thành công, thay thế bản tóm tắt cũ trong CSDL và thông báo trên UI. |
-| Exception flows | 2a Không thể trích xuất văn bản (tài liệu rỗng hoặc là ảnh scan không có OCR): Đánh dấu trạng thái xử lý AI là “Lỗi xử lý” (\`ERROR\`) và dừng lại.<br><br>5a API AI phản hồi lỗi hoặc timeout: Thử lại tối đa 3 lần. Nếu vẫn lỗi, cập nhật trạng thái “Lỗi xử lý” và thông báo cho người dùng. |
+| Exception flows | 2a Không thể trích xuất văn bản (tài liệu rỗng hoặc là ảnh scan không có OCR): Đánh dấu trạng thái xử lý AI là “Lỗi xử lý” (ERROR) và dừng lại.<br><br>5a API AI phản hồi lỗi hoặc timeout: Thử lại tối đa 3 lần. Nếu vẫn lỗi, cập nhật trạng thái “Lỗi xử lý” và thông báo cho người dùng. |
 | Business rules | 1\. Chỉ áp dụng cho tài liệu có định dạng hỗ trợ trích xuất văn bản.<br><br>2\. Tóm tắt chạy bất đồng bộ (background process). |
 | Non-functional requirement | Quá trình trích xuất và tóm tắt không làm gián đoạn trải nghiệm người dùng hiện tại. |
 
@@ -1128,11 +1153,11 @@ Bảng . Đặc tả UC Tìm kiếm ngữ nghĩa
 | Triggers | Người dùng nhập câu truy vấn vào ô tìm kiếm AI và nhấn “Tìm kiếm”. |
 | Pre-conditions | Tài liệu trong đề tài đã được xử lý embedding và lưu vào cơ sở dữ liệu vector (pgvector). |
 | Post-conditions | Hệ thống hiển thị danh sách các đoạn tài liệu có ý nghĩa tương đồng nhất. |
-| Main flow | 1\. Người dùng nhập câu hỏi/truy vấn ngôn ngữ tự nhiên vào thanh tìm kiếm và gửi yêu cầu.<br><br>2\. Hệ thống gọi API để tạo vector (embedding) cho câu truy vấn.<br><br>3\. Hệ thống AI trả về vector của câu truy vấn.<br><br>4\. Hệ thống thực hiện truy vấn so sánh cosine similarity bằng pgvector trên các chunk tài liệu thuộc đề tài hiện tại.<br><br>5\. Hệ thống lấy ra Top-K kết quả có độ tương đồng cao nhất.<br><br>6\. Hệ thống hiển thị danh sách kết quả, bao gồm trích đoạn nội dung, tên tài liệu chứa đoạn đó và độ tương đồng. |
+| Main flow | 1\. Người dùng nhập câu hỏi/truy vấn ngôn ngữ tự nhiên vào thanh tìm kiếm và gửi yêu cầu.<br><br>2\. Hệ thống gọi API để tạo vector (embedding) cho câu truy vấn.<br><br>3\. Hệ thống AI trả về vector của câu truy vấn.<br><br>4\. Hệ thống thực hiện tìm kiếm lai trên các chunk trong phạm vi: một nhánh xếp hạng theo khoảng cách cosine bằng pgvector với chỉ mục HNSW, một nhánh xếp hạng toàn văn có trọng số IDF của PostgreSQL; hai danh sách được hợp nhất bằng Reciprocal Rank Fusion (chỉ dùng thứ hạng, nên không phụ thuộc thang điểm của từng nhánh).<br><br>5\. Hệ thống lấy ra Top-K kết quả có độ tương đồng cao nhất.<br><br>6\. Hệ thống hiển thị danh sách kết quả, bao gồm trích đoạn nội dung, tên tài liệu chứa đoạn đó và độ tương đồng. |
 | Alternative flows | 5a Không tìm thấy kết quả nào có độ tương đồng đạt ngưỡng: Hệ thống hiển thị thông báo “Không tìm thấy nội dung phù hợp” và gợi ý thay đổi từ khóa. |
 | Exception flows | 2a API tạo embedding bị lỗi: Hệ thống thông báo lỗi tạm thời không thể tìm kiếm. |
-| Business rules | Phạm vi tìm kiếm bị giới hạn trong các tài liệu thuộc đề tài của sinh viên (không cross-thesis). |
-| Non-functional requirement | Thời gian phản hồi tìm kiếm dưới 3 giây; Trả về Top-K kết quả (K thường là 3-5). |
+| Business rules | Phạm vi tìm kiếm là phần giao của hai tập: tập tài liệu người dùng được phép đọc (gồm tài liệu của đề tài và tài liệu được chia sẻ sang theo UC 5.10), và tập nguồn người dùng tự chọn ở bảng nguồn của hội thoại. Danh sách nguồn do client gửi lên là bộ lọc thu hẹp, không phải bộ cấp quyền. |
+| Non-functional requirement | Thời gian phản hồi tìm kiếm dưới 3 giây (đo thực tế 7–19 ms trên kho tài liệu mẫu); Trả về Top-K kết quả (K thường là 3-5), đa dạng hoá theo tài liệu nguồn để một tài liệu dài không chiếm trọn danh sách. Bộ lọc mức liên quan dùng ngưỡng TƯƠNG ĐỐI (45% điểm của kết quả đầu bảng) kết hợp tín hiệu khớp toàn văn, thay vì ngưỡng cosine tuyệt đối — xem mục 4.4 để biết số đo dẫn tới quyết định này. |
 
 **6.5. Use case Hỏi đáp học thuật qua RAG**
 
@@ -1150,9 +1175,9 @@ Bảng . Đặc tả UC Hỏi đáp học thuật qua RAG
 | Pre-conditions | Tài liệu đã được xử lý embedding. |
 | Post-conditions | AI trả lời câu hỏi kèm trích dẫn (citations) cụ thể. |
 | Main flow | 1\. Người dùng nhập câu hỏi vào cửa sổ chat AI.<br><br>2\. Hệ thống thực hiện UC 6.3 (Tìm kiếm ngữ nghĩa) để lấy các chunk nội dung liên quan nhất (Context).<br><br>3\. Hệ thống ghép câu hỏi của người dùng và Context thành một Prompt RAG cấu trúc.<br><br>4\. Hệ thống gửi Prompt cùng lịch sử hội thoại gần nhất đến LLM.<br><br>5\. LLM sinh câu trả lời dựa trên Context và trả về dữ liệu (theo dạng streaming).<br><br>6\. Hệ thống hiển thị câu trả lời dần dần lên màn hình người dùng.<br><br>7\. Sau khi hoàn tất, hệ thống đính kèm danh sách tài liệu tham chiếu (citations) dưới câu trả lời.<br><br>8\. Hệ thống lưu tin nhắn của người dùng và câu trả lời của AI vào lịch sử hội thoại. |
-| Alternative flows | 2a Context tìm được không đủ để trả lời: LLM trả lời “Không tìm thấy thông tin đủ để trả lời từ tài liệu của bạn” thay vì tự bịa thông tin. |
+| Alternative flows | 2a Context tìm được không đủ để trả lời, chế độ STRICT: LLM trả lời “Không tìm thấy thông tin đủ để trả lời từ tài liệu của bạn” thay vì tự bịa thông tin.<br><br>2b Context không đủ, chế độ HYBRID: LLM trả lời bằng kiến thức chung nhưng đặt toàn bộ phần đó trong khối mở đầu bằng “⚠ Ngoài tài liệu của bạn:”, không kèm trích dẫn. Giao diện tô khối này trên nền cảnh báo.<br><br>2c Người dùng bỏ chọn toàn bộ nguồn: Hệ thống thông báo “Bạn đã bỏ chọn toàn bộ nguồn” và vô hiệu hoá nút gửi, thay vì trả lời rỗng. |
 | Exception flows | 5a Lỗi kết nối API LLM: Hệ thống thông báo lỗi sinh câu trả lời và yêu cầu thử lại sau. |
-| Business rules | Chỉ tìm và dựa vào tài liệu của đề tài hiện tại; Trả lời theo context (RAG) không bịa đặt (hallucination). |
+| Business rules | Phạm vi truy xuất là tập nguồn đã chọn trong hội thoại, giao với tập tài liệu người dùng được phép đọc. Hệ thống có hai chế độ trả lời: chế độ “Chỉ tài liệu” (STRICT) chỉ dựa vào context và nói thẳng là không tìm thấy nếu tài liệu không chứa thông tin; chế độ “Tài liệu + AI” (HYBRID, mặc định) được bổ sung kiến thức chung nhưng BẮT BUỘC tách phần đó vào một khối riêng có nhãn cảnh báo và tuyệt đối không gán số hiệu trích dẫn cho nó. |
 | Non-functional requirement | Sử dụng luồng (streaming) để trả lời từng phần chữ giống ChatGPT nhằm tối ưu UX. |
 
 ### Nhóm Use case Quản lý trao đổi và phản hồi
@@ -1253,9 +1278,9 @@ Bảng . Đặc tả UC Xuất báo cáo tiến độ tổng thể
 
 KẾT LUẬN CHƯƠNG 2
 
-Chương 2 đã trình bày toàn bộ quá trình phân tích hệ thống của đề tài NovaThesis, bắt đầu từ việc thu thập yêu cầu thông qua khảo sát người dùng, tìm hiểu quy trình quản lý khóa luận hiện tại và tham khảo các nền tảng học thuật tương tự. Trên cơ sở đó, chương đã xác định và phân tích chi tiết các yêu cầu chức năng theo sáu nhóm nghiệp vụ chính, đồng thời làm rõ các yêu cầu phi chức năng liên quan đến hiệu năng, bảo mật, khả năng mở rộng, tính ổn định và trải nghiệm người dùng mà hệ thống cần đáp ứng.
+Chương 2 đã trình bày toàn bộ quá trình phân tích hệ thống của đề tài NovaThesis, bắt đầu từ việc thu thập yêu cầu thông qua khảo sát người dùng, tìm hiểu quy trình quản lý khóa luận hiện tại và tham khảo các nền tảng học thuật tương tự. Trên cơ sở đó, chương đã xác định và phân tích chi tiết các yêu cầu chức năng theo chín nhóm nghiệp vụ chính, đồng thời làm rõ các yêu cầu phi chức năng liên quan đến hiệu năng, bảo mật, khả năng mở rộng, tính ổn định và trải nghiệm người dùng mà hệ thống cần đáp ứng.
 
-Bên cạnh đó, chương cũng đã xác định rõ các tác nhân tham gia vào hệ thống cùng vai trò cụ thể của từng tác nhân, mô tả quy trình nghiệp vụ tổng thể theo năm giai đoạn thực hiện đề tài, và đặc tả chi tiết cho các Use case bao phủ toàn bộ chín nhóm chức năng. Những nội dung phân tích này tạo thành nền tảng quan trọng, làm cơ sở trực tiếp cho việc thiết kế kiến trúc hệ thống, cơ sở dữ liệu và giao diện người dùng được trình bày trong Chương 3.
+Bên cạnh đó, chương cũng đã xác định rõ các tác nhân tham gia vào hệ thống cùng vai trò cụ thể của từng tác nhân, mô tả quy trình nghiệp vụ tổng thể theo năm giai đoạn thực hiện đề tài, và đặc tả chi tiết cho các Use case tiêu biểu đại diện cho chín nhóm chức năng, phần đặc tả đầy đủ của toàn bộ 87 Use case được trình bày ở Phụ lục 1. Những nội dung phân tích này tạo thành nền tảng quan trọng, làm cơ sở trực tiếp cho việc thiết kế kiến trúc hệ thống, cơ sở dữ liệu và giao diện người dùng được trình bày trong Chương 3.
 
 # THIẾT KẾ HỆ THỐNG
 
@@ -1263,7 +1288,7 @@ Bên cạnh đó, chương cũng đã xác định rõ các tác nhân tham gia 
 
 Hình . Sơ đồ kiến trúc tổng thể hệ thống
 
-Sơ đồ thể hiện kiến trúc tổng thể của một hệ thống web gồm ba lớp chính. Ở lớp trên cùng là người dùng với ba nhóm vai trò: Student, Lecturer và Admin. Tất cả tương tác với hệ thống thông qua trình duyệt hoặc client bằng giao thức HTTP/HTTPS. Các yêu cầu này được gửi xuống lớp Ứng dụng (Application Layer), nơi được chia thành hai phần: Frontend và Backend. Frontend chịu trách nhiệm giao diện và trải nghiệm người dùng, sau đó trao đổi dữ liệu với Backend thông qua REST API kết hợp SSE (Server-Sent Events) để hỗ trợ cập nhật thời gian thực hoặc đẩy dữ liệu một chiều từ server xuống client. Ở lớp dưới cùng là tầng dữ liệu và dịch vụ, nơi Backend kết nối tới cơ sở dữ liệu PostgreSQL để lưu trữ dữ liệu quan hệ, sử dụng mở rộng pgvector để lưu trữ và truy vấn vector (phục vụ các bài toán AI, gợi ý, tìm kiếm ngữ nghĩa), đồng thời tích hợp với OpenAI API để xử lý các tác vụ trí tuệ nhân tạo như sinh nội dung, phân tích hoặc trả lời thông minh. Toàn bộ các thành phần này kết nối theo chuỗi: User → Frontend → Backend → PostgreSQL/pgvector/OpenAI API, tạo thành một kiến trúc web hiện đại, có khả năng mở rộng và hỗ trợ các tính năng AI.
+Sơ đồ thể hiện kiến trúc tổng thể của một hệ thống web gồm ba lớp chính. Ở lớp trên cùng là người dùng với ba nhóm vai trò: Student, Lecturer và Admin. Tất cả tương tác với hệ thống thông qua trình duyệt hoặc client bằng giao thức HTTP/HTTPS. Các yêu cầu này được gửi xuống lớp Ứng dụng (Application Layer), nơi được chia thành hai phần: Frontend và Backend. Frontend chịu trách nhiệm giao diện và trải nghiệm người dùng, sau đó trao đổi dữ liệu với Backend thông qua REST API kết hợp SSE (Server-Sent Events) để hỗ trợ cập nhật thời gian thực hoặc đẩy dữ liệu một chiều từ server xuống client. Ở lớp dưới cùng là tầng dữ liệu và dịch vụ, nơi Backend kết nối tới cơ sở dữ liệu PostgreSQL để lưu trữ dữ liệu quan hệ, sử dụng mở rộng pgvector để lưu trữ và truy vấn vector (phục vụ các bài toán AI, gợi ý, tìm kiếm ngữ nghĩa), đồng thời tích hợp với một lớp trừu tượng nhà cung cấp mô hình ngôn ngữ (hỗ trợ Anthropic, OpenAI và Google Gemini, chọn bằng biến môi trường) để xử lý các tác vụ trí tuệ nhân tạo như sinh nội dung, phân tích hoặc trả lời thông minh. Lớp trừu tượng này còn có phương án dự phòng dựng câu trả lời trích xuất từ chính các đoạn tài liệu đã tìm được, nhờ đó hệ thống vẫn hoạt động khi không cấu hình nhà cung cấp nào. Toàn bộ các thành phần này kết nối theo chuỗi: User → Frontend → Backend → PostgreSQL/pgvector/API mô hình ngôn ngữ, tạo thành một kiến trúc web hiện đại, có khả năng mở rộng và hỗ trợ các tính năng AI.
 
 ## Thiết kế cơ sở dữ liệu
 
@@ -1285,8 +1310,18 @@ Bảng . Mô tả bảng users
 | email | VARCHAR(255) | Unique, Not Null | Địa chỉ email đăng nhập và nhận thông báo từ hệ thống. |
 | password_hash | VARCHAR(255) | Not Null | Mật khẩu tài khoản đã được băm bảo mật (bcrypt/argon2). |
 | role | VARCHAR(50) | Not Null | Vai trò của tài khoản (ADMIN, LECTURER, STUDENT). |
-| status | VARCHAR(50) | Not Null, Default: “ACTIVE” | Trạng thái hoạt động (ACTIVE: hoạt động, SUSPENDED: bị khóa). |
-| avatar_url | VARCHAR(255) | Null | Đường dẫn liên kết đến ảnh đại diện người dùng. |
+| status | VARCHAR(50) | Not Null, Default: “PENDING_VERIFICATION” | Trạng thái (PENDING_VERIFICATION: chờ xác minh email, ACTIVE: hoạt động, SUSPENDED: bị khóa). |
+| avatar_url | VARCHAR(512) | Null | Đường dẫn liên kết đến ảnh đại diện người dùng. |
+| email_verified_at | TIMESTAMP | Null | Thời điểm xác minh email thành công. |
+| verification_token_hash | VARCHAR(128) | Null | BĂM của token xác minh email. Không lưu token thô: rò rỉ bản sao CSDL không được phép biến thành chiếm quyền tài khoản. |
+| verification_expires_at | TIMESTAMP | Null | Thời hạn của token xác minh (24 giờ). |
+| reset_token_hash | VARCHAR(128) | Null | Băm của token đặt lại mật khẩu. |
+| reset_token_expires_at | TIMESTAMP | Null | Thời hạn token đặt lại mật khẩu (24 giờ). |
+| reset_requested_at | TIMESTAMP | Null | Thời điểm yêu cầu đặt lại gần nhất, dùng cho hạn mức 1 lần/5 phút (UC 1.5). |
+| failed_login_attempts | INT | Not Null, Default: 0 | Bộ đếm đăng nhập sai liên tiếp (UC 1.1 BR-1). |
+| locked_until | TIMESTAMP | Null | Thời điểm hết khóa tạm thời. Không có cột này thì quy tắc khóa 15 phút không cài đặt được. |
+| last_login_at | TIMESTAMP | Null | Lần đăng nhập thành công gần nhất. |
+| deleted_at | TIMESTAMP | Null | Xóa mềm: đề tài, mốc và bình luận cũ không mất tác giả. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm tài khoản được khởi tạo. |
 | updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm thông tin tài khoản được cập nhật gần nhất. |
 
@@ -1299,19 +1334,20 @@ Bảng . Mô tả bảng students
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh duy nhất của sinh viên. |
 | user_id | INT | Foreign Key (users.id), Unique, Not Null | Khóa ngoại liên kết 1-1 sang tài khoản người dùng. |
-| thesis_id | INT | Foreign Key (theses.id), Null | Khóa ngoại liên kết đề tài nghiên cứu sinh viên đang tham gia thực hiện. |
+| student_code | VARCHAR(50) | Unique, Null | Mã số sinh viên. Cho phép NULL vì form đăng ký chỉ hỏi họ tên, email và mật khẩu; mã số được bổ sung sau ở trang Hồ sơ. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm tạo hồ sơ sinh viên. |
 | updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm cập nhật hồ sơ gần nhất. |
 
 #### Bảng lecturers
 
-Bảng . Mô tả bảng lectures
+Bảng . Mô tả bảng lecturers
 
 |     |     |     |     |
 | --- | --- | --- | --- |
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh duy nhất của giảng viên. |
 | user_id | INT | Foreign Key (users.id), Unique, Not Null | Khóa ngoại liên kết 1-1 sang tài khoản người dùng. |
+| lecturer_code | VARCHAR(50) | Unique, Not Null | Mã số giảng viên. |
 | department | VARCHAR(100) | Not Null | Bộ môn hoặc khoa quản lý giảng viên. |
 | max_students | INT | Not Null, Default: 5 | Giới hạn số lượng sinh viên mà giảng viên hướng dẫn cùng lúc. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm tạo hồ sơ giảng viên. |
@@ -1328,11 +1364,36 @@ Bảng . Mô tả bảng theses
 | title | VARCHAR(255) | Not Null | Tên tiêu đề đề tài nghiên cứu học thuật hoặc luận văn. |
 | description | TEXT | Null | Mô tả chi tiết mục tiêu, nội dung và đề cương nghiên cứu. |
 | field | VARCHAR(100) | Not Null | Lĩnh vực chuyên môn của đề tài nghiên cứu. |
-| status | VARCHAR(50) | Not Null, Default: “DRAFT” | Trạng thái đề tài (DRAFT: Nháp, PENDING: Chờ duyệt, ONGOING: Đang thực hiện, COMPLETED: Hoàn thành, REJECTED: Từ chối). |
+| status | VARCHAR(50) | Not Null, Default: “DRAFT” | Trạng thái đề tài (DRAFT: Nháp, PENDING: Chờ duyệt, REVISION_REQUIRED: Cần chỉnh sửa, ONGOING: Đang thực hiện, COMPLETED: Hoàn thành, REJECTED: Từ chối). REVISION_REQUIRED khác REJECTED: một cái quay lại được, một cái là trạng thái cuối. |
 | lecturer_id | INT | Foreign Key (lecturers.id), Null | Khóa ngoại liên kết giảng viên trực tiếp hướng dẫn đề tài. |
-| rejection_reason | TEXT | Null | Ghi nhận lý do giảng viên từ chối phê duyệt đề tài. |
+| created_by | INT | Foreign Key (users.id), Not Null | Người khởi tạo đề tài (sinh viên hoặc giảng viên). |
+| start_date | DATE | Null | Ngày bắt đầu kỳ nghiên cứu. Hạn chót mọi mốc tiến độ phải nằm trong khoảng này. |
+| end_date | DATE | Null | Ngày kết thúc kỳ nghiên cứu. Hai cột này thay cho bảng năm học: một nền tảng công khai không áp được lịch chung cho mọi người dùng. |
+| rejection_reason | TEXT | Null | Ghi nhận lý do giảng viên từ chối phê duyệt đề tài (trạng thái cuối). |
+| revision_note | TEXT | Null | Nội dung giảng viên yêu cầu sinh viên chỉnh sửa rồi gửi lại. Khác nghĩa rejection_reason. |
+| submitted_at | TIMESTAMP | Null | Thời điểm gửi duyệt, dùng để sắp hàng đợi phê duyệt theo thứ tự gửi. |
+| completed_at | TIMESTAMP | Null | Thời điểm hoàn thành. Không suy ra được từ updated_at. |
+| deleted_at | TIMESTAMP | Null | Xóa mềm. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm đề tài được đề xuất/khởi tạo. |
 | updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm cập nhật thông tin đề tài gần nhất. |
+
+#### Bảng thesis_members
+
+Bảng . Mô tả bảng thesis_members
+
+Bảng trung gian cho quan hệ nhiều-nhiều giữa đề tài và sinh viên. Thiết kế ban đầu đặt một cột `thesis_id` trên bảng `students`, nhưng cách đó chỉ cho phép một sinh viên trên một đề tài và không lưu được lịch sử khi sinh viên đổi đề tài hoặc học lại năm sau.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| id  | INT | Primary Key, Auto-increment | Khóa chính. |
+| thesis_id | INT | Foreign Key (theses.id), Not Null | Đề tài. |
+| student_id | INT | Foreign Key (students.id), Not Null | Sinh viên. |
+| role | VARCHAR(20) | Not Null, Default: “OWNER” | Vai trò trong đề tài (OWNER: chủ nhiệm, MEMBER: thành viên). |
+| joined_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm tham gia. |
+| left_at | TIMESTAMP | Null | Thời điểm rời đề tài. Đặt giá trị thay vì xóa dòng: mốc tiến độ và tài liệu do sinh viên này tạo vẫn còn, và câu hỏi “ai từng làm đề tài này” phải trả lời được. |
+
+Ràng buộc UNIQUE trên cặp (thesis_id, student_id) ngăn một sinh viên được thêm hai lần vào cùng đề tài.
 
 #### Bảng milestones
 
@@ -1343,13 +1404,41 @@ Bảng . Mô tả bảng milestones
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh duy nhất của mốc tiến độ. |
 | thesis_id | INT | Foreign Key (theses.id), Not Null | Khóa ngoại liên kết đề tài nghiên cứu sở hữu mốc này. |
-| name | VARCHAR(255) | Not Null | Tên mốc tiến. |
+| name | VARCHAR(255) | Not Null | Tên mốc tiến độ. |
 | description | TEXT | Null | Mô tả chi tiết yêu cầu sinh viên cần nộp cho mốc này. |
 | deadline | TIMESTAMP | Not Null | Hạn chót nộp báo cáo / bằng chứng tiến độ. |
 | status | VARCHAR(50) | Not Null, Default: “NOT_STARTED” | Trạng thái mốc (NOT_STARTED: Chưa làm, ONGOING: Đang làm, PENDING_APPROVAL: Chờ duyệt, COMPLETED: Đạt, REVISION_REQUIRED: Cần sửa). |
-| evidence_file_url | VARCHAR(255) | Null | Đường dẫn file báo cáo hoặc bằng chứng tiến độ do sinh viên nộp. |
+| description_revision | TEXT | Null | Nội dung giảng viên yêu cầu sinh viên sửa (UC 4.11). |
+| evidence_file_url | VARCHAR(512) | Null | Đường dẫn file báo cáo hoặc bằng chứng tiến độ do sinh viên nộp. |
+| evidence_filename | VARCHAR(255) | Null | Tên tệp gốc để hiển thị. Đường dẫn vật lý đã băm nên không suy ngược ra tên được. |
+| extension_requested | BOOLEAN | Not Null, Default: False | Có yêu cầu gia hạn hay không (UC 4.7). |
+| extension_reason | TEXT | Null | Lý do xin gia hạn. |
+| extension_new_deadline | TIMESTAMP | Null | Hạn chót mới được đề nghị. |
+| extension_status | VARCHAR(20) | Null | Kết quả xét gia hạn (PENDING, APPROVED, REJECTED). Chỉ một cờ boolean thì không phân biệt được “chưa trả lời” với “đã từ chối”. |
+| order_index | INT | Not Null, Default: 0 | Thứ tự hiển thị. Sắp theo deadline thì hai mốc cùng hạn sẽ nhảy vị trí ngẫu nhiên giữa các lần tải (UC 9.4 Gantt và bảng Kanban). |
+| approved_by | INT | Foreign Key (users.id), Null | Người phê duyệt mốc (UC 4.10 — kiểm toán). |
+| approved_at | TIMESTAMP | Null | Thời điểm phê duyệt. |
+| deleted_at | TIMESTAMP | Null | Xóa mềm. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm khởi tạo mốc tiến độ. |
 | updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm cập nhật mốc gần nhất. |
+
+#### Bảng milestone_history
+
+Bảng . Mô tả bảng milestone_history
+
+Nhật ký thay đổi mốc tiến độ (UC 4.12). Bảng chỉ ghi thêm: không có endpoint nào sửa hoặc xóa dòng ở đây, đúng business rule “không được phép xóa/sửa bởi bất kỳ ai”.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| id  | INT | Primary Key, Auto-increment | Khóa chính. |
+| milestone_id | INT | Foreign Key (milestones.id), Not Null | Mốc tiến độ bị thay đổi. |
+| changed_by | INT | Foreign Key (users.id), Null | Người thực hiện (NULL nếu là tác vụ nền). |
+| field_name | VARCHAR(50) | Not Null | Tên trường bị thay đổi. |
+| old_value | TEXT | Null | Giá trị trước. |
+| new_value | TEXT | Null | Giá trị sau. |
+| note | TEXT | Null | Ghi chú kèm theo thay đổi. |
+| created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm ghi nhận. |
 
 #### Bảng documents
 
@@ -1361,13 +1450,60 @@ Bảng . Mô tả bảng documents
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh tài liệu. |
 | thesis_id | INT | Foreign Key (theses.id), Not Null | Khóa ngoại liên kết đề tài sở hữu tài liệu này. |
 | filename | VARCHAR(255) | Not Null | Tên file gốc tải lên từ máy tính của người dùng. |
-| file_path | VARCHAR(255) | Not Null | Đường dẫn lưu trữ tệp tin vật lý trên hệ thống máy chủ. |
+| file_path | VARCHAR(512) | Not Null | Đường dẫn lưu trữ tệp tin vật lý trên hệ thống máy chủ (tên đã băm, thư mục phân cấp theo năm/tháng). |
 | file_size | INT | Not Null | Dung lượng của tệp tin tính bằng đơn vị byte. |
+| mime_type | VARCHAR(120) | Not Null | Loại nội dung, dùng để chọn bộ trích xuất văn bản phù hợp. |
+| page_count | INT | Null | Tổng số trang, phục vụ đối chiếu trích dẫn dạng “tr. 12/…” (UC 6.6). |
 | summary_ai | TEXT | Null | Bản tóm tắt nội dung tài liệu tự động do hệ thống AI trích xuất. |
+| summary_note | TEXT | Null | Ghi chú của người dùng. Tách khỏi summary_ai để việc ghi chú thêm không ghi đè mất bản gốc của AI. |
 | status_ai | VARCHAR(50) | Not Null, Default: “PENDING” | Trạng thái xử lý AI (PENDING: Chờ, PROCESSING: Đang chạy, DONE: Hoàn thành, ERROR: Lỗi). |
-| tags | VARCHAR(255) | Null | Các thẻ từ khóa tự định nghĩa phân cách bằng dấu phẩy để lọc tài liệu. |
+| ai_error | TEXT | Null | Lý do xử lý AI thất bại, hiển thị cho người dùng. |
+| ai_attempts | INT | Not Null, Default: 0 | Số lần đã thử xử lý. Có giới hạn: một tệp hỏng vĩnh viễn sẽ thất bại ở mọi lần thử, và vòng lặp thử lại vô hạn biến nó thành nguồn tiêu tốn tài nguyên liên tục. |
+| ai_started_at | TIMESTAMP | Null | Thời điểm bắt đầu xử lý, dùng cho vòng quét phát hiện tiến trình treo. |
+| ai_model | VARCHAR(100) | Null | Mô hình đã dùng để sinh tóm tắt. |
+| tags | TEXT[] | Null, Default: mảng rỗng | Các thẻ từ khóa. Dùng mảng kèm chỉ mục GIN thay cho chuỗi phân cách phẩy: lọc theo thẻ không còn phải dùng LIKE ‘%AI%’, vốn khớp nhầm cả “MAINTAIN”. |
+| uploaded_by | INT | Foreign Key (users.id), Not Null | Người tải lên. |
+| deleted_at | TIMESTAMP | Null | Xóa mềm. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm tải tài liệu lên. |
 | updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm cập nhật metadata tài liệu gần nhất. |
+
+#### Bảng document_versions
+
+Bảng . Mô tả bảng document_versions
+
+Quản lý phiên bản tài liệu. Thiết kế cũ ghi đè tệp mỗi lần nộp lại, làm mất khả năng đối chiếu giữa các bản nháp; ở đây mỗi lần nộp lại là một dòng mới và tệp cũ vẫn tải về được.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| id  | INT | Primary Key, Auto-increment | Khóa chính. |
+| document_id | INT | Foreign Key (documents.id), Not Null | Tài liệu gốc. |
+| version_number | INT | Not Null | Số hiệu phiên bản, tăng dần. |
+| file_path | VARCHAR(512) | Not Null | Đường dẫn tệp của phiên bản này. |
+| file_size | INT | Not Null | Dung lượng (byte). |
+| mime_type | VARCHAR(120) | Not Null | Loại nội dung. |
+| uploaded_by | INT | Foreign Key (users.id), Not Null | Người tải phiên bản này lên. |
+| change_note | TEXT | Null | Ghi chú thay đổi so với phiên bản trước. |
+| is_current | BOOLEAN | Not Null, Default: False | Phiên bản đang hiệu lực. |
+| created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm tải lên. |
+
+Ràng buộc UNIQUE trên cặp (document_id, version_number) bảo đảm không có hai phiên bản cùng số hiệu.
+
+#### Bảng document_shares
+
+Bảng . Mô tả bảng document_shares
+
+Chia sẻ tài liệu sang đề tài khác ở chế độ chỉ đọc (UC 5.10). Mọi truy vấn vector phải xét CẢ `documents.thesis_id` LẪN bảng này: quên bảng này thì tính năng chia sẻ hỏng, quên phạm vi đề tài thì rò rỉ dữ liệu.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| id  | INT | Primary Key, Auto-increment | Khóa chính. |
+| document_id | INT | Foreign Key (documents.id), Not Null | Tài liệu được chia sẻ. |
+| thesis_id | INT | Foreign Key (theses.id), Not Null | Đề tài được nhận chia sẻ. |
+| shared_by | INT | Foreign Key (users.id), Not Null | Người chia sẻ. |
+| permission | VARCHAR(20) | Not Null, Default: “READ” | Quyền được cấp. Hiện chỉ hỗ trợ chỉ đọc. |
+| created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm chia sẻ. |
 
 #### Bảng document_chunks
 
@@ -1378,9 +1514,14 @@ Bảng . Mô tả bảng document_chunks
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh duy nhất của đoạn trích. |
 | document_id | INT | Foreign Key (documents.id), Not Null | Khóa ngoại liên kết đến tài liệu gốc chứa đoạn văn này. |
+| chunk_index | INT | Not Null | Thứ tự đoạn trong tài liệu, cần để ghép lại ngữ cảnh liền mạch khi dựng prompt RAG. |
+| page_number | INT | Null | Số trang nguồn, phục vụ trích dẫn dạng “tr. 12” (UC 6.6). |
 | content | TEXT | Not Null | Nội dung văn bản thô được trích xuất từ tài liệu. |
-| embedding | VECTOR(1536) | Not Null | Vector biểu diễn ngữ nghĩa (1536 chiều của OpenAI Embeddings hoặc tương tự). |
+| token_count | INT | Not Null, Default: 0 | Số token ước lượng, dùng để kiểm soát ngân sách ngữ cảnh khi dựng prompt. |
+| embedding | VECTOR(1536) | Null | Vector biểu diễn ngữ nghĩa 1536 chiều. Cho phép NULL để bản ghi metadata tạo được trước khi tiến trình nền sinh vector xong. Có chỉ mục HNSW với toán tử cosine. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm đoạn trích được xử lý và lưu trữ. |
+
+Ràng buộc UNIQUE trên cặp (document_id, chunk_index) ngăn việc lập chỉ mục lại tạo ra đoạn trùng. Ngoài chỉ mục HNSW trên cột vector, bảng còn có hai chỉ mục GIN trên cột `content`: một cho tìm kiếm toàn văn có trọng số, một cho tìm kiếm gần đúng theo chuỗi con — cả hai phục vụ nhánh toàn văn của cơ chế tìm kiếm lai (xem mục 4.4).
 
 #### Bảng ai_chat_sessions
 
@@ -1390,10 +1531,30 @@ Bảng . Mô tả bảng ai_chat_sessions
 | --- | --- | --- | --- |
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh duy nhất của phiên hội thoại. |
-| thesis_id | INT | Foreign Key (theses.id), Not Null | Khóa ngoại liên kết đề tài nghiên cứu áp dụng (chỉ truy vấn RAG trong kho tài liệu đề tài này). |
+| thesis_id | INT | Foreign Key (theses.id), Null | Đề tài áp dụng. Cho phép NULL có chủ đích: sinh viên chưa được duyệt đề tài vẫn hỏi trợ lý được, khi đó phạm vi truy xuất rỗng. |
 | user_id | INT | Foreign Key (users.id), Not Null | Khóa ngoại liên kết tài khoản người dùng thực hiện chat với AI. |
-| title | VARCHAR(255) | Not Null | Tiêu đề tóm tắt ngắn gọn nội dung phiên chat. |
+| title | VARCHAR(255) | Not Null, Default: “Hội thoại mới” | Tiêu đề tóm tắt ngắn gọn nội dung phiên chat, cắt từ câu hỏi đầu tiên. |
+| answer_mode | VARCHAR(10) | Not Null, Default: “HYBRID” | Chế độ trả lời (STRICT: chỉ dùng tài liệu; HYBRID: được bổ sung kiến thức chung nhưng phải tách khối riêng có cảnh báo). |
+| deleted_at | TIMESTAMP | Null | Xóa mềm (UC 6.8). Giữ dữ liệu cho thống kê UC 9.3: xóa hội thoại là thao tác dọn giao diện của người dùng, còn số lượt gọi AI thì đã xảy ra thật. |
+| updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm nhắn gần nhất. Danh sách hội thoại sắp theo cột này; dùng created_at sẽ đẩy phiên vừa nhắn xuống cuối nếu nó được tạo từ lâu. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm phiên hội thoại được khởi tạo. |
+
+#### Bảng ai_chat_session_sources
+
+Bảng . Mô tả bảng ai_chat_session_sources
+
+Tập tài liệu mà một hội thoại được phép đọc — bảng “nguồn” theo mô hình NotebookLM. Không có bảng này, mọi câu hỏi đều truy xuất toàn bộ tài liệu của đề tài; khi sinh viên tải lên năm tài liệu thuộc năm chủ đề khác nhau, trợ lý không có cách nào biết câu hỏi nhắm vào tài liệu nào và câu trả lời trộn lẫn trích dẫn từ những chủ đề chẳng liên quan.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| session_id | INT | Foreign Key (ai_chat_sessions.id), Not Null | Hội thoại. Cùng với document_id tạo thành khóa chính ghép. |
+| document_id | INT | Foreign Key (documents.id), Not Null | Tài liệu được chọn làm nguồn. |
+| created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm chọn. |
+
+Quy ước: hội thoại KHÔNG có dòng nào ở bảng này nghĩa là “dùng tất cả tài liệu trong phạm vi”. Nhờ quy ước đó, các hội thoại tạo trước khi có tính năng giữ nguyên hành vi cũ mà không cần chuyển đổi dữ liệu.
+
+Đây là bộ lọc THU HẸP, không phải bộ cấp quyền. Phạm vi truy cập vẫn do module kiểm soát truy cập quyết định, và phạm vi truy xuất thực tế là phần giao của hai tập. Dùng trực tiếp danh sách mã tài liệu do client gửi lên sẽ cho phép bất kỳ ai đọc tài liệu của người khác chỉ bằng cách gửi lên mã của nó.
 
 #### Bảng ai_chat_messages
 
@@ -1406,10 +1567,51 @@ Bảng . Mô tả bảng ai_chat_messages
 | session_id | INT | Foreign Key (ai_chat_sessions.id), Not Null | Khóa ngoại liên kết phiên hội thoại chứa tin nhắn này. |
 | role | VARCHAR(50) | Not Null | Vai trò gửi tin nhắn (USER: người dùng, ASSISTANT: hệ thống AI). |
 | content | TEXT | Not Null | Nội dung tin nhắn dạng văn bản thô hoặc Markdown. |
-| citations | TEXT | Null | Chuỗi JSON mô tả nguồn tài liệu tham chiếu RAG (tên file, trang, độ tương đồng). |
+| citations | JSONB | Null | Nguồn tài liệu tham chiếu RAG. Dùng JSONB chứ không TEXT vì UC 9.3 cần đếm tài liệu nào được trích dẫn nhiều nhất — với TEXT thì không truy vấn được. Mỗi phần tử gồm mã đoạn, mã tài liệu, tên tài liệu, số trang, điểm tương đồng và trích đoạn. |
 | rating | VARCHAR(10) | Null | Đánh giá chất lượng của người dùng cho câu trả lời AI (LIKE hoặc DISLIKE). |
 | feedback_note | TEXT | Null | Ý kiến phản hồi bằng chữ của người dùng khi đánh giá câu trả lời AI. |
+| model_name | VARCHAR(100) | Null | Mô hình đã sinh câu trả lời. Ghi theo từng câu vì mô hình có thể đổi theo thời gian (UC 9.3). |
+| tokens_used | INT | Null | Số token đã dùng, phục vụ theo dõi chi phí. |
+| used_general_knowledge | BOOLEAN | Not Null, Default: False | Câu trả lời có phần nằm ngoài tài liệu của người dùng (chế độ HYBRID). Giao diện tô màu khác cho khối đó, và thống kê trả lời được “kho tài liệu không đáp ứng nổi bao nhiêu phần trăm câu hỏi”. |
+| finished_at | TIMESTAMP | Null | Thời điểm sinh xong. NULL nghĩa là câu trả lời bị bấm “Dừng” giữa chừng, giao diện dựa vào đúng cột này để đánh dấu câu chưa hoàn chỉnh. |
+| latency_ms | INT | Null | Thời gian sinh câu trả lời. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm gửi tin nhắn. |
+
+#### Bảng ai_suggestions
+
+Bảng . Mô tả bảng ai_suggestions
+
+Gợi ý lộ trình mốc tiến độ do AI đề xuất (UC 6.10 – 6.11). Chức năng AI-04 trong bảng yêu cầu chức năng cần bảng này để lưu kết quả; thiết kế ERD ban đầu thiếu nó.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| id  | INT | Primary Key, Auto-increment | Khóa chính. |
+| thesis_id | INT | Foreign Key (theses.id), Not Null | Đề tài được gợi ý. |
+| created_by | INT | Foreign Key (users.id), Not Null | Người yêu cầu sinh gợi ý. |
+| payload | JSONB | Not Null | Danh sách mốc được đề xuất, mỗi phần tử gồm tên, mô tả, hạn chót và thứ tự. |
+| status | VARCHAR(20) | Not Null, Default: “PENDING” | Trạng thái xử lý (PENDING: chờ, ACCEPTED: đã chấp nhận, REJECTED: đã từ chối). |
+| model_name | VARCHAR(100) | Null | Mô hình đã sinh gợi ý. |
+| attempt | INT | Not Null, Default: 1 | Lần sinh thứ mấy. Mỗi lần tạo lại tăng temperature để kết quả khác đi, tránh sinh lại đúng bản người dùng vừa từ chối. |
+| created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm sinh. |
+| updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm cập nhật trạng thái gần nhất. |
+
+#### Bảng plagiarism_checks
+
+Bảng . Mô tả bảng plagiarism_checks
+
+Lưu kết quả kiểm tra trùng lặp nội dung. Chức năng này đã có giao diện nhưng thiếu cả Use case lẫn bảng lưu trong thiết kế ban đầu.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| id  | INT | Primary Key, Auto-increment | Khóa chính. |
+| thesis_id | INT | Foreign Key (theses.id), Not Null | Đề tài được kiểm tra. |
+| input_text | TEXT | Not Null | Đoạn văn bản người dùng đưa vào kiểm tra. |
+| similarity | DECIMAL(5,2) | Not Null | Tỷ lệ trùng lặp cao nhất tìm được. |
+| matches | JSONB | Not Null | Danh sách đoạn khớp, mỗi phần tử gồm nguồn, mã tài liệu và tỷ lệ. |
+| checked_by | INT | Foreign Key (users.id), Not Null | Người thực hiện kiểm tra. |
+| created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm kiểm tra. |
 
 #### Bảng feedbacks
 
@@ -1419,15 +1621,22 @@ Bảng . Mô tả bảng feedbacks
 | --- | --- | --- | --- |
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh phản hồi/nhận xét. |
-| target_type | VARCHAR(50) | Not Null | Loại đối tượng được phản hồi (MILESTONE hoặc DOCUMENT). |
-| target_id | INT | Not Null | Khóa ngoại động liên kết đếnmilestone_id hoặc document_id. |
+| milestone_id | INT | Foreign Key (milestones.id), Null | Mốc tiến độ được phản hồi. |
+| document_id | INT | Foreign Key (documents.id), Null | Tài liệu được phản hồi. |
 | user_id | INT | Foreign Key (users.id), Not Null | Khóa ngoại liên kết tài khoản của người viết bình luận. |
 | content | TEXT | Not Null | Nội dung văn bản của bình luận. |
-| parent_id | INT | Null | Liên kết đệ quy sang chính bảng này để tạo bình luận phân cấp (tối đa 3 cấp). |
-| file_url | VARCHAR(255) | Null | Đường dẫn tệp đính kèm đi kèm bình luận (nếu có). |
+| parent_id | INT | Null | Liên kết đệ quy sang chính bảng này để tạo bình luận phân cấp. |
+| depth | INT | Not Null, Default: 0 | Độ sâu trong chuỗi trả lời. Ràng buộc CHECK `depth <= 2` cưỡng chế quy tắc “tối đa 3 cấp” ngay ở tầng CSDL, thay vì bắt tầng ứng dụng đếm đệ quy mỗi lần chèn. |
+| file_url | VARCHAR(512) | Null | Đường dẫn tệp đính kèm đi kèm bình luận (nếu có). |
+| file_name | VARCHAR(255) | Null | Tên tệp gốc để hiển thị. |
 | is_resolved | BOOLEAN | Not Null, Default: False | Trạng thái bình luận đã được giải quyết xong hay chưa (dành cho giảng viên). |
 | resolved_by | INT | Foreign Key (users.id), Null | Khóa ngoại liên kết giảng viên thực hiện đánh dấu hoàn thành bình luận. |
+| resolved_at | TIMESTAMP | Null | Thời điểm đánh dấu đã giải quyết. |
+| edited_at | TIMESTAMP | Null | Thời điểm sửa nội dung gần nhất. |
+| deleted_at | TIMESTAMP | Null | Xóa mềm (UC 7.5). Xóa cứng một bình luận cha sẽ làm mồ côi cả nhánh trả lời. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm viết bình luận. |
+
+Thiết kế ban đầu dùng cặp cột đa hình `target_type` và `target_id`. Cách đó không khai báo được khóa ngoại, nên xóa một mốc tiến độ sẽ để lại các bình luận mồ côi trỏ tới bản ghi không còn tồn tại. Ở đây khóa được tách thành hai cột nullable kèm ràng buộc CHECK yêu cầu đúng một trong hai cột khác NULL, giữ được toàn vẹn tham chiếu ngay ở tầng cơ sở dữ liệu.
 | updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm chỉnh sửa bình luận gần nhất. |
 
 #### Bảng notifications
@@ -1439,10 +1648,28 @@ Bảng . Mô tả bảng notifications
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh thông báo. |
 | user_id | INT | Foreign Key (users.id), Not Null | Khóa ngoại liên kết người dùng nhận thông báo. |
+| type | VARCHAR(20) | Not Null | Loại sự kiện (MILESTONE, THESIS, FEEDBACK, SYSTEM). Cần để chọn biểu tượng và để lọc theo tuỳ chọn kênh của người dùng. |
 | title | VARCHAR(255) | Not Null | Tiêu đề ngắn gọn của thông báo. |
 | content | TEXT | Not Null | Chi tiết nội dung của thông báo gửi đến người dùng. |
+| link | VARCHAR(512) | Null | Đường dẫn tới đối tượng liên quan. Không có cột này thì bấm vào thông báo không nhảy được tới đúng mốc hoặc tài liệu (UC 8.1). |
 | is_read | BOOLEAN | Not Null, Default: False | Trạng thái xem thông báo (False: chưa đọc, True: đã đọc). |
+| read_at | TIMESTAMP | Null | Thời điểm đọc. |
+| dedupe_key | VARCHAR(160) | Null | Khóa chống trùng cho job nhắc hạn: mỗi mốc chỉ nhắc một lần cho mỗi ngưỡng (7/3/1 ngày và quá hạn), tránh spam khi tác vụ định kỳ chạy lại. Có ràng buộc UNIQUE cùng user_id. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm thông báo được sinh ra. |
+
+#### Bảng notification_preferences
+
+Bảng . Mô tả bảng notification_preferences
+
+Cho phép người dùng bật/tắt từng kênh nhận thông báo theo từng loại sự kiện (UC 8.7).
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| user_id | INT | Foreign Key (users.id), Not Null | Người dùng. Cùng với type tạo thành khóa chính ghép. |
+| type | VARCHAR(20) | Not Null | Loại sự kiện (MILESTONE, THESIS, FEEDBACK, SYSTEM). |
+| in_app | BOOLEAN | Not Null, Default: True | Nhận thông báo trong ứng dụng. |
+| email | BOOLEAN | Not Null, Default: True | Nhận thông báo qua email. |
 
 #### Bảng system_logs
 
@@ -1453,9 +1680,11 @@ Bảng . Mô tả bảng system_logs
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh bản ghi log. |
 | user_id | INT | Foreign Key (users.id), Null | Khóa ngoại liên kết tài khoản thực hiện thao tác (null nếu là tác vụ nền). |
-| action | VARCHAR(255) | Not Null | Hành động được thực hiện |
+| level | VARCHAR(10) | Not Null, Default: “INFO” | Mức độ (INFO, WARN, ERROR). Trang tổng quan của quản trị viên lọc theo cột này để hiển thị các lỗi gần nhất. |
+| action | VARCHAR(255) | Not Null | Hành động được thực hiện. |
 | ip_address | VARCHAR(45) | Null | Địa chỉ IP của thiết bị thực hiện thao tác. |
-| details | TEXT | Null | Mô tả chi tiết hoặc payload dữ liệu kèm theo hành động. |
+| user_agent | VARCHAR(512) | Null | Thông tin trình duyệt/thiết bị. |
+| details | JSONB | Null | Dữ liệu kèm theo hành động. Dùng JSONB chứ không TEXT: dữ liệu thực tế là JSON, để dạng chuỗi thì không truy vấn theo trường bên trong được. |
 | created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm ghi nhận log. |
 
 #### Bảng system_configs
@@ -1466,10 +1695,72 @@ Bảng . Mô tả bảng system_configs
 | --- | --- | --- | --- |
 | **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
 | id  | INT | Primary Key, Auto-increment | Khóa chính, định danh dòng cấu hình. |
-| config_key | VARCHAR(100) | Unique, Not Null | Khóa cấu hình hệ thống |
-| config_value | VARCHAR(255) | Not Null | Giá trị chuỗi tương ứng của cấu hình. |
+| config_key | VARCHAR(100) | Unique, Not Null | Khóa cấu hình hệ thống. |
+| config_value | VARCHAR(1000) | Not Null | Giá trị chuỗi tương ứng của cấu hình. |
+| value_type | VARCHAR(10) | Not Null, Default: “STRING” | Kiểu giá trị (STRING, INT, BOOLEAN, JSON). Giao diện dựa vào cột này để chọn đúng loại ô nhập, và tầng máy chủ để kiểm tra dữ liệu. |
+| category | VARCHAR(20) | Not Null, Default: “GENERAL” | Nhóm cấu hình (AI, STORAGE, SECURITY, GENERAL), dùng để gom nhóm trên trang cấu hình. |
+| is_secret | BOOLEAN | Not Null, Default: False | Che giá trị trên giao diện. Bảng này KHÔNG dùng để lưu khóa API — khóa bí mật đọc từ biến môi trường. |
 | description | TEXT | Null | Mô tả công dụng và ý nghĩa của khóa cấu hình này. |
+| updated_by | INT | Foreign Key (users.id), Null | Người chỉnh sửa gần nhất. |
 | updated_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm cấu hình được Admin chỉnh sửa gần nhất. |
+
+#### Bảng refresh_tokens
+
+Bảng . Mô tả bảng refresh_tokens
+
+Phiên đăng nhập. Lưu BĂM của refresh token, không lưu token thô. Thu hồi ở đây là cách duy nhất khiến quy tắc “vô hiệu hoá tài khoản buộc đăng xuất mọi phiên” (UC 2.4) thành hiện thực, bởi access token dạng JWT tự nó không thu hồi được.
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Tên cột** | **Kiểu dữ liệu** | **Ràng buộc** | **Ghi chú** |
+| id  | INT | Primary Key, Auto-increment | Khóa chính. |
+| user_id | INT | Foreign Key (users.id), Not Null | Chủ phiên. |
+| token_hash | VARCHAR(128) | Unique, Not Null | Băm của refresh token. |
+| expires_at | TIMESTAMP | Not Null | Thời điểm hết hạn. |
+| revoked_at | TIMESTAMP | Null | Thời điểm thu hồi. |
+| user_agent | VARCHAR(512) | Null | Thiết bị đã đăng nhập, giúp người dùng nhận ra phiên lạ. |
+| ip_address | VARCHAR(45) | Null | Địa chỉ IP lúc đăng nhập. |
+| created_at | TIMESTAMP | Not Null, Default: Current Time | Thời điểm phát token. |
+
+## Thiết kế bảo mật
+
+Hệ thống lưu dữ liệu học thuật chưa công bố và thông tin cá nhân của người dùng, nên phần bảo mật được thiết kế theo nguyên tắc nhiều lớp bổ sung cho nhau thay vì dựa vào một hàng rào duy nhất.
+
+Xác thực và quản lý phiên
+
+Mật khẩu được băm bằng Argon2id trước khi lưu. Phiên đăng nhập dùng hai token: một access token thời hạn ngắn và một refresh token được lưu dạng băm trong bảng riêng, có thể thu hồi. Cơ chế thu hồi là bắt buộc bởi JWT tự nó không thu hồi được — khi quản trị viên vô hiệu hoá một tài khoản, token đã phát vẫn hợp lệ tới khi hết hạn. Ngoài việc thu hồi refresh token, hệ thống còn đọc lại trạng thái tài khoản từ cơ sở dữ liệu ở mỗi request thay vì tin vào nội dung token; đây là điều kiện để quy tắc buộc đăng xuất khỏi mọi phiên có hiệu lực tức thì.
+
+Token xác minh email và token đặt lại mật khẩu cũng chỉ được lưu dạng băm. Nguyên tắc là một bản sao cơ sở dữ liệu bị rò rỉ không được phép biến thành khả năng chiếm quyền tài khoản.
+
+Chống dò mật khẩu
+
+Hệ thống có hai lớp độc lập. Lớp thứ nhất đếm số lần đăng nhập sai liên tiếp theo từng tài khoản và khoá tạm thời mười lăm phút sau năm lần sai; việc kiểm tra khoá được thực hiện TRƯỚC khi so mật khẩu, bởi nếu không thì trong thời gian khoá người gõ đúng vẫn vào được và quy tắc khoá chỉ là hình thức. Lớp thứ hai giới hạn tần suất theo địa chỉ IP, bù đúng vào chỗ lớp thứ nhất không phủ được: khi email không tồn tại thì không có tài khoản nào để đếm.
+
+Thời điểm hết khoá được trả về cho giao diện dưới dạng dữ liệu có cấu trúc chứ không chỉ là một câu chữ, nhờ đó màn hình đăng nhập hiển thị được đồng hồ đếm ngược thật và trạng thái khoá sống qua cả lần tải lại trang.
+
+Phân quyền
+
+Như đã trình bày, hệ thống tách hai câu hỏi khác nhau về quyền: vai trò do tầng middleware trả lời, còn quyền trên một đề tài cụ thể do một module kiểm soát truy cập riêng trả lời vì nó phụ thuộc dữ liệu. Module này cung cấp một hàm duy nhất trả về tập mã đề tài mà người dùng được phép đọc, và đó là nguồn sự thật duy nhất cho phạm vi dữ liệu của toàn hệ thống. Không module nào được tự dựng điều kiện phân quyền riêng.
+
+Ở phía giao diện, các trang được bảo vệ bằng hàng rào điều hướng theo vai trò, và hàng rào này không hiển thị nội dung trang trong lúc chờ điều hướng — nếu hiển thị, cấu trúc trang quản trị vẫn kịp lộ ra và các thành phần con vẫn kịp gọi API. Đây là lớp phòng thủ thứ hai chứ không phải lớp duy nhất: người dùng sửa được mọi thứ trong trình duyệt của họ, nên quyền thật luôn do máy chủ quyết định.
+
+Bảo vệ tệp tin
+
+Tệp được lưu trong thư mục riêng tư không phục vụ tĩnh. Mọi lượt tải về đi qua endpoint có kiểm tra quyền, hoặc qua đường dẫn được ký HMAC kèm thời hạn. Tên tệp vật lý được băm nên không suy ngược ra tên gốc, và loại nội dung của tệp được kiểm tra ở phía máy chủ chứ không tin vào phần mở rộng do người dùng đặt.
+
+An toàn cho phần trí tuệ nhân tạo
+
+Nội dung tài liệu do người dùng tải lên được đưa vào prompt của mô hình nên nó là dữ liệu không đáng tin. Ba lớp phòng thủ được áp dụng: bọc nội dung trong cặp thẻ đánh dấu kèm chỉ dẫn nêu rõ phần bên trong là dữ liệu chứ không phải mệnh lệnh; vô hiệu hoá các nhãn vai trò và thẻ đánh dấu xuất hiện trong nội dung người dùng gửi lên; và giới hạn độ dài phần nội dung để một prompt khổng lồ không đẩy chỉ dẫn hệ thống ra ngoài cửa sổ ngữ cảnh.
+
+Về phạm vi truy xuất, tập nguồn do người dùng chọn là bộ lọc thu hẹp chứ không phải bộ cấp quyền: phạm vi thực tế là phần giao giữa tập đã chọn và tập quyền do máy chủ tính. Dùng trực tiếp danh sách mã tài liệu do client gửi lên sẽ cho phép bất kỳ ai đọc tài liệu của người khác chỉ bằng cách gửi lên mã của nó.
+
+Kiểm toán
+
+Các thao tác quan trọng đều được ghi vào bảng nhật ký hệ thống kèm mức độ, địa chỉ IP, thiết bị và dữ liệu chi tiết dạng JSON. Nhật ký được ghi ở tầng tuyến đường vì đó là nơi duy nhất có đủ thông tin về request. Riêng nhật ký thay đổi mốc tiến độ là bảng chỉ ghi thêm: không có endpoint nào sửa hoặc xoá dòng ở đó.
+
+Các lớp còn lại
+
+Toàn bộ dữ liệu đầu vào được kiểm tra bằng zod ở tầng tuyến đường, và mọi truy vấn cơ sở dữ liệu đều tham số hoá. Các header bảo mật HTTP được thiết lập bằng helmet. Thông điệp lỗi tuân theo hai nguyên tắc: lỗi phía máy chủ không bao giờ để lộ thông điệp gốc ra ngoài, bởi lỗi từ tầng cơ sở dữ liệu thường kèm nguyên câu SQL và tên cột; và không endpoint nào tiết lộ một email có tồn tại trong hệ thống hay không, kể cả qua mã trạng thái hay thời gian phản hồi.
 
 ## Thiết kế giao diện người dùng<sup>[\[4\]](#footnote-4)</sup>
 
@@ -1493,9 +1784,269 @@ Những mô hình thiết kế từ kiến trúc, dữ liệu đến giao diện
 
 # XÂY DỰNG HỆ THỐNG
 
-## Cài đặt các công cụ và thư việnXây dựng cơ sở dữ liệu và kết nối dữ liệu với giao diệnTriển khai các chức năng chính của hệ thốngTriển khai các chức năng hỗ trợ bởi AIĐánh giá kết quả
+## Cài đặt các công cụ và thư viện
 
-KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+Hệ thống được xây dựng theo mô hình tách biệt hoàn toàn giữa phần giao diện và phần máy chủ, mỗi phần là một dự án Node.js độc lập có tệp khai báo phụ thuộc riêng. Cách tổ chức này cho phép triển khai hai phần lên hai hạ tầng khác nhau mà không cần thay đổi mã nguồn, đồng thời giới hạn phạm vi ảnh hưởng khi nâng cấp thư viện của một bên.
+
+Bảng . Thư viện chính phía máy chủ
+
+|     |     |     |
+| --- | --- | --- |
+| **Thư viện** | **Phiên bản** | **Vai trò trong hệ thống** |
+| express | 4.21 | Khung xây dựng REST API và quản lý middleware |
+| prisma / @prisma/client | 6.3 | ORM, sinh kiểu TypeScript từ lược đồ và quản lý migration |
+| zod | 3.24 | Kiểm tra dữ liệu đầu vào, sinh kiểu suy diễn cho tầng route |
+| @node-rs/argon2 | 2.0 | Băm mật khẩu bằng Argon2id |
+| jsonwebtoken | 9.0 | Phát và xác thực access token |
+| helmet | 8.0 | Thiết lập các header bảo mật HTTP |
+| express-rate-limit | 7.5 | Giới hạn tần suất theo IP và theo người dùng |
+| multer | 2.0 | Nhận tệp tải lên dưới dạng multipart |
+| pdfjs-dist | 4.10 | Trích xuất văn bản từ tệp PDF |
+| mammoth | 1.9 | Trích xuất văn bản từ tệp DOCX |
+| pdfkit | 0.16 | Kết xuất báo cáo tiến độ ra PDF |
+| exceljs | 4.4 | Kết xuất danh sách đề tài ra XLSX |
+| nodemailer | 6.10 | Gửi email xác minh và đặt lại mật khẩu |
+| node-cron | 3.0 | Lập lịch tác vụ nhắc hạn và giám sát tiến trình nền |
+| pino / pino-http | 9.6 / 10.4 | Ghi nhật ký có cấu trúc |
+| tsx | 4.19 | Chạy TypeScript trực tiếp ở môi trường phát triển |
+
+Bảng . Thư viện chính phía giao diện
+
+|     |     |     |
+| --- | --- | --- |
+| **Thư viện** | **Phiên bản** | **Vai trò trong hệ thống** |
+| next | 16.2 | Khung React với App Router, chia mã theo tuyến đường |
+| react / react-dom | 19.2 | Thư viện giao diện |
+| tailwindcss | 4.x | Hệ thống lớp tiện dụng cho định kiểu |
+| zustand | 5.0 | Quản lý trạng thái toàn cục cho phiên đăng nhập và thông báo nổi |
+| @phosphor-icons/react | 2.1 | Bộ biểu tượng |
+| next-themes | 0.4 | Chuyển đổi giao diện sáng và tối |
+| motion | 12.4 | Hiệu ứng chuyển động |
+| three / vanta | 0.185 / 0.5 | Hiệu ứng nền cho trang giới thiệu |
+
+Cơ sở dữ liệu được chạy trong Docker bằng ảnh `pgvector/pgvector:pg16` thay vì ảnh PostgreSQL tiêu chuẩn. Lý do là extension `vector` cần được biên dịch cùng phiên bản PostgreSQL đang dùng; cài thủ công lên ảnh gốc đòi hỏi trình biên dịch trong container và làm mất tính tái lập của môi trường. Tệp `docker-compose.yml` khai báo thêm một container Mailpit đóng vai trò máy chủ thư giả, nhờ đó luồng xác minh email được kiểm thử trọn vẹn ở môi trường phát triển mà không gửi thư thật ra ngoài. Cổng của cơ sở dữ liệu được đặt là 5433 thay vì 5432 để không xung đột với bản PostgreSQL có thể đã được cài sẵn trên máy người phát triển.
+
+Toàn bộ khoá bí mật được đọc từ biến môi trường và được kiểm tra ngay khi tiến trình khởi động. Máy chủ từ chối khởi động nếu khoá ký token hoặc khoá ký đường dẫn tệp vẫn giữ giá trị mẫu. Đây là quyết định có chủ đích: một khoá mặc định nằm trong mã nguồn không phải là sự tiện lợi mà là lỗ hổng, và cách duy nhất bảo đảm nó không tồn tại ở môi trường thật là làm cho hệ thống không chạy được khi nó còn đó.
+
+## Xây dựng cơ sở dữ liệu và kết nối dữ liệu với giao diện
+
+### Lược đồ và migration
+
+Lược đồ cơ sở dữ liệu được khai báo trong một tệp Prisma duy nhất gồm 22 bảng, từ đó sinh ra cả câu lệnh migration lẫn kiểu TypeScript dùng chung cho toàn bộ tầng máy chủ. Nhờ vậy, một cột bị đổi tên sẽ trở thành lỗi biên dịch tại mọi nơi tham chiếu tới nó, thay vì một lỗi lúc chạy phát hiện được sau khi triển khai.
+
+Quy ước đặt tên được chọn là `snake_case` cho cả tên cột trong cơ sở dữ liệu lẫn tên trường trong mã nguồn. Cách làm thông thường là dùng `camelCase` ở tầng ứng dụng rồi ánh xạ sang `snake_case` ở tầng cơ sở dữ liệu, nhưng điều đó tạo ra một tầng chuyển đổi mà mọi dữ liệu phải đi qua hai lần, kèm theo cả một lớp lỗi thuộc dạng "quên ánh xạ một trường". Giữ một quy ước duy nhất từ cột cơ sở dữ liệu đến khoá JSON mà giao diện đọc giúp loại bỏ hẳn tầng đó.
+
+Bảy migration được áp dụng theo thứ tự, trong đó ba migration cuối minh hoạ một nguyên tắc quan trọng khi thay đổi lược đồ trên cơ sở dữ liệu đã có dữ liệu thật: một thay đổi mang tính chuyển đổi dữ liệu phải được tách thành nhiều bước độc lập. Việc thay khái niệm "năm học" bằng "kỳ nghiên cứu" gắn trên từng đề tài được chia thành ba migration riêng biệt gồm thêm cột mới, chuyển dữ liệu từ bảng cũ sang cột mới, và cuối cùng mới xoá bảng cũ. Nếu gộp cả ba vào một tệp, lệnh xoá bảng sẽ nằm cùng giao dịch với lệnh chuyển dữ liệu; điều này thoạt nghe an toàn hơn nhưng thực chất làm mất cơ hội dừng lại và đối chiếu giữa hai bước, vốn là cách duy nhất phát hiện được một phép chuyển dữ liệu sai nhưng vẫn chạy trơn.
+
+### Chỉ mục cho tìm kiếm
+
+Prisma chưa hỗ trợ khai báo chỉ mục HNSW của pgvector, nên các chỉ mục phục vụ tìm kiếm được viết trực tiếp bằng SQL trong migration riêng.
+
+Chỉ mục quan trọng nhất là chỉ mục HNSW trên cột vector của bảng đoạn tài liệu, dùng toán tử khoảng cách cosine với tham số `m = 16` và `ef_construction = 64`. Lựa chọn HNSW thay cho IVFFlat xuất phát từ đặc điểm dữ liệu của hệ thống: IVFFlat cần một lượng dữ liệu mẫu để huấn luyện danh sách phân cụm, nên trên một bảng gần rỗng lúc khởi tạo hệ thống, chất lượng truy hồi rất kém cho tới khi chạy lại lệnh dựng chỉ mục. HNSW dựng dần theo từng lần chèn nên cho kết quả đúng ngay từ tài liệu đầu tiên. Với một hệ thống mà dữ liệu tích luỹ dần theo từng lần sinh viên tải tài liệu lên, đây là yếu tố quyết định.
+
+Bên cạnh chỉ mục vector, hai chỉ mục GIN được tạo trên cùng cột nội dung: một chỉ mục trên `to_tsvector` phục vụ tìm kiếm toàn văn có trọng số, và một chỉ mục `gin_trgm_ops` phục vụ tìm kiếm gần đúng theo chuỗi con. Vai trò của chúng được trình bày ở mục 4.4.
+
+### Ràng buộc ở tầng cơ sở dữ liệu
+
+Một số quy tắc nghiệp vụ được cưỡng chế bằng ràng buộc CHECK thay vì kiểm tra ở tầng ứng dụng. Bảng phản hồi có hai khoá ngoại cho phép NULL trỏ tới mốc tiến độ và tài liệu, kèm ràng buộc yêu cầu đúng một trong hai cột khác NULL. Thiết kế ban đầu dùng một cặp cột đa hình gồm loại đối tượng và mã đối tượng, nhưng cách đó không cho phép khai báo khoá ngoại, nên xoá một mốc tiến độ sẽ để lại các bình luận mồ côi trỏ tới một bản ghi không còn tồn tại.
+
+Tương tự, quy tắc "chuỗi trả lời tối đa ba cấp" được cưỡng chế bằng một cột độ sâu kèm ràng buộc CHECK, thay vì bắt tầng ứng dụng đếm đệ quy ở mỗi lần chèn. Đặt ràng buộc ở tầng cơ sở dữ liệu bảo đảm nó vẫn có hiệu lực với mọi đường ghi dữ liệu, kể cả những thao tác quản trị thực hiện trực tiếp trên cơ sở dữ liệu.
+
+### Kết nối dữ liệu với giao diện
+
+Giao diện không gọi trực tiếp các đường dẫn API. Toàn bộ endpoint và kiểu dữ liệu tương ứng được khai báo tập trung trong một tệp dịch vụ, và các trang gọi hàm ở đó. Nhờ vậy, một đường dẫn viết sai trở thành lỗi biên dịch chứ không phải một phản hồi 404 phát hiện được lúc chạy. Kiểu dữ liệu trong tệp dịch vụ phản chiếu đúng bộ serializer của máy chủ, nên khi một trường bị đổi tên ở máy chủ, các trang đang dùng trường đó sẽ báo lỗi ngay ở bước biên dịch.
+
+Phiên đăng nhập dùng cơ chế hai token. Access token có thời hạn ngắn, còn refresh token được lưu dạng băm trong cơ sở dữ liệu và có thể thu hồi. Cơ chế này cần thiết vì JWT tự nó không thu hồi được: khi quản trị viên vô hiệu hoá một tài khoản, token đã phát vẫn hợp lệ cho tới khi hết hạn. Hệ thống giải quyết bằng hai lớp bổ sung cho nhau gồm thu hồi refresh token trong cơ sở dữ liệu, và đọc lại trạng thái tài khoản từ cơ sở dữ liệu ở mỗi request thay vì tin vào nội dung token. Lớp thứ hai làm cho việc "buộc đăng xuất khỏi mọi phiên" có hiệu lực tức thì.
+
+Ở phía giao diện, khi một request trả về mã 401, lớp gọi API tự động thử làm mới token một lần rồi gọi lại đúng request đó. Mọi request 401 xảy ra đồng thời được gom vào chung một lần làm mới; nếu không, năm request cùng lúc sẽ gửi năm yêu cầu làm mới, và vì máy chủ xoay vòng refresh token nên bốn yêu cầu sau sẽ dùng token đã bị thu hồi và làm người dùng bị đăng xuất oan.
+
+## Triển khai các chức năng chính của hệ thống
+
+### Tổ chức mã nguồn theo module
+
+Phần máy chủ được chia thành các module tương ứng với chín phân hệ nghiệp vụ, mỗi module gồm một tệp định nghĩa tuyến đường và một tệp chứa nghiệp vụ. Tầng tuyến đường chỉ làm ba việc gồm kiểm tra dữ liệu đầu vào bằng zod, gọi hàm nghiệp vụ, và định dạng phản hồi theo serializer dùng chung. Mọi quy tắc nghiệp vụ nằm ở tầng nghiệp vụ vì các quy tắc liên quan tới nhau thường phải thay đổi cùng lúc: đổi vai trò một tài khoản phải kéo theo tạo hoặc xoá hồ sơ sinh viên hay giảng viên, và cả hai phải xảy ra trọn vẹn hoặc không xảy ra.
+
+### Hai tầng phân quyền
+
+Hệ thống phân biệt rõ hai câu hỏi khác nhau về quyền. Câu hỏi thứ nhất là "người này thuộc vai trò nào" và được trả lời bởi tầng middleware; câu hỏi thứ hai là "người này có được thao tác trên đề tài cụ thể này không" và được trả lời bởi một module kiểm soát truy cập riêng. Sự tách biệt này quan trọng vì câu hỏi thứ hai phụ thuộc vào dữ liệu chứ không phụ thuộc vai trò: hai giảng viên cùng vai trò nhưng chỉ một người là người hướng dẫn của đề tài đang xét.
+
+Module kiểm soát truy cập cung cấp hàm trả về tập mã đề tài mà một người dùng được phép đọc, và đây là nguồn sự thật duy nhất cho phạm vi dữ liệu của toàn hệ thống. Yêu cầu này đặc biệt quan trọng với các chức năng AI: một truy vấn vector sắp xếp theo khoảng cách trên toàn bảng mà thiếu điều kiện lọc phạm vi sẽ trả về nội dung luận văn của bất kỳ sinh viên nào, và lỗi đó không làm hệ thống báo lỗi mà chỉ lặng lẽ tiết lộ dữ liệu.
+
+Ngoài ra, các tuyến đường ghi dữ liệu nghiệp vụ được gắn thêm một middleware giới hạn về hai vai trò sinh viên và giảng viên. Ranh giới ở đây là giữa thao tác hành chính và thao tác nội dung: gán giảng viên hướng dẫn hay thêm thành viên vào đề tài là việc của quản trị viên, còn tạo đề tài, nộp minh chứng, đổi trạng thái mốc tiến độ, tải tài liệu và viết phản hồi thì không. Một thao tác nội dung do quản trị viên thực hiện trông giống hệt thao tác hợp lệ của chủ đề tài, nên nhìn vào dữ liệu sau đó không thể truy ra được đã có sự can thiệp.
+
+Để tránh tình trạng một tuyến đường mới được thêm vào mà quên gắn middleware phân quyền, hệ thống có một bộ kiểm thử đọc trực tiếp cấu trúc middleware mà Express đã dựng và duyệt qua toàn bộ tuyến đường đang tồn tại. Bộ kiểm thử này khẳng định bốn điều kiện gồm mọi tuyến đường đều đi qua xác thực, mọi tuyến đường quản trị chỉ cho phép đúng vai trò quản trị viên, mọi tuyến đường ghi nội dung đều có hàng rào vai trò, và các middleware phân quyền luôn nằm sau middleware xác thực. Điều kiện cuối cùng phát hiện một lớp lỗi rất dễ lọt qua kiểm tra bằng mắt: middleware phân quyền đọc thông tin người dùng do middleware xác thực đặt vào, nên đặt ngược thứ tự sẽ khiến tuyến đường trả về lỗi cho mọi người kể cả người có đủ quyền, mà vì nó vẫn "chặn được" nên trông như đang hoạt động đúng.
+
+### Máy trạng thái mốc tiến độ
+
+Trạng thái của đề tài và của mốc tiến độ đều được cài đặt dưới dạng máy trạng thái hữu hạn với bảng chuyển tiếp khai báo tường minh. Mỗi phép chuyển tiếp mang theo điều kiện về vai trò và điều kiện tiên quyết về dữ liệu: chuyển một mốc từ trạng thái đang làm sang chờ phê duyệt bắt buộc phải có tệp minh chứng đính kèm, và chỉ giảng viên hướng dẫn mới được chuyển sang trạng thái hoàn thành.
+
+Bảng chuyển tiếp được cài đặt ở cả hai phía. Bản phía giao diện tồn tại để giải thích cho người dùng vì sao một thao tác kéo thả trên bảng Kanban bị từ chối, ngay tại thời điểm họ thả chuột thay vì sau một vòng gọi máy chủ. Nó không phải hàng rào bảo mật, vì người dùng gọi thẳng API được; máy chủ kiểm tra lại mọi phép chuyển tiếp. Ba tuyến đường khác nhau gồm đổi trạng thái, phê duyệt, và yêu cầu chỉnh sửa đều đi qua cùng một hàm chuyển tiếp duy nhất, bởi ba tuyến đó thực chất là cùng một phép chuyển trạng thái nhìn từ ba nút bấm khác nhau; cài đặt ba lần là cách chắc chắn để một trong ba quên ghi nhật ký thay đổi.
+
+### Lưu trữ tệp
+
+Tệp tài liệu và tệp minh chứng được lưu trên hệ thống tệp của máy chủ, trong thư mục riêng tư không được phục vụ tĩnh. Tên tệp vật lý được băm và thư mục được phân cấp theo năm và tháng, nhờ đó tên tệp gốc do người dùng đặt không ảnh hưởng tới đường dẫn vật lý, và một thư mục không tích luỹ hàng chục nghìn tệp làm chậm thao tác liệt kê.
+
+Mọi lượt tải tệp về đều đi qua một endpoint có kiểm tra quyền, hoặc qua một đường dẫn được ký HMAC kèm thời hạn. Quá trình đọc và ghi tệp dùng luồng thay vì đọc trọn tệp vào bộ nhớ: với hạn mức 50 MB mỗi tệp, hai mươi người dùng cùng nộp bài sẽ chiếm khoảng một gigabyte bộ nhớ chỉ để sao chép dữ liệu, trong khi dùng luồng thì lượng bộ nhớ tiêu thụ không phụ thuộc kích thước tệp.
+
+### Kết xuất báo cáo
+
+Báo cáo tiến độ được kết xuất ra PDF bằng pdfkit với phông chữ hỗ trợ tiếng Việt được tải về ở bước cài đặt. Danh sách đề tài được kết xuất ra CSV hoặc XLSX bằng exceljs.
+
+Các endpoint kết xuất tệp tuân theo một nguyên tắc bắt buộc: mọi truy vấn dữ liệu và mọi kiểm tra điều kiện phải hoàn tất trước khi ghi header phản hồi. Khi tệp đã bắt đầu chảy ra socket thì không còn cách nào trả về một thông báo lỗi dạng JSON nữa, và người dùng sẽ nhận được một tệp bị cắt dở thay vì một câu giải thích đọc được. Vì lý do đó, việc kiểm tra sự tồn tại của phông chữ được thực hiện trước khi chạm vào header, để trường hợp thiếu phông còn trả về được mã lỗi kèm thông báo.
+
+Tên tệp trong header phản hồi được gửi kèm cả dạng ASCII cho trình duyệt cũ lẫn dạng mã hoá UTF-8 theo RFC 5987 cho trình duyệt hiện đại, vì header HTTP dùng bảng mã latin-1 và một tên tệp tiếng Việt chưa mã hoá sẽ bị cắt cụt hoặc làm hỏng cả dòng header.
+
+## Triển khai các chức năng hỗ trợ bởi AI
+
+### Chuỗi xử lý tài liệu
+
+Một tài liệu sau khi tải lên đi qua năm bước xử lý theo thứ tự gồm trích xuất văn bản, chia đoạn, sinh vector, lưu vào cơ sở dữ liệu vector, và sinh bản tóm tắt. Toàn bộ chuỗi này chạy bất đồng bộ trong một tiến trình nền, và tài liệu được đánh dấu trạng thái chờ xử lý ngay khi lưu thành công. Người dùng không phải chờ đợi quá trình này, và một tài liệu lỗi không làm gián đoạn thao tác đang diễn ra.
+
+Bước trích xuất dùng pdfjs-dist cho tệp PDF và mammoth cho tệp DOCX, đồng thời giữ lại số trang nguồn của từng đoạn văn bản. Số trang này về sau xuất hiện trong phần trích dẫn dưới câu trả lời của trợ lý, cho phép người đọc mở đúng trang trong tệp gốc để đối chiếu.
+
+Bước chia đoạn dùng ranh giới câu chứ không cắt theo số ký tự cố định. Cắt theo số ký tự tạo ra những đoạn mở đầu bằng nửa mệnh đề; vector của đoạn đó biểu diễn một câu không tồn tại, và khi đoạn ấy được trích dẫn, người đọc nhận được một câu cụt. Kích thước đoạn được chọn trong khoảng 300 đến 400 token vì đoạn quá ngắn làm mất ngữ cảnh khiến vector không biểu diễn được một ý trọn vẹn, còn đoạn quá dài trộn nhiều chủ đề vào cùng một vector và làm loãng tín hiệu.
+
+### Cơ chế giám sát tiến trình nền
+
+Tiến trình xử lý tài liệu được bảo vệ bằng hai lớp giới hạn thời gian, mô phỏng nguyên lý watchdog timer của hệ thống nhúng. Lớp thứ nhất là bộ đếm thời gian trong tiến trình, phát tín hiệu huỷ khi một tác vụ vượt ngưỡng. Lớp thứ hai là một vòng quét định kỳ đọc trạng thái từ cơ sở dữ liệu, tìm những tài liệu đã ở trạng thái đang xử lý quá lâu và đưa chúng trở lại hàng đợi.
+
+Lớp thứ hai là bắt buộc chứ không phải dư thừa, bởi lớp thứ nhất chỉ cứu được tiến trình còn sống. Nếu máy chủ bị dừng đột ngột giữa lúc đang xử lý một tài liệu, bản ghi tương ứng sẽ mắc kẹt ở trạng thái đang xử lý mãi mãi và không có gì đánh thức nó. Số lần thử lại cũng được giới hạn, vì một tệp hỏng vĩnh viễn sẽ thất bại ở mọi lần thử, và một vòng lặp thử lại vô hạn biến một tệp lỗi thành nguồn tiêu tốn tài nguyên liên tục.
+
+### Tìm kiếm lai: đóng góp kỹ thuật chính
+
+Thiết kế ban đầu của chức năng tìm kiếm ngữ nghĩa dựa hoàn toàn vào khoảng cách cosine giữa vector câu truy vấn và vector các đoạn tài liệu, kèm một ngưỡng tuyệt đối để loại bỏ kết quả không liên quan. Thực nghiệm trên kho tài liệu của hệ thống cho thấy cách này không hoạt động được.
+
+Số đo cụ thể: câu truy vấn "HNSW khác IVFFlat ở điểm nào?" đạt cosine 0,101 với đoạn văn đúng chủ đề, trong khi câu truy vấn "Món phở bò nấu thế nào?" đạt cosine 0,089 với đoạn văn hoàn toàn lạc đề. Hai câu hỏi khác nhau căn bản về mức độ liên quan lại cho hai con số gần như trùng nhau, nên không có ngưỡng nào tách được chúng: mọi ngưỡng đặt ra sẽ hoặc loại bỏ câu đúng, hoặc chấp nhận câu sai.
+
+Nguyên nhân nằm ở chỗ khoảng cách cosine trên biểu diễn dạng túi từ không mang thông tin về độ hiếm của từ. Một câu hỏi sáu từ khớp đúng hai thuật ngữ chuyên môn hiếm trong một đoạn văn ba trăm năm mươi từ vẫn cho điểm tương đồng thấp, bởi phần lớn các chiều của vector đoạn văn không được câu hỏi chạm tới. Trong khi đó, PostgreSQL có sẵn cơ chế trọng số nghịch đảo tần suất tài liệu trong công cụ tìm kiếm toàn văn của nó.
+
+Giải pháp được áp dụng là hợp nhất hai nhánh xếp hạng độc lập gồm nhánh vector qua pgvector với chỉ mục HNSW, và nhánh toàn văn của PostgreSQL có trọng số. Hai danh sách kết quả được hợp nhất bằng phương pháp Reciprocal Rank Fusion, tức là cộng nghịch đảo của thứ hạng trong từng danh sách thay vì cộng điểm số thô. Điểm mấu chốt của phương pháp này là nó chỉ dùng thứ hạng, nên hoàn toàn không phụ thuộc vào thang điểm của từng nhánh; điều đó cần thiết bởi cosine và trọng số toàn văn nằm trên hai thang khác nhau và không so sánh trực tiếp được.
+
+Bộ lọc mức độ liên quan cũng được thiết kế lại theo cùng tinh thần. Thay cho một ngưỡng tuyệt đối, điều kiện giữ lại một đoạn văn gồm hai nhánh: một là có khớp toàn văn, nghĩa là thuật ngữ trong câu hỏi thực sự xuất hiện trong đoạn văn, đây là bằng chứng liên quan mạnh và độc lập với thang cosine; hai là điểm cosine đạt ít nhất bốn mươi lăm phần trăm điểm của kết quả đứng đầu và đồng thời vượt một sàn tuyệt đối, dành cho trường hợp người dùng diễn đạt bằng từ khác, vốn chính là lý do tồn tại của tìm kiếm ngữ nghĩa. Tỷ lệ tương đối giữ nguyên ý nghĩa bất kể nhà cung cấp embedding cho thang điểm nào: mô hình đã huấn luyện thường cho điểm trong khoảng 0,7 đến 0,9, trong khi phương án vector hoá cục bộ cho khoảng 0,15 đến 0,35.
+
+Kết quả sau khi lọc còn được đa dạng hoá theo tài liệu nguồn. Không giới hạn thì một tài liệu dài dễ chiếm trọn cả năm vị trí trả về, vì các đoạn cạnh nhau của nó có nội dung tương tự nhau. Năm trích dẫn từ ba tài liệu khác nhau hữu ích hơn nhiều so với năm đoạn liền kề của cùng một tệp.
+
+### Trợ lý hỏi đáp theo mô hình không gian tài liệu
+
+Chức năng trợ lý AI được thiết kế theo mô hình không gian tài liệu tương tự NotebookLM, gồm ba cấp phạm vi lồng nhau.
+
+Cấp thứ nhất là đề tài, đóng vai trò không gian chứa tài liệu. Cấp thứ hai là hội thoại: mỗi đề tài có nhiều hội thoại độc lập, mỗi hội thoại giữ lịch sử riêng và có tập nguồn riêng. Cấp thứ ba là tập nguồn của từng hội thoại, được người dùng chọn bằng các ô đánh dấu trên một bảng nguồn hiển thị thường trực bên cạnh khung chat.
+
+Cấp thứ ba là điểm cần thiết nhất và cũng là điểm thiếu trong thiết kế ban đầu. Khi một sinh viên tải lên năm tài liệu thuộc năm chủ đề khác nhau vào cùng một đề tài, một trợ lý truy xuất trên toàn bộ kho tài liệu của đề tài không có cách nào biết câu hỏi đang nhắm vào tài liệu nào, và câu trả lời sẽ trộn lẫn trích dẫn từ những chủ đề chẳng liên quan tới nhau. Bảng nguồn giải quyết đúng vấn đề đó.
+
+Tập nguồn được lưu theo từng hội thoại thay vì theo phiên làm việc, để lịch sử hội thoại luôn đọc lại được với đúng phạm vi đã sinh ra nó. Quy ước được chọn là một hội thoại không có bản ghi nguồn nào nghĩa là dùng toàn bộ tài liệu trong phạm vi; nhờ quy ước này, các hội thoại tạo trước khi có tính năng giữ nguyên hành vi cũ mà không cần chuyển đổi dữ liệu.
+
+Về mặt an toàn dữ liệu, tập nguồn do người dùng gửi lên là một bộ lọc THU HẸP, không phải một bộ cấp quyền. Phạm vi truy cập vẫn do module kiểm soát truy cập của máy chủ quyết định, và phạm vi truy xuất thực tế là phần giao của hai tập. Dùng trực tiếp danh sách mã tài liệu do client gửi lên sẽ cho phép bất kỳ ai đọc tài liệu của người khác chỉ bằng cách gửi lên mã của tài liệu đó. Phép giao này được tách thành một hàm riêng có bộ kiểm thử độc lập, vì một sai sót ở đây không làm hệ thống báo lỗi mà chỉ lặng lẽ tiết lộ nội dung luận văn.
+
+Bảng nguồn còn hiển thị trạng thái lập chỉ mục của từng tài liệu ngay tại chỗ, và không cho chọn những tài liệu chưa xử lý xong. Trước khi có chi tiết này, một người dùng hỏi về tài liệu vừa tải lên sẽ nhận lại câu "không tìm thấy nội dung phù hợp" mà không hiểu vì sao, và phải rời sang trang quản lý tài liệu mới biết tệp đó còn đang trong hàng đợi.
+
+### Hai chế độ trả lời
+
+Thiết kế ban đầu chỉ có một chế độ: trợ lý bị buộc chỉ trả lời dựa trên nội dung tài liệu, và nói thẳng là không tìm thấy nếu tài liệu không chứa thông tin cần thiết. Chế độ này bảo đảm không có thông tin bịa đặt, nhưng đồng thời làm mất phần lớn giá trị của mô hình ngôn ngữ: một câu hỏi khái niệm cơ bản mà tài liệu của người dùng không nhắc tới sẽ nhận về một câu từ chối, dù mô hình biết rõ câu trả lời.
+
+Hệ thống được bổ sung chế độ thứ hai cho phép dùng kiến thức chung, và đây là chế độ mặc định. Điểm mấu chốt của chế độ này không phải là việc cho phép dùng kiến thức ngoài tài liệu, mà là việc buộc phân tách rõ hai loại nội dung. Chỉ dẫn hệ thống yêu cầu mô hình đặt toàn bộ phần bổ sung vào một khối riêng ở cuối câu trả lời, mở đầu bằng một dòng nhãn cố định, và tuyệt đối không gán số hiệu trích dẫn cho nội dung trong khối đó. Máy chủ phát hiện nhãn này để ghi lại rằng câu trả lời có dùng kiến thức ngoài tài liệu, còn giao diện tách khối đó ra và trình bày trên nền màu cảnh báo kèm dòng chữ nói rõ phần này không có nguồn trích dẫn.
+
+Việc trộn lẫn hai loại nội dung mà không phân tách sẽ tệ hơn hẳn so với chế độ chỉ dùng tài liệu, bởi một câu do mô hình tự suy ra sẽ đọc y như một câu có nguồn và người dùng không có cách nào phân biệt. Dòng nhãn phân tách được khai báo thành một hằng số dùng chung cho cả ba nơi gồm chỉ dẫn hệ thống, hàm phát hiện ở máy chủ, và hàm tách khối ở giao diện, kèm một kiểm thử chốt giá trị của nó. Nếu gõ tay ở ba nơi, chỉ cần lệch một dấu cách là cả cơ chế lặng lẽ ngừng hoạt động mà không có dấu hiệu nào.
+
+### Chống prompt injection
+
+Nội dung tài liệu do người dùng tải lên được đưa vào prompt của mô hình, nên nó là dữ liệu không đáng tin. Một luận văn có thể chứa dòng chữ yêu cầu mô hình bỏ qua mọi chỉ dẫn trước đó, dù là do vô tình khi tài liệu bàn về chính chủ đề này, hoặc do cố ý.
+
+Hệ thống áp dụng ba lớp phòng thủ. Thứ nhất, toàn bộ nội dung tài liệu được bọc trong một cặp thẻ đánh dấu, và chỉ dẫn hệ thống nêu rõ phần bên trong thẻ là dữ liệu tham khảo chứ không phải mệnh lệnh, kèm chỉ dẫn cụ thể phải bỏ qua nếu bên trong có câu yêu cầu thay đổi vai trò hoặc tiết lộ chỉ dẫn hệ thống. Thứ hai, các nhãn vai trò và thẻ đánh dấu xuất hiện trong nội dung người dùng gửi lên bị vô hiệu hoá trước khi ghép vào prompt. Thứ ba, độ dài phần nội dung được giới hạn, để một prompt khổng lồ không đẩy chỉ dẫn hệ thống ra ngoài cửa sổ ngữ cảnh của mô hình.
+
+### Lớp trừu tượng nhà cung cấp và phương án dự phòng
+
+Phần gọi mô hình ngôn ngữ được tách thành một lớp trừu tượng hỗ trợ ba nhà cung cấp, chọn bằng biến môi trường. Việc sinh vector cũng có ba phương án tương ứng, cộng thêm một phương án cục bộ không cần gọi API bên ngoài.
+
+Quan trọng hơn cả là phương án dự phòng khi không có mô hình sinh, hoặc khi lời gọi tới mô hình thất bại. Trong trường hợp đó, hệ thống dựng một câu trả lời trích xuất từ chính các đoạn văn bản đã tìm được, bằng cách chọn những câu chứa từ khoá của câu hỏi. Người dùng vẫn nhận được nội dung thật kèm trích dẫn thật, chứ không phải một thông báo lỗi. Thiết kế này cho phép hệ thống chạy được và chứng minh được toàn bộ chuỗi truy xuất mà không cần khoá API nào, điều có ý nghĩa thực tế đối với việc triển khai thử nghiệm và với việc bảo vệ đề tài.
+
+## Đánh giá kết quả
+
+### Mức độ hoàn thành theo phân hệ
+
+Bảng . Mức độ hoàn thành các phân hệ
+
+|     |     |     |
+| --- | --- | --- |
+| **Phân hệ** | **Trạng thái** | **Ghi chú** |
+| Xác thực và tài khoản | Hoàn thành | Đăng ký, xác minh email, đăng nhập có khoá tạm thời, quên và đặt lại mật khẩu, quản lý hồ sơ |
+| Quản trị hệ thống | Hoàn thành | Quản lý tài khoản, phân quyền, nhật ký, tham số hệ thống, trang tổng quan, bảng giám sát AI |
+| Quản lý đề tài | Hoàn thành | Vòng đời đầy đủ từ nháp tới hoàn thành, phân công giảng viên, quản lý thành viên |
+| Quản lý tiến độ | Hoàn thành | Máy trạng thái, bảng Kanban kéo thả, minh chứng, xin gia hạn, nhật ký thay đổi |
+| Quản lý tài liệu | Hoàn thành | Tải lên, phiên bản, chia sẻ, gắn thẻ, tìm kiếm |
+| Hỗ trợ bởi AI | Hoàn thành | Tìm kiếm lai, hỏi đáp có trích dẫn, chọn nguồn theo hội thoại, hai chế độ trả lời, tóm tắt, gợi ý lộ trình, kiểm tra trùng lặp |
+| Trao đổi và phản hồi | Hoàn thành | Bình luận phân cấp ba cấp, đính kèm tệp, đánh dấu đã giải quyết |
+| Thông báo | Hoàn thành | Thông báo trong ứng dụng, email, tuỳ chọn theo kênh, nhắc hạn tự động |
+| Báo cáo và thống kê | Hoàn thành | PDF tiến độ, CSV và XLSX danh sách đề tài, biểu đồ Gantt, thống kê AI |
+
+Về quy mô, phần máy chủ có khoảng 17.100 dòng TypeScript và phần giao diện có khoảng 18.100 dòng, chưa kể tệp cấu hình và tệp sinh tự động.
+
+### Đo hiệu năng đối chiếu yêu cầu phi chức năng
+
+Bảng . Kết quả đo so với yêu cầu phi chức năng
+
+|     |     |     |     |
+| --- | --- | --- | --- |
+| **Chức năng** | **Yêu cầu** | **Kết quả đo** | **Đánh giá** |
+| Tìm kiếm ngữ nghĩa | Dưới 3 giây | 7 đến 19 ms | Đạt |
+| Trả lời hỏi đáp AI | Dạng luồng | Chữ hiện dần theo SSE | Đạt |
+| Xuất báo cáo PDF | Dưới 5 giây | Dưới 1 giây, không lỗi phông tiếng Việt | Đạt |
+| Đăng nhập | Dưới 1 giây | Dưới 1 giây | Đạt |
+| Lập chỉ mục tài liệu | Không chặn trải nghiệm | Chạy nền, 5 đến 15 giây cho ba tài liệu | Đạt |
+
+Thời gian tìm kiếm được đo trên kho tài liệu mẫu với năm câu truy vấn đại diện, trong đó có một câu hoàn toàn lạc đề để kiểm tra hệ thống có trả về đúng thông báo không tìm thấy hay không.
+
+### Kết quả kiểm thử
+
+Hệ thống có 40 kiểm thử tự động, chia thành ba nhóm. Nhóm thứ nhất kiểm thử phần logic thuần gồm máy trạng thái, vector hoá, chia đoạn và xử lý văn bản. Nhóm thứ hai kiểm thử phạm vi truy xuất của trợ lý AI, tập trung vào hàm giao giữa tập nguồn do người dùng chọn và phạm vi quyền do máy chủ tính, gồm cả trường hợp người dùng gửi lên mã tài liệu không thuộc phạm vi của mình. Nhóm thứ ba kiểm thử cấu trúc phân quyền như đã trình bày ở mục 4.3.
+
+Nhóm thứ ba đáng chú ý về mặt phương pháp. Một bộ kiểm thử gọi HTTP theo từng tình huống chỉ kiểm tra được những tuyến đường mà người viết kiểm thử nghĩ tới; bộ kiểm thử cấu trúc duyệt qua toàn bộ tuyến đường đang tồn tại, nên một tuyến đường thêm vào sau này cũng được soi ngay. Tính hữu hiệu của nó đã được xác nhận bằng cách gỡ thử một middleware phân quyền: bộ kiểm thử thất bại và chỉ đúng tên tuyến đường bị thiếu.
+
+### Hạn chế còn tồn tại
+
+Thứ nhất, tệp được lưu trên hệ thống tệp cục bộ của máy chủ. Cách này đơn giản và đủ cho quy mô hiện tại, nhưng không hỗ trợ triển khai nhiều bản sao máy chủ cùng lúc vì các bản sao không thấy được tệp của nhau. Hướng khắc phục là chuyển sang dịch vụ lưu trữ đối tượng; lớp lưu trữ đã được tách riêng nên phạm vi thay đổi giới hạn trong một tệp.
+
+Thứ hai, phương án vector hoá cục bộ dùng kỹ thuật băm từ nên chất lượng biểu diễn ngữ nghĩa thấp hơn hẳn so với mô hình embedding đã huấn luyện. Đây chính là lý do cơ chế tìm kiếm lai trở nên cần thiết, và cũng là lý do bộ lọc mức độ liên quan phải dùng ngưỡng tương đối thay vì tuyệt đối. Khi có khoá API của một nhà cung cấp embedding, chất lượng truy hồi sẽ tăng đáng kể mà không cần thay đổi mã nguồn, chỉ cần lập chỉ mục lại toàn bộ tài liệu — vector của hai mô hình khác nhau không nằm chung một không gian nên không so sánh được với nhau.
+
+Thứ ba, chế độ trả lời có dùng kiến thức chung phụ thuộc vào việc mô hình tuân thủ đúng định dạng nhãn phân tách. Máy chủ phát hiện nhãn theo chuỗi nên nếu mô hình quên nhãn, hệ thống sẽ báo thiếu chứ không báo sai, tức là nghiêng về phía an toàn. Tuy vậy đây vẫn là một điểm phụ thuộc vào hành vi của mô hình, và một cơ chế kiểm tra chặt hơn sẽ cần tới việc yêu cầu mô hình trả về dữ liệu có cấu trúc.
+
+Thứ tư, giao diện hạn chế quản trị viên ở chế độ chỉ đọc trên dữ liệu nghiệp vụ, nhưng điều đó cũng đồng nghĩa với việc hệ thống hiện chưa có công cụ để quản trị viên gỡ bỏ nội dung vi phạm. Hướng khắc phục là bổ sung một luồng kiểm duyệt riêng, có ghi nhật ký kiểm toán tường minh, thay vì cho quản trị viên dùng chung các tuyến đường ghi của người dùng thường.
+
+Thứ năm, chức năng trợ lý AI hiện chỉ nhận nguồn là tệp đã tải lên hệ thống. Việc nhận thêm nguồn dạng đường dẫn web hoặc văn bản dán trực tiếp, như NotebookLM cho phép, chưa được cài đặt và là hướng phát triển gần nhất.
+
+KẾT LUẬN CHƯƠNG 4
+
+Chương 4 đã trình bày quá trình hiện thực hoá các thiết kế của Chương 3 thành một hệ thống chạy được, từ việc lựa chọn công cụ và thư viện, xây dựng cơ sở dữ liệu cùng các chỉ mục phục vụ tìm kiếm, triển khai các chức năng nghiệp vụ, cho tới việc cài đặt các chức năng hỗ trợ bởi trí tuệ nhân tạo.
+
+Nội dung chương cho thấy một số quyết định kỹ thuật không thể suy ra được từ bản thiết kế mà chỉ xuất hiện khi đối diện với dữ liệu thật. Tiêu biểu nhất là việc chuyển từ tìm kiếm dựa hoàn toàn vào khoảng cách cosine sang cơ chế tìm kiếm lai, xuất phát từ một phép đo cụ thể cho thấy hai câu truy vấn khác nhau căn bản về mức độ liên quan lại cho hai điểm tương đồng gần như trùng nhau. Tương tự, việc bổ sung bảng nguồn theo từng hội thoại chỉ trở nên cần thiết khi thử nghiệm với một đề tài chứa nhiều tài liệu thuộc các chủ đề khác nhau.
+
+Phần đánh giá kết quả đối chiếu các số đo thực tế với những yêu cầu phi chức năng đã đặt ra ở Chương 2, đồng thời nêu rõ năm hạn chế còn tồn tại cùng hướng khắc phục tương ứng cho từng hạn chế.
+
+KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+
+Kết luận
+
+Báo cáo đã trình bày toàn bộ quá trình phân tích, thiết kế và xây dựng hệ thống NovaThesis, một nền tảng quản lý luận văn và đề tài nghiên cứu có tích hợp trợ lý trí tuệ nhân tạo hỗ trợ học thuật.
+
+Về mặt nghiệp vụ, hệ thống đã số hoá trọn vẹn quy trình thực hiện một đề tài nghiên cứu, từ khâu đề xuất và phê duyệt, qua lập kế hoạch tiến độ theo mốc, theo dõi và nộp minh chứng, trao đổi phản hồi giữa sinh viên và giảng viên hướng dẫn, tới khâu tổng kết và kết xuất báo cáo. Chín phân hệ nghiệp vụ đều đã hoàn thành, với hai tầng phân quyền tách biệt: tầng vai trò trả lời câu hỏi người dùng thuộc nhóm nào, và tầng dữ liệu trả lời câu hỏi khó hơn là người dùng có được thao tác trên đề tài cụ thể nào.
+
+Về mặt kỹ thuật, đóng góp đáng kể nhất của đề tài nằm ở phần trợ lý học thuật, với ba điểm cụ thể. Thứ nhất là cơ chế tìm kiếm lai hợp nhất xếp hạng vector với xếp hạng toàn văn bằng phương pháp Reciprocal Rank Fusion, giải quyết một vấn đề đo được là khoảng cách cosine đơn thuần không phân biệt nổi câu truy vấn liên quan với câu truy vấn lạc đề khi câu hỏi ngắn và chứa thuật ngữ hiếm. Thứ hai là mô hình không gian tài liệu ba cấp gồm đề tài, hội thoại và tập nguồn, cho phép người dùng thu hẹp phạm vi truy xuất về đúng những tài liệu liên quan tới câu hỏi thay vì để trợ lý trộn lẫn trích dẫn từ mọi chủ đề trong kho. Thứ ba là cơ chế hai chế độ trả lời, trong đó chế độ có dùng kiến thức chung buộc phân tách rõ phần dựa trên tài liệu và phần ngoài tài liệu, thay vì hoặc từ chối trả lời hoàn toàn hoặc trộn lẫn hai loại nội dung mà người đọc không phân biệt được.
+
+Về mặt bảo mật, hệ thống áp dụng nhiều lớp phòng thủ bổ sung cho nhau: băm mật khẩu bằng Argon2id, xác thực hai token với khả năng thu hồi, hai lớp chống dò mật khẩu theo tài khoản và theo địa chỉ IP, cô lập dữ liệu giữa các người dùng qua một nguồn sự thật duy nhất, chống prompt injection từ nội dung tệp tải lên, và một bộ kiểm thử cấu trúc duyệt toàn bộ tuyến đường để phát hiện việc thiếu hàng rào phân quyền.
+
+Quá trình thực hiện đề tài cũng cho thấy giá trị của việc rà soát lại thiết kế sau khi hệ thống đã chạy. Một số quyết định trong thiết kế ban đầu tỏ ra không phù hợp khi đối diện với dữ liệu thật hoặc với định vị sản phẩm, chẳng hạn khái niệm năm học vốn chỉ đúng với một cơ sở đào tạo duy nhất, hoặc ngưỡng tương đồng tuyệt đối vốn không tồn tại giá trị nào phù hợp. Việc phát hiện và sửa những điểm này đóng góp vào kết quả cuối cùng không kém phần thiết kế ban đầu.
+
+Hướng phát triển
+
+Về hạ tầng, lớp lưu trữ tệp cần được chuyển sang dịch vụ lưu trữ đối tượng để hệ thống triển khai được nhiều bản sao máy chủ cùng lúc. Lớp này đã được tách riêng trong mã nguồn nên phạm vi thay đổi giới hạn trong một tệp.
+
+Về chất lượng truy xuất, việc thay phương án vector hoá cục bộ bằng một mô hình embedding đã huấn luyện sẽ nâng đáng kể chất lượng truy hồi ngữ nghĩa. Thay đổi này chỉ cần cấu hình và lập chỉ mục lại toàn bộ tài liệu, không cần sửa mã nguồn.
+
+Về tính năng trợ lý, hướng gần nhất là mở rộng loại nguồn: ngoài tệp tải lên, cho phép người dùng thêm nguồn dạng đường dẫn web hoặc văn bản dán trực tiếp. Xa hơn, việc sinh tự động một bản tổng hợp toàn bộ nguồn trong một hội thoại, tương tự chức năng tổng quan của NotebookLM, sẽ giúp người dùng nắm nhanh nội dung một kho tài liệu mới.
+
+Về vận hành, hệ thống cần bổ sung một luồng kiểm duyệt riêng dành cho quản trị viên, có ghi nhật ký kiểm toán tường minh, thay vì để quản trị viên dùng chung các tuyến đường ghi dữ liệu của người dùng thường. Bên cạnh đó, việc bổ sung kiểm thử tích hợp ở tầng HTTP sẽ bổ trợ cho các kiểm thử đơn vị và kiểm thử cấu trúc hiện có.
+
+Cuối cùng, hệ thống hiện phục vụ ba vai trò người dùng. Việc mở rộng cho các hình thái tổ chức nghiên cứu khác, chẳng hạn nhóm nghiên cứu có nhiều người hướng dẫn hoặc hội đồng đánh giá gồm nhiều thành viên, sẽ đòi hỏi xem lại mô hình phân quyền theo hướng linh hoạt hơn so với ba vai trò cố định hiện tại.
 
 TÀI LIỆU THAM KHẢO
 
@@ -1527,21 +2078,17 @@ TÀI LIỆU THAM KHẢO
 
 \[14\] Stanford HAI, “AI Index”. Truy cập: 12 Tháng Sáu 2026. \[Online\]. Available at: https://hai.stanford.edu/ai-index
 
-\[15\] N. Reimers và I. Gurevych, “Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks”, _ACL Anthology_, tr 3982-3992, tháng 9 2019, doi: 10.18653/V1/D19-1410.
+\[15\] M. Riva, “Real-World Next.js”, Packt Publishing Limited. Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: https://reference-global.com/book/9781801079877
 
-\[16\] P. Lewis _và c.s._, “Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks”, _Adv. Neural Inf. Process. Syst._, tháng 5 2020, doi: 10.48550/arXiv.2005.11401.
+\[16\] Mario. Casciaro và Luciano. Mammino, “Node.js Design Patterns”, tr 660, 2020, Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: https://www.oreilly.com/library/view/node-js-design-patterns/9781839214110/
 
-\[17\] M. Riva, “Real-World Next.js”, Packt Publishing Limited. Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: https://reference-global.com/book/9781801079877
+\[17\] L. Perkins, E. Redmond, và J. R. Wilson, “Seven Databases in Seven Weeks: A Guide to Modern Databases and the NoSQL Movement”, _The Pragmatic Programmers_, tr 354, 2018, Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: https://pragprog.com/titles/pwrdata/seven-databases-in-seven-weeks-second-edition
 
-\[18\] Mario. Casciaro và Luciano. Mammino, “Node.js Design Patterns”, tr 660, 2020, Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: https://www.oreilly.com/library/view/node-js-design-patterns/9781839214110/
+\[18\] A. Meier và M. Kaufmann, “ SQL và NoSQL databases : models, languages, consistency options and architectures for big data management”, _SQL và NoSQL Databases_, 2019, Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: http://link.springer.com/10.1007/978-3-658-24549-8
 
-\[19\] L. Perkins, E. Redmond, và J. R. Wilson, “Seven Databases in Seven Weeks: A Guide to Modern Databases and the NoSQL Movement”, _The Pragmatic Programmers_, tr 354, 2018, Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: https://pragprog.com/titles/pwrdata/seven-databases-in-seven-weeks-second-edition
+\[19\] Prisma, “Prisma Documentation”. Truy cập: 12 Tháng Sáu 2026. \[Online\]. Available at: https://www.prisma.io/docs
 
-\[20\] A. Meier và M. Kaufmann, “ SQL và NoSQL databases : models, languages, consistency options and architectures for big data management”, _SQL và NoSQL Databases_, 2019, Truy cập: 11 Tháng Bảy 2026. \[Online\]. Available at: http://link.springer.com/10.1007/978-3-658-24549-8
-
-\[21\] Prisma, “Prisma Documentation”. Truy cập: 12 Tháng Sáu 2026. \[Online\]. Available at: https://www.prisma.io/docs
-
-\[22\] W. Yang, T. Li, G. Fang, và H. Wei, “PASE: PostgreSQL Ultra-High-Dimensional Approximate Nearest Neighbor Search Extension”. Truy cập: 12 Tháng Sáu 2026. \[Online\]. Available at: https://dl.acm.org/doi/pdf/10.1145/3318464.3386131
+\[20\] W. Yang, T. Li, G. Fang, và H. Wei, “PASE: PostgreSQL Ultra-High-Dimensional Approximate Nearest Neighbor Search Extension”. Truy cập: 12 Tháng Sáu 2026. \[Online\]. Available at: https://dl.acm.org/doi/pdf/10.1145/3318464.3386131
 
 &nbsp;
 

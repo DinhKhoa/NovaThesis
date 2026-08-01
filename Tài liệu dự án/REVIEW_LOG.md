@@ -89,3 +89,110 @@
 | B3 | Tìm nhanh toàn cục ⌘K chưa có UC | Ghi vào Non-functional requirement |
 | B4 | Đổi giao diện Sáng/Tối chưa có UC | Ghi vào Non-functional requirement |
 | C1–C7 | Các UC có nhưng thiếu bảng CSDL | Xem ERD_Specification.md |
+
+---
+
+# ĐỢT RÀ SOÁT 2 — Đồng bộ báo cáo với source code
+
+> Ngày thực hiện: 01/08/2026
+> Phiên bản: 2.0
+> Đầu vào: `REVIEW_v2_DongBo_BaoCao_SourceCode.md`, `SPEC_v2_HoanThien_NovaThesis.md`
+
+## Thay đổi trong `Hieu_BT_NguyenDinhKhoa_49K14.1.md`
+
+### Viết mới hai chương đang rỗng
+
+| Mục | Trước | Sau |
+|---|---|---|
+| CHƯƠNG 4 — XÂY DỰNG HỆ THỐNG | Một dòng gồm 5 tiêu đề dán liền nhau, không có nội dung | 5 mục đầy đủ (~4.500 từ): cài đặt công cụ, xây dựng CSDL, chức năng chính, chức năng AI, đánh giá kết quả |
+| KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN | Chỉ có tiêu đề | Phần kết luận theo 4 khía cạnh + 5 hướng phát triển |
+| KẾT LUẬN CHƯƠNG 4 | Không có | Bổ sung |
+
+### Vẽ lại ERD
+
+| Trước | Sau |
+|---|---|
+| 13 bảng | **22 bảng**, khớp chính xác `schema.prisma` cả về số lượng và thứ tự |
+
+Bảng bổ sung: `thesis_members`, `milestone_history`, `document_versions`, `document_shares`, `ai_chat_session_sources`, `ai_suggestions`, `plagiarism_checks`, `notification_preferences`, `refresh_tokens`.
+
+Cột bổ sung/sửa đáng kể:
+
+| Bảng | Sửa |
+|---|---|
+| `users` | +10 cột (xác minh email, đặt lại mật khẩu, bộ đếm đăng nhập sai, `locked_until`, xoá mềm). Thêm trạng thái `PENDING_VERIFICATION` — không có nó thì luồng UC 1.1 tự mâu thuẫn với ERD |
+| `students` | Bỏ `thesis_id` (quan hệ đã thành N-N), thêm `student_code` |
+| `lecturers` | Thêm `lecturer_code` |
+| `theses` | Thêm `REVISION_REQUIRED`, `created_by`, `start_date`/`end_date`, `revision_note`, `submitted_at`, `completed_at` |
+| `milestones` | +12 cột (yêu cầu sửa, xin gia hạn, thứ tự, kiểm toán phê duyệt) |
+| `documents` | +9 cột, `tags` đổi từ `VARCHAR` phân cách phẩy sang `TEXT[]` |
+| `document_chunks` | +`chunk_index`, `page_number`, `token_count`; `embedding` cho phép NULL |
+| `feedbacks` | Khoá đa hình `target_type`/`target_id` tách thành 2 cột nullable + CHECK |
+| `notifications` | +`type`, `link`, `read_at`, `dedupe_key` |
+| `system_logs` | +`level`, `user_agent`; `details` đổi sang JSONB |
+| `system_configs` | +`value_type`, `category`, `is_secret`, `updated_by` |
+| `academic_years` | **Đã xoá** — thay bằng `theses.start_date`/`end_date` |
+
+### Bổ sung mục 3.3 Thiết kế bảo mật
+
+Mục hoàn toàn mới, gồm 7 phần: xác thực và quản lý phiên, chống dò mật khẩu hai lớp, phân quyền hai tầng, bảo vệ tệp tin, an toàn cho phần AI (chống prompt injection, phạm vi truy xuất), kiểm toán, và các lớp còn lại.
+
+### Sửa mâu thuẫn nội tại
+
+| # | Vấn đề | Sửa thành |
+|---|---|---|
+| 1 | Kiến trúc nói "OpenAI API" | Lớp trừu tượng đa nhà cung cấp (Anthropic/OpenAI/Gemini) + phương án dự phòng trích xuất |
+| 2 | UC 2.8 nói model "GPT-3.5/GPT-4" | `claude-sonnet-5` mặc định, kèm các lựa chọn khác |
+| 3 | UC 4.9 nói tối đa 10MB, UC 5.1 nói 50MB | Thống nhất 50MB (`MAX_UPLOAD_MB`) |
+| 4 | UC 4.9 nói lưu Cloud S3/Cloudinary, UC 5.1 nói MinIO | Thư mục riêng tư trên máy chủ, tên băm, tải qua endpoint có quyền hoặc URL ký HMAC |
+| 5 | KẾT LUẬN CHƯƠNG 2 nói "sáu nhóm" | Chín nhóm, khớp bảng Use case |
+| 6 | Cùng đoạn nói "đặc tả bao phủ toàn bộ chín nhóm" | Nói rõ là UC tiêu biểu; 87 UC đầy đủ ở Phụ lục 1 |
+| 7 | UC 6.3 nói "không cross-thesis" | Phần giao của tập quyền (gồm tài liệu chia sẻ) và tập nguồn người dùng chọn |
+| 8 | UC 6.3 nói cosine đơn thuần | Tìm kiếm lai (pgvector HNSW + toàn văn IDF, hợp nhất bằng RRF), ngưỡng tương đối |
+| 9 | UC 6.5 chỉ có một chế độ | Bổ sung hai chế độ STRICT/HYBRID và quy tắc tách khối cảnh báo |
+| 10 | Bảng yêu cầu chức năng thiếu nhóm quản trị | +16 chức năng: nhóm QT (6), BC (3), TL (2), AI (3), PH (1) |
+| 11 | Nói "hai nhóm người dùng chính" | Ba nhóm, kèm mô tả vai trò quản trị viên |
+| 12 | AI-02 ghi tác nhân chỉ "Sinh viên" | Sinh viên, Giảng viên — khớp UC 6.1 |
+
+### Sửa lỗi trình bày
+
+- "Xem **dánh** sách" → "danh sách"
+- "Mô tả bảng **lectures**" → "lecturers"
+- "Tên mốc **tiến**." → "tiến độ."
+- "liên kết **đếnmilestone_id**" → thêm dấu cách
+- Caption UC 6.1 ghi "Yêu cầu tóm tắt lại" → "Tóm tắt tài liệu", khớp tiêu đề
+- Escape markdown lộ ra ở ``\`ERROR\``` → `ERROR`
+
+### Tài liệu tham khảo
+
+- Gộp 2 cặp trùng lặp: `[15]` ≡ `[3]` (Sentence-BERT), `[16]` ≡ `[4]` (RAG)
+- Đánh số lại từ 22 → **20** mục
+- Ánh xạ lại toàn bộ trích dẫn trong thân báo cáo cho khớp
+- Đã kiểm chứng: trích dẫn trong thân = [1..20], danh mục = [1..20], không có trích dẫn treo, không có mục không được dùng
+
+### Mục lục
+
+- Bổ sung `3.3. Thiết kế bảo mật`, đánh số lại giao diện thành `3.4`
+- Bổ sung `KẾT LUẬN CHƯƠNG 4`
+- Bỏ số trang ở ba mục cuối vì chương 4 đã dài ra, số cũ không còn đúng
+
+---
+
+## Vấn đề tồn đọng của đợt 1 — trạng thái
+
+| # | Vấn đề đợt 1 | Trạng thái |
+|---|---|---|
+| B1 | "Kiểm tra trùng lặp" có giao diện nhưng chưa có UC | Đã có bảng `plagiarism_checks` trong ERD và chức năng AI-07 trong bảng yêu cầu; **UC đặc tả vẫn còn thiếu** |
+| B2 | Kéo–thả Kanban đổi trạng thái chưa có UC | Đã mô tả trong mục 4.3 (máy trạng thái); **UC 4.8 chưa bổ sung** |
+| B3 | Tìm nhanh ⌘K chưa có UC | Chưa xử lý |
+| B4 | Đổi giao diện Sáng/Tối chưa có UC | Chưa xử lý |
+| C1–C7 | UC có nhưng thiếu bảng CSDL | **Đã xử lý** — ERD giờ có đủ 22 bảng |
+| A4 | UC 6.8 đánh số lệch giữa hai tệp | Chưa xử lý |
+
+## Việc còn lại
+
+1. Bổ sung đặc tả UC cho: chọn nguồn hội thoại AI, chuyển chế độ trả lời, kiểm tra trùng lặp, phiên bản tài liệu, chia sẻ tài liệu, xin gia hạn mốc, trang tổng quan quản trị.
+2. Xoá UC 2.7 "Quản lý năm học" khỏi các tệp UC, thay bằng "Đặt kỳ nghiên cứu cho đề tài" thuộc nhóm quản lý đề tài.
+3. Đồng bộ `00_UC_Overview.md`, `02_UC_Admin.md`, `03_UC_Thesis.md`, `05_UC_Document.md`, `06_UC_AI.md`, `ALL_UC_Consolidated.md`, `ERD_Specification.md`, `Screen_Flow_Diagram.md`, `ARCHITECTURE.md`.
+4. Đánh số toàn bộ "Bảng ." và "Hình ." thành "Bảng 1..n" / "Hình 1..n" — cần làm sau khi chốt nội dung để số không phải sửa lại.
+5. Chèn ảnh chụp giao diện mới (bảng nguồn AI, trang tổng quan quản trị) vào Phụ lục 2.
