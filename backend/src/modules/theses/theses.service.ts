@@ -34,7 +34,6 @@ export const thesisInclude = {
   lecturer: {
     select: { id: true, department: true, user: { select: { full_name: true } } },
   },
-  academic_year: { select: { id: true, name: true } },
   members: {
     where: { left_at: null },
     orderBy: { joined_at: "asc" },
@@ -192,31 +191,6 @@ export async function assertLecturerCapacity(
   }
 
   return { user_id: lecturer.user.id, full_name: lecturer.user.full_name };
-}
-
-/**
- * Năm học của đề tài.
- *
- * Không truyền thì gán vào năm học đang mở. Trả `null` khi Admin chưa tạo năm
- * học nào — cột cho phép NULL, và chặn sinh viên tạo đề tài chỉ vì thiếu dữ
- * liệu quản trị là phạt nhầm người.
- */
-export async function resolveAcademicYearId(requested?: number): Promise<number | null> {
-  if (requested !== undefined) {
-    const found = await prisma.academicYear.findUnique({
-      where: { id: requested },
-      select: { id: true },
-    });
-    if (!found) throw badRequest("Năm học được chọn không tồn tại.");
-    return found.id;
-  }
-
-  const active = await prisma.academicYear.findFirst({
-    where: { is_active: true },
-    select: { id: true },
-    orderBy: { start_date: "desc" },
-  });
-  return active?.id ?? null;
 }
 
 /* ==========================================================================

@@ -45,6 +45,9 @@ function NewThesisForm() {
   const [field, setField] = React.useState(FIELDS[0] ?? "");
   const [description, setDescription] = React.useState("");
   const [pickedLecturerId, setLecturerId] = React.useState<number | null>(null);
+  /* Kỳ nghiên cứu — tuỳ chọn, dạng "YYYY-MM-DD" như `<input type="date">` gửi ra. */
+  const [startDate, setStartDate] = React.useState("");
+  const [endDate, setEndDate] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
   const { data: lecturers, loading: loadingLecturers } = useAsync(
@@ -78,6 +81,11 @@ function NewThesisForm() {
       toast.error("Vui lòng chọn giảng viên hướng dẫn.");
       return;
     }
+    // Chặn tại chỗ thay vì để server trả 422: người dùng đang nhìn đúng hai ô đó.
+    if (startDate && endDate && endDate <= startDate) {
+      toast.error("Ngày kết thúc kỳ nghiên cứu phải sau ngày bắt đầu.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -86,6 +94,8 @@ function NewThesisForm() {
         description: description.trim(),
         field,
         ...(lecturerMode ? {} : { lecturer_id: lecturerId ?? undefined }),
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
       });
 
       toast.success(
@@ -168,6 +178,32 @@ function NewThesisForm() {
                 ))}
               </Select>
             )}
+          </div>
+
+          {/* KỲ NGHIÊN CỨU — thay cho "Năm học" trước đây tự gán theo năm học
+              đang mở của hệ thống. NovaThesis là nền tảng công khai, không có
+              một lịch chung cho mọi người dùng, nên khoảng thời gian do chính
+              người tạo đề tài đặt.
+
+              Tuỳ chọn, và bỏ trống được: một bản nháp chưa cần biết mình chạy
+              trong khoảng nào. Đặt rồi thì mọi hạn chót của mốc tiến độ phải nằm
+              trong khoảng đó (`assertDeadlineWithinThesis`). */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Kỳ nghiên cứu — từ ngày"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              helperText="Bỏ trống nếu chưa xác định"
+            />
+            <Input
+              label="đến ngày"
+              type="date"
+              value={endDate}
+              min={startDate || undefined}
+              onChange={(e) => setEndDate(e.target.value)}
+              helperText="Hạn chót các mốc phải nằm trong khoảng này"
+            />
           </div>
 
           {selected && !selected.available && (

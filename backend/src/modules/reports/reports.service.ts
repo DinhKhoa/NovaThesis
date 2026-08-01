@@ -70,6 +70,20 @@ function formatDateTime(value: Date): string {
   return `${formatDate(value)} ${hh}:${mm} (UTC)`;
 }
 
+/**
+ * Kỳ nghiên cứu của đề tài, thay cho cột "Năm học" cũ.
+ *
+ * Xử lý cả trường hợp chỉ có một đầu: một đề tài mới thường biết ngày bắt đầu
+ * trước khi biết ngày kết thúc, và in ra "01/09/2025 – " thì tệ hơn là nói rõ
+ * "từ 01/09/2025".
+ */
+function formatPeriod(start: Date | null, end: Date | null): string {
+  if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+  if (start) return `từ ${formatDate(start)}`;
+  if (end) return `đến ${formatDate(end)}`;
+  return "Chưa đặt kỳ nghiên cứu";
+}
+
 /** Chỉ ngày, dùng cho trục thời gian của biểu đồ Gantt. */
 function isoDay(value: Date): string {
   return value.toISOString().slice(0, 10);
@@ -241,7 +255,8 @@ export interface ProgressReport {
   status_label: string;
   lecturer: string;
   students: string;
-  academic_year: string;
+  /** Kỳ nghiên cứu của đề tài, dạng "01/09/2025 – 31/08/2026" hoặc "Chưa đặt". */
+  research_period: string;
   created_at: Date;
   completed_at: Date | null;
   milestones: ProgressMilestone[];
@@ -265,7 +280,8 @@ export async function loadProgressReport(thesisId: number): Promise<ProgressRepo
         created_at: true,
         completed_at: true,
         lecturer: { select: { user: { select: { full_name: true } } } },
-        academic_year: { select: { name: true } },
+        start_date: true,
+        end_date: true,
         members: {
           where: { left_at: null },
           orderBy: { joined_at: "asc" },
@@ -333,7 +349,7 @@ export async function loadProgressReport(thesisId: number): Promise<ProgressRepo
     status_label: THESIS_STATUS_LABELS[thesis.status],
     lecturer: thesis.lecturer?.user.full_name ?? "Chưa phân công",
     students: students || "Chưa có sinh viên",
-    academic_year: thesis.academic_year?.name ?? "Chưa gán năm học",
+    research_period: formatPeriod(thesis.start_date, thesis.end_date),
     created_at: thesis.created_at,
     completed_at: thesis.completed_at,
     milestones,
@@ -518,7 +534,7 @@ function drawThesisInfo(doc: Doc, report: ProgressReport): void {
   infoRow(doc, "Trạng thái", report.status_label);
   infoRow(doc, "Giảng viên HD", report.lecturer);
   infoRow(doc, "Sinh viên", report.students);
-  infoRow(doc, "Năm học", report.academic_year);
+  infoRow(doc, "Kỳ nghiên cứu", report.research_period);
   infoRow(doc, "Ngày tạo", formatDate(report.created_at));
   if (report.completed_at) infoRow(doc, "Ngày hoàn thành", formatDate(report.completed_at));
   doc.moveDown(0.8);
@@ -732,7 +748,9 @@ function truncate(value: string, max: number): string {
 export interface ThesisExportFilters {
   status?: ThesisStatus;
   field?: string;
-  academic_year_id?: number;
+  /** Lọc theo đề tài BẮT ĐẦU trong khoảng này (`theses.start_date`). */
+  from?: Date;
+  to?: Date;
   lecturer_id?: number;
 }
 
@@ -743,7 +761,7 @@ interface ExportRow {
   status: string;
   lecturer: string;
   students: string;
-  academic_year: string;
+  research_period: string;
   milestone_total: number;
   milestone_done: number;
   document_count: number;
@@ -765,7 +783,7 @@ const EXPORT_COLUMNS: ReadonlyArray<ExportColumn> = [
   { header: "Trạng thái", key: "status", width: 16 },
   { header: "GVHD", key: "lecturer", width: 24 },
   { header: "Sinh viên", key: "students", width: 32 },
-  { header: "Năm học", key: "academic_year", width: 14 },
+  { header: "Kỳ nghiên cứu", key: "research_period", width: 24 },
   // Không để cột nào rộng đúng ~9: exceljs coi đó là bề rộng mặc định và bỏ hẳn
   // khai báo `<col>`, khiến độ rộng đặt ở đây biến mất sau khi ghi tệp.
   { header: "Số mốc", key: "milestone_total", width: 11 },
@@ -795,7 +813,14 @@ export async function loadThesesForExport(
     ...scope,
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.field ? { field: { contains: filters.field, mode: "insensitive" } } : {}),
-    ...(filters.academic_year_id ? { academic_year_id: filters.academic_year_id } : {}),
+    ...(filters.from || filters.to
+      ? {
+          start_date: {
+            ...(filters.from ? { gte: filters.from } : {}),
+            ...(filters.to ? { lte: filters.to } : {}),
+          },
+        }
+      : {}),
     // Lọc theo giảng viên áp lên TRÊN phạm vi, không thay thế nó: một giảng
     // viên gửi `lecturer_id` của đồng nghiệp vẫn chỉ nhận về tệp rỗng.
     ...(filters.lecturer_id ? { lecturer_id: filters.lecturer_id } : {}),
@@ -818,7 +843,8 @@ export async function loadThesesForExport(
       created_at: true,
       completed_at: true,
       lecturer: { select: { user: { select: { full_name: true } } } },
-      academic_year: { select: { name: true } },
+      start_date: true,
+      end_date: true,
       members: {
         where: { left_at: null },
         orderBy: { joined_at: "asc" },
@@ -841,7 +867,7 @@ export async function loadThesesForExport(
     status: THESIS_STATUS_LABELS[t.status],
     lecturer: t.lecturer?.user.full_name ?? "Chưa phân công",
     students: t.members.map((m) => m.student.user.full_name).join(", "),
-    academic_year: t.academic_year?.name ?? "",
+    research_period: formatPeriod(t.start_date, t.end_date),
     milestone_total: t.milestones.length,
     milestone_done: t.milestones.filter((m) => m.status === "COMPLETED").length,
     document_count: t._count.documents,

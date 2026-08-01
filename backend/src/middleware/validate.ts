@@ -140,3 +140,84 @@ export const passwordField = z
     (v) => /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(v),
     "Mật khẩu cần có chữ hoa, chữ thường và số."
   );
+
+/* ==========================================================================
+   NGÀY (không kèm giờ)
+
+   Chuyển về đây từ `modules/milestones/milestones.service.ts`: kỳ nghiên cứu của
+   đề tài cũng cần đúng cách đọc ngày này, và để `theses.routes.ts` phải import
+   từ module Mốc tiến độ là dựng một phụ thuộc ngược chiều chỉ vì một hàm 20 dòng.
+   ========================================================================== */
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Quy một chuỗi ngày về nửa đêm UTC, hoặc `null` nếu không đọc được.
+ *
+ * `new Date("2026-02-31")` KHÔNG ném lỗi mà lặng lẽ trả về 03-03, nên phải đối
+ * chiếu lại từng thành phần thay vì tin vào việc parse thành công.
+ */
+export function toUtcMidnight(raw: string): Date | null {
+  const value = raw.trim();
+  if (DATE_ONLY.test(value)) {
+    const y = Number(value.slice(0, 4));
+    const m = Number(value.slice(5, 7));
+    const d = Number(value.slice(8, 10));
+    const parsed = new Date(Date.UTC(y, m - 1, d));
+    const sameDay =
+      parsed.getUTCFullYear() === y && parsed.getUTCMonth() === m - 1 && parsed.getUTCDate() === d;
+    return sameDay ? parsed : null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  // Giờ-phút của một hạn chót không mang ý nghĩa nghiệp vụ (giao diện dùng
+  // `input type="date"`); cắt bỏ để hai mốc cùng ngày luôn so sánh bằng nhau.
+  return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+}
+
+/** Ngày bắt buộc. Lỗi định dạng đi ra dưới dạng 422 như mọi input khác. */
+export function dateField(label: string) {
+  return z
+    .string({
+      required_error: `${label} là bắt buộc.`,
+      invalid_type_error: `${label} phải là chuỗi ngày dạng YYYY-MM-DD.`,
+    })
+    .transform((value, ctx) => {
+      const parsed = toUtcMidnight(value);
+      if (!parsed) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${label} không hợp lệ. Định dạng đúng: YYYY-MM-DD.`,
+        });
+        return z.NEVER;
+      }
+      return parsed;
+    });
+}
+
+/**
+ * Ngày tuỳ chọn, nhận cả chuỗi rỗng.
+ *
+ * Ô lọc trên giao diện gửi `?from=` khi người dùng xoá giá trị. Dùng
+ * `z.preprocess` để quy về `undefined` thì TypeScript mất luôn kiểu đầu ra (thành
+ * `unknown`) và mọi chỗ dùng phải ép kiểu; xử lý trong `transform` giữ được
+ * `Date | undefined` đúng nghĩa.
+ */
+export function optionalDateField(label: string) {
+  return z
+    .string({ invalid_type_error: `${label} phải là chuỗi ngày dạng YYYY-MM-DD.` })
+    .optional()
+    .transform((value, ctx) => {
+      if (value === undefined || value.trim() === "") return undefined;
+      const parsed = toUtcMidnight(value);
+      if (!parsed) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${label} không hợp lệ. Định dạng đúng: YYYY-MM-DD.`,
+        });
+        return z.NEVER;
+      }
+      return parsed;
+    });
+}

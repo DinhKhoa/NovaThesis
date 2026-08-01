@@ -77,7 +77,7 @@ openssl rand -hex 32   # → FILE_URL_SECRET
 # vẫn ở trong thư mục backend/
 npm install
 npm run setup          # tải font tiếng Việt cho xuất PDF
-npx prisma migrate deploy   # tạo 22 bảng + chỉ mục HNSW
+npx prisma migrate deploy   # tạo 22 bảng + chỉ mục HNSW (bỏ academic_years, thêm ai_chat_session_sources)
 npm run db:seed        # tham số hệ thống + 1 tài khoản quản trị
 npm run db:seed:demo   # (tuỳ chọn) dữ liệu mẫu để thử nghiệm
 ```

@@ -19,7 +19,12 @@ import { z } from "zod";
 import { asyncHandler } from "../../lib/http";
 import { audit, AuditAction } from "../../lib/audit";
 import { currentUser, requireAuth, requireRole } from "../../middleware/auth";
-import { optionalText, validateParams, validateQuery } from "../../middleware/validate";
+import {
+  optionalDateField,
+  optionalText,
+  validateParams,
+  validateQuery,
+} from "../../middleware/validate";
 import { assertThesisAccess } from "../../domain/access";
 import {
   buildGantt,
@@ -89,7 +94,10 @@ const exportQuerySchema = z.object({
       .optional()
   ),
   field: z.preprocess(anyToUndefined, optionalText(100, "Lĩnh vực")),
-  academic_year_id: z.preprocess(anyToUndefined, positiveId("Năm học").optional()),
+  /* Lọc theo KỲ NGHIÊN CỨU: đề tài bắt đầu trong khoảng này. Thay cho
+     `academic_year_id` cũ — xem migration `..._drop_academic_years`. */
+  from: optionalDateField("Ngày bắt đầu khoảng lọc"),
+  to: optionalDateField("Ngày kết thúc khoảng lọc"),
   lecturer_id: z.preprocess(anyToUndefined, positiveId("Giảng viên").optional()),
 });
 
@@ -200,7 +208,8 @@ reportsRouter.get(
     const filters: ThesisExportFilters = {
       status: query.status,
       field: query.field,
-      academic_year_id: query.academic_year_id,
+      from: query.from,
+      to: query.to,
       lecturer_id: query.lecturer_id,
     };
 

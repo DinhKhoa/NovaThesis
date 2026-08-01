@@ -31,6 +31,7 @@ import {
   validateBody,
   validateParams,
   validateQuery,
+  optionalDateField,
 } from "../../middleware/validate";
 import { assertThesisAccess } from "../../domain/access";
 import { checkThesisTransition } from "../../domain/milestone-fsm";
@@ -40,7 +41,6 @@ import {
   assertLecturerCapacity,
   assertNoActiveThesis,
   findThesisDTO,
-  resolveAcademicYearId,
   scopedThesisWhere,
   searchCondition,
   thesisHistory,
@@ -87,14 +87,11 @@ const listQuerySchema = z
         .optional()
     ),
     field: z.preprocess(anyToUndefined, optionalText(100, "Lĩnh vực")),
-    academic_year_id: z.preprocess(
-      anyToUndefined,
-      z.coerce
-        .number({ invalid_type_error: "Năm học không hợp lệ." })
-        .int("Năm học không hợp lệ.")
-        .positive("Năm học không hợp lệ.")
-        .optional()
-    ),
+    /* Lọc theo KỲ NGHIÊN CỨU thay cho năm học.
+       `from`/`to` lọc trên `theses.start_date`: đề tài bắt đầu trong khoảng này.
+       Linh hoạt hơn một mã năm học cố định, và không cần bảng tra nào. */
+    from: optionalDateField("Ngày bắt đầu khoảng lọc"),
+    to: optionalDateField("Ngày kết thúc khoảng lọc"),
   })
   .merge(paginationSchema);
 
@@ -103,8 +100,14 @@ const createSchema = z.object({
   description: text(10, 10_000, "Mô tả đề tài"),
   field: text(2, 100, "Lĩnh vực nghiên cứu"),
   lecturer_id: z.coerce.number().int().positive("Giảng viên không hợp lệ.").optional(),
-  academic_year_id: z.coerce.number().int().positive("Năm học không hợp lệ.").optional(),
-});
+  /* Kỳ nghiên cứu, tuỳ chọn. Đặt được ngay lúc tạo hoặc bổ sung sau ở trang chi
+     tiết — một bản nháp chưa cần biết mình chạy trong khoảng thời gian nào. */
+  start_date: optionalDateField("Ngày bắt đầu kỳ nghiên cứu"),
+  end_date: optionalDateField("Ngày kết thúc kỳ nghiên cứu"),
+}).refine(
+  (v) => v.start_date === undefined || v.end_date === undefined || v.end_date > v.start_date,
+  { message: "Ngày kết thúc phải sau ngày bắt đầu.", path: ["end_date"] }
+);
 
 const updateSchema = z.object({
   title: text(10, 255, "Tên đề tài").optional(),
@@ -180,7 +183,12 @@ thesesRouter.get(
     const where = await scopedThesisWhere(user);
     if (query.status) where.status = query.status;
     if (query.field) where.field = query.field;
-    if (query.academic_year_id) where.academic_year_id = query.academic_year_id;
+    if (query.from || query.to) {
+      where.start_date = {
+        ...(query.from ? { gte: query.from } : {}),
+        ...(query.to ? { lte: query.to } : {}),
+      };
+    }
     // Điều kiện tìm kiếm phải nằm trong `AND`: gán thẳng vào `where.OR` sẽ ghi
     // đè mệnh đề OR mà `scopedThesisWhere` dùng để giấu bản nháp của sinh viên.
     if (query.search) where.AND = [searchCondition(query.search)];
@@ -314,8 +322,6 @@ thesesRouter.post(
       await assertLecturerCapacity(lecturerId);
     }
 
-    const academicYearId = await resolveAcademicYearId(body.academic_year_id);
-
     const created = await prisma.thesis.create({
       data: {
         title: body.title,
@@ -323,7 +329,8 @@ thesesRouter.post(
         field: body.field,
         status: "DRAFT",
         lecturer_id: lecturerId,
-        academic_year_id: academicYearId,
+        ...(body.start_date !== undefined ? { start_date: body.start_date } : {}),
+        ...(body.end_date !== undefined ? { end_date: body.end_date } : {}),
         created_by: user.id,
         // Sinh viên tạo thì đồng thời là chủ nhiệm. Tạo lồng trong cùng một
         // lệnh để không bao giờ tồn tại đề tài "mồ côi" nếu bước hai thất bại.
@@ -342,7 +349,6 @@ thesesRouter.post(
         title: body.title,
         field: body.field,
         lecturer_id: lecturerId,
-        academic_year_id: academicYearId,
       },
     });
 

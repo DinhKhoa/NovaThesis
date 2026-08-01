@@ -11,9 +11,11 @@
 //      không quy tắc "khoá 15 phút sau 5 lần sai" (UC 1.1) không cài được.
 //    • `theses ↔ students` đổi thành quan hệ nhiều-nhiều qua `thesis_members`
 //      (giao diện hiển thị nhiều sinh viên trên một đề tài).
-//    • Bổ sung 7 bảng còn thiếu: document_versions, academic_years,
-//      document_shares, milestone_history, notification_preferences,
-//      ai_suggestions, plagiarism_checks.
+//    • Bổ sung 6 bảng còn thiếu: document_versions, document_shares,
+//      milestone_history, notification_preferences, ai_suggestions,
+//      plagiarism_checks.
+//    • `academic_years` ĐÃ BỎ. "Năm học" là khái niệm của riêng một trường;
+//      thay bằng `theses.start_date` / `end_date` do người tạo đề tài tự đặt.
 //    • `feedbacks.target_id` đa hình được tách thành hai khoá ngoại nullable
 //      `milestone_id` / `document_id` kèm CHECK "đúng một cột khác NULL", giữ
 //      được toàn vẹn tham chiếu ở tầng CSDL.
@@ -240,22 +242,6 @@ model Lecturer {
   @@map("lecturers")
 }
 
-/// UC 2.7 — Quản lý năm học. Không có bảng này thì UC 9.2 (xuất danh sách đề
-/// tài) và UC 2.6 (thống kê) không lọc được theo khoá.
-model AcademicYear {
-  id         Int      @id @default(autoincrement())
-  name       String   @unique @db.VarChar(50)
-  start_date DateTime @db.Date
-  end_date   DateTime @db.Date
-  is_active  Boolean  @default(false)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  theses Thesis[]
-
-  @@map("academic_years")
-}
-
 // -----------------------------------------------------------------------------
 //  ĐỀ TÀI
 // -----------------------------------------------------------------------------
@@ -267,9 +253,21 @@ model Thesis {
   field       String       @db.VarChar(100)
   status      ThesisStatus @default(DRAFT)
 
-  lecturer_id      Int?
-  academic_year_id Int?
-  created_by       Int
+  lecturer_id Int?
+  created_by  Int
+
+  /// KỲ NGHIÊN CỨU — thay cho bảng `academic_years` đã bỏ.
+  ///
+  /// "Năm học" là khái niệm của riêng từng trường; một nền tảng công khai không
+  /// áp được một lịch chung cho mọi người dùng. Hai cột này giữ lại đúng phần có
+  /// ích của nó — mốc thời gian để đối chiếu deadline và để phân kỳ báo cáo —
+  /// nhưng do chính người tạo đề tài đặt.
+  ///
+  /// Tuỳ chọn: đề tài đang ở dạng nháp chưa cần biết mình chạy trong khoảng nào.
+  /// `@db.Date` chứ không phải timestamp: đây là ngày, không phải thời điểm, và
+  /// lưu kèm giờ sẽ khiến so sánh lệch đúng một ngày ở các múi giờ âm.
+  start_date DateTime? @db.Date
+  end_date   DateTime? @db.Date
 
   /// UC 3.11 — từ chối hẳn (trạng thái cuối).
   rejection_reason String?
@@ -283,9 +281,8 @@ model Thesis {
   created_at DateTime  @default(now())
   updated_at DateTime  @updatedAt
 
-  lecturer      Lecturer?     @relation(fields: [lecturer_id], references: [id], onDelete: SetNull)
-  academic_year AcademicYear? @relation(fields: [academic_year_id], references: [id], onDelete: SetNull)
-  creator       User          @relation("ThesisCreatedBy", fields: [created_by], references: [id])
+  lecturer Lecturer? @relation(fields: [lecturer_id], references: [id], onDelete: SetNull)
+  creator  User      @relation("ThesisCreatedBy", fields: [created_by], references: [id])
 
   members           ThesisMember[]
   milestones        Milestone[]
@@ -297,7 +294,8 @@ model Thesis {
 
   @@index([status])
   @@index([lecturer_id, status])
-  @@index([academic_year_id])
+  /// Phân kỳ báo cáo và bộ lọc khoảng thời gian đều truy vấn theo cột này.
+  @@index([start_date])
   @@index([deleted_at])
   @@map("theses")
 }

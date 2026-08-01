@@ -2,10 +2,8 @@
 
 import React from "react";
 import {
-  CalendarBlank,
   FloppyDisk,
   HardDrives,
-  Plus,
   Robot,
   Shield,
   SlidersHorizontal,
@@ -13,21 +11,17 @@ import {
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import {
-  Badge,
   Button,
   Card,
   Checkbox,
-  ConfirmDialog,
   EmptyState,
   Input,
-  Modal,
   Skeleton,
-  Table,
 } from "@/components/ui";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
-import { adminApi, type AcademicYear, type SystemConfigItem } from "@/lib/services";
+import { adminApi, type SystemConfigItem } from "@/lib/services";
 import { formatDate, formatRelative } from "@/lib/format";
 
 /* Nhóm hiển thị bám đúng cột `category` của API. Trước đây trang gộp cứng
@@ -210,7 +204,6 @@ export default function AdminSettingsPage() {
           ))
         )}
 
-        <AcademicYearsPanel />
       </div>
     </div>
   );
@@ -296,280 +289,5 @@ function ConfigField({
       </div>
       <div className="md:col-span-2">{control}</div>
     </div>
-  );
-}
-
-/* ==========================================================================
-   NĂM HỌC (UC 2.7)
-   ========================================================================== */
-
-const EMPTY_YEAR_DRAFT = { name: "", start_date: "", end_date: "" };
-
-function AcademicYearsPanel() {
-  const { data, loading, error, refetch, setData } = useAsync(
-    () => adminApi.academicYears(),
-    []
-  );
-
-  const years = data ?? [];
-  const activeYear = years.find((y) => y.is_active) ?? null;
-
-  const [createOpen, setCreateOpen] = React.useState(false);
-  const [draft, setDraft] = React.useState(EMPTY_YEAR_DRAFT);
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
-  const [creating, setCreating] = React.useState(false);
-
-  const [pendingActivate, setPendingActivate] = React.useState<AcademicYear | null>(null);
-  const [activating, setActivating] = React.useState(false);
-
-  const closeCreate = () => {
-    setCreateOpen(false);
-    setDraft(EMPTY_YEAR_DRAFT);
-    setFieldErrors({});
-  };
-
-  const handleCreate = async () => {
-    if (!draft.name.trim() || !draft.start_date || !draft.end_date) {
-      toast.error("Cần đủ tên năm học, ngày bắt đầu và ngày kết thúc.");
-      return;
-    }
-
-    setCreating(true);
-    setFieldErrors({});
-    try {
-      /* Không gửi `is_active`: backend cố tình không nhận cờ này khi tạo, vì
-         mở một năm học là giao dịch riêng có bước hạ cờ năm cũ. */
-      const created = await adminApi.createAcademicYear({
-        name: draft.name.trim(),
-        start_date: draft.start_date,
-        end_date: draft.end_date,
-      });
-      toast.success(
-        `Đã tạo năm học ${created.name}. Năm học mới chưa mở — bấm “Kích hoạt” khi cần dùng.`
-      );
-      closeCreate();
-      void refetch();
-    } catch (err) {
-      if (isApiError(err) && err.errors) setFieldErrors(err.errors);
-      toast.error(isApiError(err) ? err.message : "Không tạo được năm học.");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleActivate = async () => {
-    if (!pendingActivate) return;
-
-    setActivating(true);
-    try {
-      const updated = await adminApi.activateAcademicYear(pendingActivate.id);
-      /* Server hạ cờ năm cũ trong cùng giao dịch nhưng chỉ trả về năm vừa mở.
-         Hạ cờ các năm còn lại ngay tại client, nếu không bảng sẽ hiện hai dòng
-         "Đang mở" cho tới lần tải kế tiếp — đúng thứ mà ràng buộc một-năm-một-
-         thời-điểm không cho phép tồn tại. */
-      setData((prev) =>
-        prev
-          ? prev.map((y) => (y.id === updated.id ? updated : { ...y, is_active: false }))
-          : prev
-      );
-      toast.success(`Đã mở năm học ${updated.name}.`);
-      setPendingActivate(null);
-    } catch (err) {
-      toast.error(isApiError(err) ? err.message : "Không kích hoạt được năm học.");
-      void refetch();
-    } finally {
-      setActivating(false);
-    }
-  };
-
-  return (
-    <Card hoverable={false} className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 p-6 pb-4">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <CalendarBlank size={20} style={{ color: "var(--accent)" }} />
-            Năm học
-          </h2>
-          <p className="text-[12px] text-tertiary mt-1">
-            Chỉ một năm học được mở tại một thời điểm. Đề tài và thống kê gắn theo năm
-            đang mở.
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Plus size={15} />}
-          onClick={() => setCreateOpen(true)}
-        >
-          Thêm năm học
-        </Button>
-      </div>
-
-      {error ? (
-        <EmptyState
-          icon={<Warning size={16} />}
-          title="Không tải được danh sách năm học"
-          description={error}
-          action={
-            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
-              Thử lại
-            </Button>
-          }
-        />
-      ) : (
-        <Table
-          data={years}
-          loading={loading}
-          keyExtractor={(y) => String(y.id)}
-          emptyState={
-            <EmptyState
-              compact
-              icon={<CalendarBlank size={18} />}
-              title="Chưa có năm học nào"
-              description="Bấm “Thêm năm học” để tạo niên khóa đầu tiên, sau đó kích hoạt để đề tài mới gắn vào năm đó."
-            />
-          }
-          columns={[
-            {
-              key: "name",
-              header: "Năm học",
-              sortValue: (y) => y.name,
-              render: (y) => (
-                <span className="text-[13px] font-medium">{y.name}</span>
-              ),
-            },
-            {
-              key: "start_date",
-              header: "Bắt đầu",
-              width: "1%",
-              hideOnMobile: true,
-              sortValue: (y) => y.start_date,
-              render: (y) => (
-                <span className="text-[12.5px] text-tertiary tnum whitespace-nowrap">
-                  {formatDate(y.start_date)}
-                </span>
-              ),
-            },
-            {
-              key: "end_date",
-              header: "Kết thúc",
-              width: "1%",
-              hideOnMobile: true,
-              sortValue: (y) => y.end_date,
-              render: (y) => (
-                <span className="text-[12.5px] text-tertiary tnum whitespace-nowrap">
-                  {formatDate(y.end_date)}
-                </span>
-              ),
-            },
-            {
-              key: "is_active",
-              header: "Trạng thái",
-              width: "1%",
-              sortValue: (y) => (y.is_active ? 0 : 1),
-              render: (y) =>
-                y.is_active ? (
-                  <Badge variant="success" dot>
-                    Đang mở
-                  </Badge>
-                ) : (
-                  <span className="text-[12.5px] text-muted">Chưa mở</span>
-                ),
-            },
-            {
-              key: "actions",
-              header: "",
-              width: "1%",
-              align: "right",
-              // Năm đang mở không có gì để kích hoạt lại — bày nút ở đó chỉ tạo
-              // ra một thao tác không làm gì.
-              render: (y) =>
-                y.is_active ? null : (
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={() => setPendingActivate(y)}
-                  >
-                    Kích hoạt
-                  </Button>
-                ),
-            },
-          ]}
-        />
-      )}
-
-      <Modal
-        open={createOpen}
-        onClose={closeCreate}
-        title="Thêm năm học"
-        description="Năm học mới được tạo ở trạng thái chưa mở."
-        width="max-w-md"
-        footer={
-          <>
-            <Button variant="ghost" onClick={closeCreate}>
-              Hủy
-            </Button>
-            <Button variant="primary" loading={creating} onClick={handleCreate}>
-              Tạo năm học
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <Input
-            label="Tên năm học"
-            required
-            placeholder="2026-2027"
-            value={draft.name}
-            error={fieldErrors.name?.[0]}
-            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="Ngày bắt đầu"
-              type="date"
-              required
-              value={draft.start_date}
-              error={fieldErrors.start_date?.[0]}
-              onChange={(e) => setDraft((d) => ({ ...d, start_date: e.target.value }))}
-            />
-            <Input
-              label="Ngày kết thúc"
-              type="date"
-              required
-              value={draft.end_date}
-              // Trình duyệt chặn luôn khoảng ngày không hợp lệ, thay vì để người
-              // dùng bấm Tạo rồi mới nhận lỗi "Ngày kết thúc phải sau ngày bắt đầu".
-              min={draft.start_date || undefined}
-              error={fieldErrors.end_date?.[0]}
-              onChange={(e) => setDraft((d) => ({ ...d, end_date: e.target.value }))}
-            />
-          </div>
-        </div>
-      </Modal>
-
-      <ConfirmDialog
-        open={pendingActivate !== null}
-        onClose={() => setPendingActivate(null)}
-        onConfirm={handleActivate}
-        loading={activating}
-        danger={false}
-        confirmLabel="Kích hoạt"
-        title="Mở năm học này?"
-        message={
-          <>
-            Chỉ một năm học được mở tại một thời điểm. Mở{" "}
-            <strong>{pendingActivate?.name}</strong>
-            {activeYear && activeYear.id !== pendingActivate?.id ? (
-              <>
-                {" "}
-                sẽ đóng <strong>{activeYear.name}</strong>
-              </>
-            ) : null}
-            . Đề tài tạo sau đó và bộ lọc thống kê sẽ gắn vào năm học này.
-          </>
-        }
-      />
-    </Card>
   );
 }

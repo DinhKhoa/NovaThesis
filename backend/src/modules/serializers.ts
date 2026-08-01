@@ -124,7 +124,6 @@ export function toLecturerOptionDTO(row: {
 
 type ThesisWithRelations = Thesis & {
   lecturer?: { id: number; department: string; user: { full_name: string } } | null;
-  academic_year?: { id: number; name: string } | null;
   members?: { student: { id: number; student_code: string | null; user: { full_name: string } } }[];
   _count?: { milestones?: number; documents?: number };
 };
@@ -143,8 +142,11 @@ export function toThesisDTO(thesis: ThesisWithRelations) {
     lecturer_department: thesis.lecturer?.department ?? null,
     student_names: students.map((s) => s.user.full_name),
     student_ids: students.map((s) => s.id),
-    academic_year_id: thesis.academic_year_id,
-    academic_year: thesis.academic_year?.name ?? null,
+    /* KỲ NGHIÊN CỨU — thay cho `academic_year` cũ.
+       Cột `@db.Date` nên trả "YYYY-MM-DD": thêm phần giờ vào sẽ khiến
+       `<input type="date">` của trình duyệt bỏ trắng. */
+    start_date: thesis.start_date ? thesis.start_date.toISOString().slice(0, 10) : null,
+    end_date: thesis.end_date ? thesis.end_date.toISOString().slice(0, 10) : null,
     rejection_reason: thesis.rejection_reason,
     revision_note: thesis.revision_note,
     milestone_count: thesis._count?.milestones ?? 0,

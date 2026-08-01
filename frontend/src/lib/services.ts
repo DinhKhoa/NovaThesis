@@ -59,8 +59,9 @@ export interface Thesis {
   lecturer_department: string | null;
   student_names: string[];
   student_ids: number[];
-  academic_year_id: number | null;
-  academic_year: string | null;
+  /** Kỳ nghiên cứu, dạng "YYYY-MM-DD". Thay cho `academic_year` cũ. */
+  start_date: string | null;
+  end_date: string | null;
   rejection_reason: string | null;
   revision_note: string | null;
   milestone_count: number;
@@ -103,6 +104,9 @@ export const thesesApi = {
     description: string;
     field: string;
     lecturer_id?: number;
+    /** Kỳ nghiên cứu, "YYYY-MM-DD". Tuỳ chọn — bản nháp chưa cần biết. */
+    start_date?: string;
+    end_date?: string;
   }) => api.post<Thesis>("/theses", data),
   update: (id: number, data: Partial<Pick<Thesis, "title" | "description" | "field">>) =>
     api.patch<Thesis>(`/theses/${id}`, data),
@@ -803,14 +807,6 @@ export interface AdminStatistics {
   ai_usage_weekly: { week: string; count: number }[];
 }
 
-export interface AcademicYear {
-  id: number;
-  name: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-}
-
 export const adminApi = {
   /** Trang tổng quan: số liệu + việc cần xử lý. Khác `/statistics` ở mục đích. */
   overview: () => api.get<AdminOverview>("/admin/overview"),
@@ -834,19 +830,13 @@ export const adminApi = {
   setUserRole: (id: number, role: UserRole, extra?: { lecturer_code?: string; department?: string }) =>
     api.patch<AccountUser>(`/admin/users/${id}/role`, { role, ...extra }),
   removeUser: (id: number) => api.delete<void>(`/admin/users/${id}`),
-  statistics: (academicYearId?: number) =>
-    api.get<AdminStatistics>("/admin/statistics", academicYearId ? { academic_year_id: academicYearId } : undefined),
+  statistics: () => api.get<AdminStatistics>("/admin/statistics"),
   logs: (params?: Record<string, string | number>) =>
     api.get<Paginated<SystemLogEntry>>("/admin/logs", params),
   logActions: () => api.get<string[]>("/admin/logs/actions"),
   configs: () => api.get<SystemConfigItem[]>("/admin/configs"),
   saveConfigs: (configs: { config_key: string; config_value: string }[]) =>
     api.put<SystemConfigItem[]>("/admin/configs", { configs }),
-  academicYears: () => api.get<AcademicYear[]>("/admin/academic-years"),
-  createAcademicYear: (data: { name: string; start_date: string; end_date: string }) =>
-    api.post<AcademicYear>("/admin/academic-years", data),
-  activateAcademicYear: (id: number) =>
-    api.post<AcademicYear>(`/admin/academic-years/${id}/activate`),
 };
 
 /* ==========================================================================

@@ -118,7 +118,7 @@ Hệ thống phục vụ ba nhóm người dùng: sinh viên thực hiện đề
 
 2. Mô hình dữ liệu
 
-Cơ sở dữ liệu gồm 22 bảng. Nhóm tài khoản gồm users, students, lecturers. Nhóm nghiệp vụ gồm theses, thesis_members, milestones, milestone_history, documents, document_versions, document_shares. Nhóm AI gồm document_chunks, ai_chat_sessions, ai_chat_messages, ai_suggestions, plagiarism_checks. Nhóm vận hành gồm feedbacks, notifications, notification_preferences, system_logs, system_configs, academic_years, refresh_tokens.
+Cơ sở dữ liệu gồm 22 bảng. Nhóm tài khoản gồm users, students, lecturers. Nhóm nghiệp vụ gồm theses, thesis_members, milestones, milestone_history, documents, document_versions, document_shares. Nhóm AI gồm document_chunks, ai_chat_sessions, ai_chat_session_sources, ai_chat_messages, ai_suggestions, plagiarism_checks. Nhóm vận hành gồm feedbacks, notifications, notification_preferences, system_logs, system_configs, refresh_tokens.
 
 Quan hệ giữa đề tài và sinh viên là nhiều-nhiều thông qua bảng thesis_members. Thiết kế ban đầu đặt một cột thesis_id trên bảng students, nhưng cách đó chỉ cho phép một sinh viên trên một đề tài và không lưu được lịch sử khi sinh viên đổi đề tài hoặc học lại năm sau.
 
@@ -200,17 +200,11 @@ async function main(): Promise<void> {
   const passwordHash = await hashPassword(PASSWORD);
   const now = new Date();
 
-  /* --- Năm học ------------------------------------------------------- */
-  const year = await prisma.academicYear.upsert({
-    where: { name: "2025–2026" },
-    update: {},
-    create: {
-      name: "2025–2026",
-      start_date: new Date("2025-09-01"),
-      end_date: new Date("2026-08-31"),
-      is_active: true,
-    },
-  });
+  /* --- Kỳ nghiên cứu mẫu ---------------------------------------------
+     Trước đây đây là một bản ghi `academic_years` với `is_active = true`. Bảng
+     đó đã bỏ; khoảng thời gian giờ nằm trên chính đề tài. */
+  const PERIOD_START = new Date("2025-09-01");
+  const PERIOD_END = new Date("2026-08-31");
 
   /* --- Cấu hình hệ thống ---------------------------------------------- */
   const configs = [
@@ -478,7 +472,8 @@ async function main(): Promise<void> {
             field: seed.field,
             status: seed.status,
             lecturer_id: seed.lecturerId,
-            academic_year_id: year.id,
+            start_date: PERIOD_START,
+            end_date: PERIOD_END,
             created_by: seed.studentIds.length ? studentC.id : lecturerA.id,
             rejection_reason: seed.rejection_reason ?? null,
             revision_note: seed.revision_note ?? null,

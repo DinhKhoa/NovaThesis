@@ -36,7 +36,7 @@ import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
 import { thesesApi, type Thesis } from "@/lib/services";
-import { formatDateTime, formatDate } from "@/lib/format";
+import { formatDateTime, formatDate, formatPeriod } from "@/lib/format";
 import { statusMap } from "../page";
 
 export default function ThesisDetailPage() {
@@ -168,8 +168,10 @@ export default function ThesisDetailPage() {
               {statusInfo.label}
             </Badge>
             <span className="text-[12px] text-tertiary">Lĩnh vực: {thesis.field}</span>
-            {thesis.academic_year && (
-              <span className="text-[12px] text-tertiary">Năm học: {thesis.academic_year}</span>
+            {(thesis.start_date || thesis.end_date) && (
+              <span className="text-[12px] text-tertiary">
+                Kỳ nghiên cứu: {formatPeriod(thesis.start_date, thesis.end_date)}
+              </span>
             )}
           </div>
 

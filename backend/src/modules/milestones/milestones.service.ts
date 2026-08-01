@@ -85,78 +85,47 @@ export function dateText(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * Quy một chuỗi ngày về nửa đêm UTC, hoặc `null` nếu không đọc được.
- *
- * `new Date("2026-02-31")` KHÔNG ném lỗi mà lặng lẽ trả về 03-03, nên phải đối
- * chiếu lại từng thành phần thay vì tin vào việc parse thành công.
- */
-function toUtcMidnight(raw: string): Date | null {
-  const value = raw.trim();
-  if (DATE_ONLY.test(value)) {
-    const y = Number(value.slice(0, 4));
-    const m = Number(value.slice(5, 7));
-    const d = Number(value.slice(8, 10));
-    const parsed = new Date(Date.UTC(y, m - 1, d));
-    const sameDay =
-      parsed.getUTCFullYear() === y && parsed.getUTCMonth() === m - 1 && parsed.getUTCDate() === d;
-    return sameDay ? parsed : null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  // Giờ-phút của một hạn chót không mang ý nghĩa nghiệp vụ (giao diện dùng
-  // `input type="date"`); cắt bỏ để hai mốc cùng ngày luôn so sánh bằng nhau.
-  return new Date(
-    Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate())
-  );
-}
-
-/** Trường ngày dùng chung cho zod: lỗi định dạng đi ra dưới dạng 422 như mọi input khác. */
-export function dateField(label: string) {
-  return z
-    .string({
-      required_error: `${label} là bắt buộc.`,
-      invalid_type_error: `${label} phải là chuỗi ngày dạng YYYY-MM-DD.`,
-    })
-    .transform((value, ctx) => {
-      const parsed = toUtcMidnight(value);
-      if (!parsed) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `${label} không hợp lệ. Định dạng đúng: YYYY-MM-DD.`,
-        });
-        return z.NEVER;
-      }
-      return parsed;
-    });
-}
+/* `dateField` và `toUtcMidnight` đã chuyển sang `middleware/validate.ts` — kỳ
+   nghiên cứu của đề tài cần đúng cách đọc ngày này. Re-export để các tệp đang
+   import từ đây không phải sửa. */
+export { dateField, toUtcMidnight } from "../../middleware/validate";
 
 /**
  * UC 4.1 BR — "Deadline không được nằm ngoài khoảng thời gian của đề tài".
  *
- * Đề tài không có cột ngày bắt đầu/kết thúc; khung thời gian thật nằm ở năm học
- * gắn với nó. Đề tài chưa gán năm học thì không có gì để đối chiếu, và chặn bừa
- * ở đây sẽ khoá luôn các đề tài đang ở dạng nháp.
+ * Khung thời gian nằm trên CHÍNH đề tài (`theses.start_date` / `end_date`).
+ * Trước đây nó nằm ở bảng `academic_years` — một khái niệm của riêng từng
+ * trường, không dùng được cho một nền tảng công khai. Hai cột này giữ lại đúng
+ * phần có ích của nó mà không bắt cả hệ thống phải có "năm học đang hoạt động".
+ *
+ * Cả hai cột đều tuỳ chọn, và hai đầu được kiểm tra ĐỘC LẬP: một đề tài mới chỉ
+ * biết ngày bắt đầu vẫn được ràng buộc ở đầu đó, thay vì mất trắng ràng buộc chỉ
+ * vì thiếu ngày kết thúc.
  */
 export async function assertDeadlineWithinThesis(
   thesisId: number,
   deadline: Date,
   label = "Hạn chót"
 ): Promise<void> {
-  const row = await prisma.thesis.findUnique({
+  const thesis = await prisma.thesis.findUnique({
     where: { id: thesisId },
-    select: { academic_year: { select: { name: true, start_date: true, end_date: true } } },
+    select: { start_date: true, end_date: true },
   });
+  if (!thesis) return;
 
-  const year = row?.academic_year;
-  if (!year) return;
+  const { start_date, end_date } = thesis;
 
-  if (deadline < year.start_date || deadline > year.end_date) {
+  // Kỳ nghiên cứu là tuỳ chọn. Chưa đặt thì không có gì để đối chiếu, và chặn
+  // bừa ở đây sẽ khoá luôn các đề tài đang ở dạng nháp.
+  if (start_date !== null && deadline < start_date) {
     throw badRequest(
-      `${label} phải nằm trong năm học ${year.name} (${dateText(year.start_date)} – ${dateText(year.end_date)}).`
+      `${label} không được sớm hơn ngày bắt đầu kỳ nghiên cứu (${dateText(start_date)}).`
+    );
+  }
+
+  if (end_date !== null && deadline > end_date) {
+    throw badRequest(
+      `${label} không được muộn hơn ngày kết thúc kỳ nghiên cứu (${dateText(end_date)}).`
     );
   }
 }
@@ -358,7 +327,6 @@ export function statusSentence(name: string, thesisTitle: string, to: MilestoneS
 
 const THESIS_CARD_INCLUDE = {
   lecturer: { select: { id: true, department: true, user: { select: { full_name: true } } } },
-  academic_year: { select: { id: true, name: true } },
   members: {
     where: { left_at: null },
     select: {

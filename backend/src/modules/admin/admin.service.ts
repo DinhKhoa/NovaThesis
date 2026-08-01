@@ -14,7 +14,6 @@
 import crypto from "node:crypto";
 import {
   Prisma,
-  type AcademicYear,
   type ConfigValueType,
   type ThesisStatus,
   type UserRole,
@@ -104,7 +103,6 @@ function rethrowUnique(err: unknown): never {
     if (target.includes("email")) throw conflict("Email này đã được sử dụng.");
     if (target.includes("student_code")) throw conflict("Mã số sinh viên này đã được sử dụng.");
     if (target.includes("lecturer_code")) throw conflict("Mã số giảng viên này đã được sử dụng.");
-    if (target.includes("name")) throw conflict("Tên năm học này đã tồn tại.");
     throw conflict("Dữ liệu bị trùng với một bản ghi đã có trong hệ thống.");
   }
   throw err;
@@ -609,22 +607,16 @@ function isoDate(value: Date): string {
  * Dùng SQL thô vì Prisma không có `date_trunc`, và phương án thay thế — tải toàn
  * bộ tin nhắn 12 tuần về rồi gom nhóm trong JavaScript — chính là kiểu truy vấn
  * mà `Yêu cầu dự án.md` §2.4 bảo phải tránh. Truy vấn chỉ trả về số đếm, không
- * mang một chữ nội dung nào ra khỏi CSDL, và bộ lọc năm học đi qua tham số chứ
+ * mang một chữ nội dung nào ra khỏi CSDL, và mốc thời gian đi qua tham số chứ
  * không nối chuỗi.
  */
-async function weeklyAIUsage(since: Date, academicYearId?: number): Promise<Map<string, number>> {
-  const yearFilter =
-    academicYearId !== undefined
-      ? Prisma.sql`AND s.thesis_id IN (SELECT id FROM theses WHERE academic_year_id = ${academicYearId})`
-      : Prisma.empty;
-
+async function weeklyAIUsage(since: Date): Promise<Map<string, number>> {
   const rows = await prisma.$queryRaw<{ week: string; count: number }[]>(Prisma.sql`
     SELECT to_char(date_trunc('week', m.created_at), 'YYYY-MM-DD') AS week,
            COUNT(*)::int AS count
       FROM ai_chat_messages m
       JOIN ai_chat_sessions s ON s.id = m.session_id
      WHERE m.created_at >= ${since}
-       ${yearFilter}
      GROUP BY 1
   `);
 
@@ -643,19 +635,16 @@ async function weeklyAIUsage(since: Date, academicYearId?: number): Promise<Map<
  * nghĩa là endpoint này không thể trở thành lỗ rò nếu sau này được mở cho vai
  * trò khác.
  */
-export async function buildStatistics(user: AuthUser, academicYearId?: number) {
+export async function buildStatistics(user: AuthUser) {
   const scope = await thesisScopeFilter(user);
 
-  const thesisWhere: Prisma.ThesisWhereInput = {
-    deleted_at: null,
-    ...scope,
-    ...(academicYearId !== undefined ? { academic_year_id: academicYearId } : {}),
-  };
+  const thesisWhere: Prisma.ThesisWhereInput = { deleted_at: null, ...scope };
 
-  // Phiên chat có thể không gắn đề tài (sinh viên chưa được duyệt đề tài vẫn hỏi
-  // trợ lý được), nên chỉ ràng buộc quan hệ khi thực sự lọc theo năm học.
-  const sessionWhere: Prisma.AIChatSessionWhereInput =
-    academicYearId !== undefined ? { thesis: { academic_year_id: academicYearId } } : {};
+  /* Phiên chat có thể không gắn đề tài (sinh viên chưa được duyệt đề tài vẫn hỏi
+     trợ lý được). Trước đây chỗ này còn một bộ lọc theo năm học; nó đã bỏ cùng
+     với bảng `academic_years`. Giữ biến để chữ ký các truy vấn bên dưới không
+     đổi, và để chỗ cắm cho bộ lọc khoảng thời gian nếu sau này cần. */
+  const sessionWhere: Prisma.AIChatSessionWhereInput = {};
 
   const weeks = weekStarts(USAGE_WEEKS);
   const since = weeks[0] ?? new Date();
@@ -700,7 +689,7 @@ export async function buildStatistics(user: AuthUser, academicYearId?: number) {
     // lý do schema chọn xoá mềm cho bảng này).
     prisma.aIChatMessage.count({ where: { session: sessionWhere } }),
     prisma.aIChatSession.count({ where: sessionWhere }),
-    weeklyAIUsage(since, academicYearId),
+    weeklyAIUsage(since),
   ]);
 
   const users = { total: 0, students: 0, lecturers: 0, admins: 0, active: 0, suspended: 0 };
@@ -1099,106 +1088,4 @@ export async function applyConfigUpdates(
   }
 
   return changes;
-}
-
-/* ==========================================================================
-   UC 2.7 — NĂM HỌC
-   ========================================================================== */
-
-type AcademicYearRecord = AcademicYear & { _count?: { theses: number } };
-
-/**
- * Hình dạng JSON cho năm học.
- *
- * Không nằm trong `modules/serializers.ts` vì tệp đó là hợp đồng dùng chung của
- * nhiều module, còn năm học hiện chỉ xuất hiện ở đây. `start_date`/`end_date` là
- * cột DATE nên trả về "YYYY-MM-DD" — thêm phần giờ vào sẽ khiến `<input
- * type="date">` của trình duyệt bỏ trắng.
- */
-export function toAcademicYearDTO(year: AcademicYearRecord) {
-  return {
-    id: year.id,
-    name: year.name,
-    start_date: isoDate(year.start_date),
-    end_date: isoDate(year.end_date),
-    is_active: year.is_active,
-    thesis_count: year._count?.theses ?? 0,
-    created_at: year.created_at.toISOString(),
-    updated_at: year.updated_at.toISOString(),
-  };
-}
-
-export function listAcademicYears() {
-  return prisma.academicYear.findMany({
-    orderBy: [{ start_date: "desc" }],
-    include: { _count: { select: { theses: true } } },
-  });
-}
-
-function assertDateRange(start: Date, end: Date): void {
-  if (end.getTime() <= start.getTime()) {
-    throw unprocessable("Ngày kết thúc phải sau ngày bắt đầu.", {
-      end_date: ["Ngày kết thúc phải sau ngày bắt đầu."],
-    });
-  }
-}
-
-export async function createAcademicYear(input: {
-  name: string;
-  start_date: Date;
-  end_date: Date;
-}): Promise<AcademicYearRecord> {
-  assertDateRange(input.start_date, input.end_date);
-
-  // `is_active` cố ý không nhận từ body: kích hoạt là thao tác riêng có giao
-  // dịch hạ cờ năm cũ. Cho phép đặt ở đây sẽ đâm thẳng vào unique partial index
-  // `uniq_academic_year_active` và trả về lỗi CSDL khó hiểu.
-  return prisma.academicYear.create({ data: input }).catch(rethrowUnique);
-}
-
-export async function updateAcademicYear(
-  id: number,
-  input: { name?: string | undefined; start_date?: Date | undefined; end_date?: Date | undefined }
-): Promise<AcademicYearRecord> {
-  const existing = await prisma.academicYear.findUnique({ where: { id } });
-  if (!existing) throw notFound("Không tìm thấy năm học này.");
-
-  assertDateRange(input.start_date ?? existing.start_date, input.end_date ?? existing.end_date);
-
-  return prisma.academicYear
-    .update({
-      where: { id },
-      data: {
-        ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.start_date !== undefined ? { start_date: input.start_date } : {}),
-        ...(input.end_date !== undefined ? { end_date: input.end_date } : {}),
-      },
-      include: { _count: { select: { theses: true } } },
-    })
-    .catch(rethrowUnique);
-}
-
-/**
- * Kích hoạt một năm học.
- *
- * Hạ cờ tất cả rồi mới dựng cờ của năm được chọn, trong một giao dịch. Thứ tự và
- * tính nguyên tử đều bắt buộc: migration `..._vector_and_search_indexes` tạo
- * unique partial index trên `is_active = true`, nên chỉ cần hai năm cùng bật
- * trong một khoảnh khắc là CSDL từ chối cả thao tác.
- */
-export async function activateAcademicYear(id: number): Promise<AcademicYearRecord> {
-  const existing = await prisma.academicYear.findUnique({ where: { id }, select: { id: true } });
-  if (!existing) throw notFound("Không tìm thấy năm học này.");
-
-  return prisma.$transaction(async (tx) => {
-    await tx.academicYear.updateMany({
-      where: { is_active: true, id: { not: id } },
-      data: { is_active: false },
-    });
-    return tx.academicYear.update({
-      where: { id },
-      data: { is_active: true },
-      include: { _count: { select: { theses: true } } },
-    });
-  });
 }

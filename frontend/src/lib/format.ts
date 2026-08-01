@@ -114,3 +114,20 @@ export function toDateInputValue(value: string | Date | null | undefined): strin
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+/**
+ * Kỳ nghiên cứu của đề tài — thay cho cột "Năm học" cũ.
+ *
+ * Xử lý cả trường hợp chỉ có một đầu: đề tài mới thường biết ngày bắt đầu trước
+ * khi biết ngày kết thúc, và in ra "01/09/2025 – " thì tệ hơn là nói rõ
+ * "từ 01/09/2025".
+ */
+export function formatPeriod(
+  start: string | null | undefined,
+  end: string | null | undefined
+): string {
+  if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+  if (start) return `từ ${formatDate(start)}`;
+  if (end) return `đến ${formatDate(end)}`;
+  return "Chưa đặt";
+}

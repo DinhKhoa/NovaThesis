@@ -31,22 +31,17 @@ import { notify } from "../../services/notifications";
 import { toAccountDTO, toConfigDTO, toSystemLogDTO } from "../serializers";
 import {
   ROLE_LABELS,
-  activateAcademicYear,
   buildAdminOverview,
   applyConfigUpdates,
   buildStatistics,
   changeAccountRole,
   changeAccountStatus,
-  createAcademicYear,
   createAccount,
-  listAcademicYears,
   listAccounts,
   listConfigs,
   listLogActions,
   listLogs,
   softDeleteAccount,
-  toAcademicYearDTO,
-  updateAcademicYear,
   updateAccount,
 } from "./admin.service";
 
@@ -191,10 +186,6 @@ const changeRoleSchema = z
     }
   });
 
-const statisticsQuerySchema = z.object({
-  academic_year_id: z.preprocess(anyToUndefined, positiveId("Năm học không hợp lệ.").optional()),
-});
-
 /** Chuỗi có phần giờ (`2026-07-30T08:00`) — dùng để biết có cần nới tới cuối ngày không. */
 const HAS_TIME_PART = /\d[T ]\d/;
 
@@ -244,23 +235,6 @@ const updateConfigsSchema = z.object({
     )
     .min(1, "Chưa có tham số nào để cập nhật.")
     .max(100, "Mỗi lần chỉ cập nhật tối đa 100 tham số."),
-});
-
-const dateField = (label: string) =>
-  z.coerce.date({
-    errorMap: () => ({ message: `${label} không hợp lệ (định dạng YYYY-MM-DD).` }),
-  });
-
-const createYearSchema = z.object({
-  name: text(4, 50, "Tên năm học"),
-  start_date: dateField("Ngày bắt đầu"),
-  end_date: dateField("Ngày kết thúc"),
-});
-
-const updateYearSchema = z.object({
-  name: text(4, 50, "Tên năm học").optional(),
-  start_date: dateField("Ngày bắt đầu").optional(),
-  end_date: dateField("Ngày kết thúc").optional(),
 });
 
 /* ==========================================================================
@@ -481,12 +455,8 @@ adminRouter.get(
 
 adminRouter.get(
   "/statistics",
-  validateQuery(statisticsQuerySchema),
   asyncHandler(async (req, res) => {
-    const actor = currentUser(req);
-    const { academic_year_id } = req.query as unknown as z.infer<typeof statisticsQuerySchema>;
-
-    res.json(await buildStatistics(actor, academic_year_id));
+    res.json(await buildStatistics(currentUser(req)));
   })
 );
 
@@ -551,77 +521,5 @@ adminRouter.put(
 
     const configs = await listConfigs();
     res.json(configs.map(toConfigDTO));
-  })
-);
-
-/* ==========================================================================
-   UC 2.7 — NĂM HỌC
-   ========================================================================== */
-
-adminRouter.get(
-  "/academic-years",
-  asyncHandler(async (_req, res) => {
-    const years = await listAcademicYears();
-    res.json(years.map(toAcademicYearDTO));
-  })
-);
-
-adminRouter.post(
-  "/academic-years",
-  validateBody(createYearSchema),
-  asyncHandler(async (req, res) => {
-    const body = req.body as z.infer<typeof createYearSchema>;
-
-    const year = await createAcademicYear(body);
-
-    audit({
-      action: AuditAction.ACADEMIC_YEAR_UPDATE,
-      req,
-      details: { operation: "create", academic_year_id: year.id, name: year.name },
-    });
-
-    res.status(201).json(toAcademicYearDTO(year));
-  })
-);
-
-adminRouter.patch(
-  "/academic-years/:id",
-  validateParams(idParam),
-  validateBody(updateYearSchema),
-  asyncHandler(async (req, res) => {
-    const { id } = req.params as unknown as z.infer<typeof idParam>;
-    const body = req.body as z.infer<typeof updateYearSchema>;
-
-    const year = await updateAcademicYear(id, body);
-
-    audit({
-      action: AuditAction.ACADEMIC_YEAR_UPDATE,
-      req,
-      details: {
-        operation: "update",
-        academic_year_id: year.id,
-        fields: Object.keys(body).filter((key) => body[key as keyof typeof body] !== undefined),
-      },
-    });
-
-    res.json(toAcademicYearDTO(year));
-  })
-);
-
-adminRouter.post(
-  "/academic-years/:id/activate",
-  validateParams(idParam),
-  asyncHandler(async (req, res) => {
-    const { id } = req.params as unknown as z.infer<typeof idParam>;
-
-    const year = await activateAcademicYear(id);
-
-    audit({
-      action: AuditAction.ACADEMIC_YEAR_UPDATE,
-      req,
-      details: { operation: "activate", academic_year_id: year.id, name: year.name },
-    });
-
-    res.json(toAcademicYearDTO(year));
   })
 );
