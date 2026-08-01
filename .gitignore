@@ -34,3 +34,8 @@ venv/
 *.log
 .DS_Store
 coverage/
+
+# Sinh tự động bởi Next.js mỗi lần build; nội dung đổi qua lại giữa
+# `.next/dev/types/...` (dev server) và `.next/types/...` (production build),
+# nên commit giá trị nào cũng sai một nửa số lần.
+next-env.d.ts
