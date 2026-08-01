@@ -7,6 +7,7 @@ import {
   CaretUp,
   CaretLeft,
   CaretRight,
+  Check,
   CheckCircle,
   Info,
   Warning,
@@ -320,49 +321,450 @@ Textarea.displayName = "Textarea";
 
 /* ==========================================================================
    SELECT
+
+   Ô chọn TỰ VẼ, không dùng `<select>` native.
+
+   Bản trước là `<select>` của trình duyệt bọc class `input-base`. Nút bấm thì
+   khớp giao diện, nhưng danh sách bung ra lại do HỆ ĐIỀU HÀNH vẽ — nó không
+   nhận `--bg-surface`, `--shadow-md`, `border-radius`, không theo chế độ tối,
+   không có mũi chevron riêng, không hiện được mô tả phụ hay icon, và không dùng
+   được animation `pop-in`. Không CSS nào sửa được vì phần đó không nằm trong
+   trang. Đó chính là nguyên nhân "hộp dropdown sơ sài, chưa ăn khớp".
+
+   Ba quyết định đáng nêu:
+
+   • GIỮ NGUYÊN API cũ (`value` / `onChange(e)` với `e.target.value`, `options`,
+     hoặc `<option>` con). Nhờ vậy 8 trang đang dùng không phải sửa một dòng.
+     `onChange` nhận một object tối thiểu có hình dạng `{ target: { value } }` —
+     đủ cho mọi chỗ gọi hiện tại.
+
+   • Popup dùng `position: fixed` + toạ độ từ `getBoundingClientRect()`, KHÔNG
+     phải `absolute`. `Dropdown` bên dưới dùng `absolute` và vì thế bị cắt khi
+     nằm trong khối có `overflow: hidden` — mà `Table` và `Card` đều có.
+
+   • Vẫn giữ một `<select>` ẩn đồng bộ giá trị: form submit thuần HTML và các
+     trình đọc màn hình cũ vẫn hoạt động, và `name` vẫn có tác dụng.
    ========================================================================== */
 
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+export interface SelectOption {
+  value: string;
+  label: string;
+  /** Dòng phụ nhỏ hơn dưới nhãn — thứ `<option>` native không làm được. */
+  description?: string;
+  icon?: React.ReactNode;
+  /** Nhãn nhóm; các lựa chọn cùng nhóm được gom lại kèm tiêu đề. */
+  group?: string;
+  disabled?: boolean;
+}
+
+interface SelectProps {
   label?: string;
   error?: string;
   helperText?: string;
-  options?: { value: string; label: string }[];
+  required?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
+  className?: string;
+  id?: string;
+  name?: string;
+  "aria-label"?: string;
+  value?: string | number | null;
+  onChange?: (event: { target: { value: string } }) => void;
+  options?: SelectOption[];
+  /** Vẫn nhận `<option>` / `<optgroup>` con như trước. */
+  children?: React.ReactNode;
+  /** Bật ô tìm kiếm. Mặc định tự bật khi có nhiều hơn 8 lựa chọn. */
+  searchable?: boolean;
 }
 
-export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  (
-    { label, error, helperText, options, children, className = "", id, ...props },
-    ref
-  ) => {
-    const inputId = useFieldId(id);
+/** Bỏ dấu để "de tai" khớp "Đề tài" — không ai gõ dấu vào ô tìm kiếm. */
+function foldDiacritics(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d");
+}
 
-    return (
-      <Field
-        label={label}
-        error={error}
-        helperText={helperText}
-        htmlFor={inputId}
-      >
-        <select
-          ref={ref}
-          id={inputId}
-          aria-invalid={error ? true : undefined}
-          className={`input-base ${className}`}
-          {...props}
-        >
-          {options
-            ? options.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))
-            : children}
-        </select>
-      </Field>
+/**
+ * Đọc `<option>` / `<optgroup>` con thành danh sách phẳng.
+ *
+ * Nhận cả hai cách khai báo là điều kiện để không phải sửa 8 trang đang dùng:
+ * một số trang truyền `options`, số khác viết `<option>` trực tiếp.
+ */
+function optionsFromChildren(children: React.ReactNode): SelectOption[] {
+  const out: SelectOption[] = [];
+
+  const walk = (nodes: React.ReactNode, group?: string): void => {
+    React.Children.forEach(nodes, (node) => {
+      if (!React.isValidElement(node)) return;
+
+      if (node.type === "optgroup") {
+        const props = node.props as { label?: string; children?: React.ReactNode };
+        walk(props.children, props.label);
+        return;
+      }
+
+      if (node.type === "option") {
+        const props = node.props as {
+          value?: string | number;
+          children?: React.ReactNode;
+          disabled?: boolean;
+        };
+        const text = React.Children.toArray(props.children)
+          .map((c) => (typeof c === "string" || typeof c === "number" ? String(c) : ""))
+          .join("")
+          .trim();
+        out.push({
+          value: String(props.value ?? ""),
+          label: text,
+          ...(group ? { group } : {}),
+          ...(props.disabled ? { disabled: true } : {}),
+        });
+      }
+    });
+  };
+
+  walk(children);
+  return out;
+}
+
+export function Select({
+  label,
+  error,
+  helperText,
+  required,
+  disabled = false,
+  placeholder = "Chọn…",
+  className = "",
+  id,
+  name,
+  "aria-label": ariaLabel,
+  value,
+  onChange,
+  options,
+  children,
+  searchable,
+}: SelectProps) {
+  const inputId = useFieldId(id);
+  const listId = `${inputId}-listbox`;
+
+  const items = React.useMemo(
+    () => options ?? optionsFromChildren(children),
+    [options, children]
+  );
+
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [cursor, setCursor] = React.useState(0);
+  const [rect, setRect] = React.useState<{ left: number; top: number; width: number } | null>(
+    null
+  );
+
+  /* Trả con trỏ về nút sau khi chọn hoặc bấm Escape — điều kiện để dùng được
+     bằng bàn phím.
+
+     Tìm nút bằng `getElementById` thay vì qua `triggerRef`: một hàm xử lý sự
+     kiện có đọc `.current` rồi được truyền xuống làm prop sẽ bị React cảnh báo
+     "đọc ref trong lúc render", và cảnh báo đó đúng về nguyên tắc. Nút này luôn
+     có mặt trong DOM với đúng `id` đã gán, nên tra theo id là tương đương mà
+     không kéo ref vào chuỗi phụ thuộc của handler. */
+  const refocusTrigger = () => {
+    if (typeof document === "undefined") return;
+    const el = document.getElementById(inputId);
+    if (el instanceof HTMLElement) el.focus();
+  };
+
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const popupRef = React.useRef<HTMLDivElement>(null);
+
+  const canSearch = searchable ?? items.length > 8;
+  const current = items.find((o) => o.value === String(value ?? ""));
+
+  const visible = React.useMemo(() => {
+    if (!query.trim()) return items;
+    const q = foldDiacritics(query.trim());
+    return items.filter(
+      (o) =>
+        foldDiacritics(o.label).includes(q) ||
+        (o.description ? foldDiacritics(o.description).includes(q) : false)
     );
+  }, [items, query]);
+
+  /* Đo vị trí trigger rồi định vị popup bằng `fixed`. Tính lúc mở và mỗi khi
+     cuộn/đổi kích thước: một popup neo theo toạ độ tuyệt đối sẽ trôi khỏi ô của
+     nó ngay lần cuộn đầu tiên. */
+  const measure = React.useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setRect({ left: r.left, top: r.bottom + 4, width: r.width });
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    measure();
+
+    const onPointerDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || popupRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        refocusTrigger();
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [open, measure]);
+
+  const openMenu = () => {
+    if (disabled) return;
+    setQuery("");
+    setCursor(Math.max(0, items.findIndex((o) => o.value === String(value ?? ""))));
+    setOpen(true);
+  };
+
+  const pick = (option: SelectOption) => {
+    if (option.disabled) return;
+    setOpen(false);
+    refocusTrigger();
+    // Hình dạng `{ target: { value } }` giữ đúng chữ ký `onChange` cũ.
+    onChange?.({ target: { value: option.value } });
+  };
+
+  const onTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (!open) {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openMenu();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setCursor((c) => Math.min(visible.length - 1, c + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setCursor((c) => Math.max(0, c - 1));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setCursor(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setCursor(visible.length - 1);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const option = visible[cursor];
+      if (option) pick(option);
+    }
+  };
+
+  /* Nhóm lựa chọn, giữ nguyên thứ tự xuất hiện. `Map` chứ không phải object:
+     thứ tự khoá của object là chi tiết cài đặt, còn thứ tự nhóm là thứ người
+     dùng nhìn thấy. */
+  const grouped = React.useMemo(() => {
+    const map = new Map<string, SelectOption[]>();
+    for (const o of visible) {
+      const key = o.group ?? "";
+      const list = map.get(key);
+      if (list) list.push(o);
+      else map.set(key, [o]);
+    }
+    return [...map.entries()];
+  }, [visible]);
+
+  let flatIndex = -1;
+
+  return (
+    <Field
+      label={label}
+      error={error}
+      helperText={helperText}
+      required={required}
+      htmlFor={inputId}
+    >
+      {/* Bản native ẩn: form submit thuần HTML và trình đọc màn hình cũ vẫn
+          thấy một ô chọn thật, và `name` vẫn có tác dụng. */}
+      <select
+        aria-hidden="true"
+        tabIndex={-1}
+        name={name}
+        value={String(value ?? "")}
+        onChange={(e) => onChange?.({ target: { value: e.target.value } })}
+        className="sr-only"
+      >
+        <option value="" />
+        {items.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+
+      <button
+        ref={triggerRef}
+        type="button"
+        id={inputId}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-haspopup="listbox"
+        aria-invalid={error ? true : undefined}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onTriggerKeyDown}
+        className={`input-base flex items-center gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      >
+        {current?.icon && <span className="flex-shrink-0 flex">{current.icon}</span>}
+        <span
+          className={`flex-1 min-w-0 truncate ${current ? "" : "text-[var(--fg-muted)]"}`}
+        >
+          {current?.label ?? placeholder}
+        </span>
+        <CaretDown
+          size={13}
+          className={`flex-shrink-0 text-tertiary transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && rect && (
+        <div
+          ref={popupRef}
+          role="listbox"
+          id={listId}
+          className="card p-1 pop-in overflow-hidden"
+          style={{
+            position: "fixed",
+            left: rect.left,
+            top: rect.top,
+            minWidth: rect.width,
+            maxWidth: "min(28rem, calc(100vw - 1rem))",
+            zIndex: 90,
+            boxShadow: "var(--shadow-md)",
+          }}
+        >
+          {canSearch && (
+            <div className="px-1 pb-1">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setCursor(0);
+                }}
+                onKeyDown={onTriggerKeyDown}
+                placeholder="Tìm…"
+                aria-label="Tìm trong danh sách"
+                className="w-full bg-transparent border-0 outline-none text-[12.5px] px-1.5 py-1 placeholder:text-[var(--fg-muted)]"
+                style={{ borderBottom: "1px solid var(--border-secondary)" }}
+              />
+            </div>
+          )}
+
+          <div className="max-h-64 overflow-y-auto">
+            {visible.length === 0 ? (
+              <p className="text-[12px] text-tertiary text-center py-4">
+                Không có lựa chọn phù hợp.
+              </p>
+            ) : (
+              grouped.map(([group, list]) => (
+                <div key={group || "_"}>
+                  {group && <div className="eyebrow px-2 pt-1.5 pb-1">{group}</div>}
+                  {list.map((o) => {
+                    flatIndex += 1;
+                    const active = flatIndex === cursor;
+                    const selected = o.value === String(value ?? "");
+                    return (
+                      <button
+                        key={o.value}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        disabled={o.disabled}
+                        onMouseEnter={() => setCursor(flatIndex)}
+                        onClick={() => pick(o)}
+                        className="menu-item w-full flex items-start gap-2 py-1.5 rounded-md text-left text-[12.5px] disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{
+                          background: active ? "var(--bg-hover)" : "transparent",
+                          color: selected ? "var(--fg-primary)" : "var(--fg-secondary)",
+                          fontWeight: selected ? 500 : 400,
+                        }}
+                      >
+                        {o.icon && <span className="flex-shrink-0 flex mt-0.5">{o.icon}</span>}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{o.label}</span>
+                          {o.description && (
+                            <span className="block text-[11px] text-muted truncate">
+                              {o.description}
+                            </span>
+                          )}
+                        </span>
+                        {selected && (
+                          <Check
+                            size={13}
+                            className="flex-shrink-0 mt-0.5"
+                            style={{ color: "var(--accent)" }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </Field>
+  );
+}
+
+/**
+ * Ô chọn native, giữ lại làm đường lùi.
+ *
+ * Nếu `Select` mới có vấn đề trên một trình duyệt cụ thể, đổi import ở trang đó
+ * là quay lại được ngay, không phải revert cả component.
+ */
+export const NativeSelect = React.forwardRef<
+  HTMLSelectElement,
+  React.SelectHTMLAttributes<HTMLSelectElement> & {
+    label?: string;
+    error?: string;
+    helperText?: string;
   }
-);
-Select.displayName = "Select";
+>(({ label, error, helperText, children, className = "", id, ...props }, ref) => {
+  const inputId = useFieldId(id);
+  return (
+    <Field label={label} error={error} helperText={helperText} htmlFor={inputId}>
+      <select
+        ref={ref}
+        id={inputId}
+        aria-invalid={error ? true : undefined}
+        className={`input-base ${className}`}
+        {...props}
+      >
+        {children}
+      </select>
+    </Field>
+  );
+});
+NativeSelect.displayName = "NativeSelect";
 
 /* ==========================================================================
    CHECKBOX
