@@ -274,9 +274,9 @@ export async function login(email: string, password: string, req: Request): Prom
       1,
       Math.ceil((account.locked_until.getTime() - Date.now()) / 60_000)
     );
-    throw new HttpError(
-      429,
-      `Tài khoản bị khóa tạm thời do nhập sai quá nhiều lần. Vui lòng thử lại sau ${minutes} phút.`
+    throw accountLocked(
+      `Tài khoản bị khóa tạm thời do nhập sai quá nhiều lần. Vui lòng thử lại sau ${minutes} phút.`,
+      account.locked_until
     );
   }
 
@@ -365,13 +365,37 @@ async function recordFailedLogin(
       req,
       details: { email, minutes: env.LOCKOUT_MINUTES, locked_until: lockedUntil.toISOString() },
     });
-    return new HttpError(
-      429,
-      `Tài khoản bị khóa tạm thời ${env.LOCKOUT_MINUTES} phút do nhập sai quá nhiều lần.`
+    return accountLocked(
+      `Tài khoản bị khóa tạm thời ${env.LOCKOUT_MINUTES} phút do nhập sai quá nhiều lần.`,
+      lockedUntil
     );
   }
 
   return unauthorized(GENERIC_LOGIN_ERROR);
+}
+
+/**
+ * Lỗi "tài khoản đang bị khóa".
+ *
+ * Mã 429 dùng chung với `authLimiter` (chặn theo IP), nên phải có `code` riêng:
+ * giao diện cần phân biệt "tài khoản của bạn bị khóa, còn 12 phút 30 giây" với
+ * "thiết bị này gửi quá nhiều yêu cầu". Hai câu dẫn tới hai hành động khác nhau.
+ *
+ * `locked_until` đi kèm vì một câu chữ như "thử lại sau 15 phút" không đếm ngược
+ * được: người dùng F5 xong không biết còn bao lâu, và số phút in ra lúc nhận lỗi
+ * thì đứng yên trong khi thời gian vẫn chạy.
+ */
+function accountLocked(message: string, lockedUntil: Date): HttpError {
+  return new HttpError(429, message, {
+    code: "ACCOUNT_LOCKED",
+    public: {
+      locked_until: lockedUntil.toISOString(),
+      retry_after_seconds: Math.max(
+        1,
+        Math.ceil((lockedUntil.getTime() - Date.now()) / 1000)
+      ),
+    },
+  });
 }
 
 /* ==========================================================================

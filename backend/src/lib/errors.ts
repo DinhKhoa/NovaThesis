@@ -12,6 +12,15 @@ export class HttpError extends Error {
   readonly errors?: Record<string, string[]>;
   /** Ngữ cảnh chỉ để ghi log, không bao giờ gửi ra client. */
   readonly context?: Record<string, unknown>;
+  /**
+   * Dữ liệu có cấu trúc ĐƯỢC PHÉP gửi ra client, kèm trong thân phản hồi lỗi.
+   *
+   * Đối lập hẳn với `context`. Sinh ra vì một thông điệp tiếng Việt không đủ để
+   * giao diện dựng đồng hồ đếm ngược: "thử lại sau 15 phút" là chữ, còn
+   * `locked_until` mới là thứ đếm được. Chỉ đặt vào đây những gì người dùng vốn
+   * đã được biết — đừng dùng nó làm cửa sau cho chi tiết kỹ thuật.
+   */
+  readonly public?: Record<string, unknown>;
 
   constructor(
     status: number,
@@ -20,6 +29,7 @@ export class HttpError extends Error {
       code?: string;
       errors?: Record<string, string[]>;
       context?: Record<string, unknown>;
+      public?: Record<string, unknown>;
     } = {}
   ) {
     super(message);
@@ -28,6 +38,7 @@ export class HttpError extends Error {
     this.code = opts.code ?? defaultCode(status);
     this.errors = opts.errors;
     this.context = opts.context;
+    this.public = opts.public;
   }
 }
 

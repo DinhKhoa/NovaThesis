@@ -36,7 +36,8 @@ import {
   Tabs,
   Textarea,
 } from "@/components/ui";
-import { useAuthStore, isAdmin } from "@/lib/auth";
+import { useAuthStore } from "@/lib/auth";
+import { RequireRole } from "@/lib/guards";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
@@ -294,7 +295,28 @@ function ThesisScopeSelect({
    PAGE
    ========================================================================== */
 
+/**
+ * Trợ lý AI KHÔNG mở cho quản trị viên, dù các trang nghiệp vụ khác thì có (ở
+ * chế độ chỉ đọc).
+ *
+ * Lý do là phạm vi truy xuất: `accessibleDocumentIds()` trả `null` — nghĩa là
+ * KHÔNG giới hạn — cho vai trò ADMIN. Một câu hỏi của quản trị viên vì thế sẽ
+ * kéo về đoạn trích từ luận văn của bất kỳ sinh viên nào trong hệ thống, và trả
+ * ra nguyên văn. Đọc bảng danh sách là giám sát; đọc nội dung luận văn của người
+ * khác qua trợ lý thì không.
+ *
+ * Đây là lớp chặn ở giao diện. Nếu về sau cần mở, phải sửa phạm vi ở backend
+ * TRƯỚC (bắt buộc `thesis_id` cho ADMIN), không phải gỡ hàng rào này.
+ */
 export default function AIChatPage() {
+  return (
+    <RequireRole roles={["STUDENT", "LECTURER"]}>
+      <AIChatWorkspace />
+    </RequireRole>
+  );
+}
+
+function AIChatWorkspace() {
   const searchParams = useSearchParams();
   const thesisParam = searchParams.get("thesis");
 
@@ -1318,9 +1340,11 @@ function RoadmapSuggestions({
 
   /* Đề tài đã hoàn thành bị đóng băng (business rule UC 3.13) nên server từ chối
      mọi thao tác `contribute`. Ẩn nút thay vì để người dùng bấm rồi nhận 403 và
-     tự suy ra luật nghiệp vụ. */
-  const canContribute =
-    thesis !== null && (isAdmin(user) || thesis.status !== "COMPLETED");
+     tự suy ra luật nghiệp vụ.
+
+     Nhánh `isAdmin` trước đây ở đây đã bỏ: cả trang này chỉ mở cho sinh viên và
+     giảng viên (xem `RequireRole` ở `AIChatPage`), nên nó vĩnh viễn sai. */
+  const canContribute = thesis !== null && thesis.status !== "COMPLETED";
 
   const createSuggestion = async () => {
     if (!thesis) return;

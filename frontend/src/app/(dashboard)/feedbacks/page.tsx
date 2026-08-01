@@ -26,7 +26,8 @@ import {
   Select,
   Skeleton,
 } from "@/components/ui";
-import { useAuthStore, isLecturer, isAdmin } from "@/lib/auth";
+import { useAuthStore, isLecturer } from "@/lib/auth";
+import { isReadOnlyViewer } from "@/lib/permissions";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
@@ -193,18 +194,28 @@ export default function FeedbacksPage() {
   /* ---- Quyền trên từng bình luận ----------------------------------------
      Tính tại chỗ theo đúng luật của backend. Bày nút rồi để server trả 403 là
      bắt người dùng học luật nghiệp vụ bằng cách va vào nó. */
+  /* Quản trị viên đọc được mọi trao đổi nhưng không tham gia — xem
+     `lib/permissions.ts`. Trước đây `isAdmin(user)` ở đây CẤP THÊM quyền xoá và
+     đóng thread; giờ đảo lại. */
+  const readOnly = isReadOnlyViewer(user);
+
   const canEdit = (f: FeedbackItem) =>
-    !f.is_deleted && f.user_id === user?.id && now - f.created_timestamp < EDIT_WINDOW_MS;
+    !readOnly &&
+    !f.is_deleted &&
+    f.user_id === user?.id &&
+    now - f.created_timestamp < EDIT_WINDOW_MS;
 
   const canDelete = (f: FeedbackItem) =>
-    !f.is_deleted && (f.user_id === user?.id || isAdmin(user));
+    !readOnly && !f.is_deleted && f.user_id === user?.id;
 
-  // UC 7.6 BR — chỉ giảng viên ĐÃ TẠO bình luận gốc (hoặc admin) mới đóng được
-  // thread. Giảng viên hướng dẫn cũng không đóng thread do người khác mở.
+  // UC 7.6 BR — chỉ giảng viên ĐÃ TẠO bình luận gốc mới đóng được thread.
+  // Giảng viên hướng dẫn cũng không đóng thread do người khác mở.
   const canResolve = (f: FeedbackItem) =>
+    !readOnly &&
     !f.is_deleted &&
     f.parent_id === null &&
-    ((isLecturer(user) && f.user_id === user?.id) || isAdmin(user));
+    isLecturer(user) &&
+    f.user_id === user?.id;
 
   /* ---- Thao tác ghi ----------------------------------------------------- */
 
@@ -446,7 +457,7 @@ export default function FeedbacksPage() {
         <div className="flex items-center gap-4 text-[12px] text-tertiary mt-2">
           {/* Thread tối đa 3 cấp: ở cấp cuối thì ẩn hẳn nút thay vì để người
               dùng gõ xong mới nhận lỗi từ server. */}
-          {r.depth < MAX_DEPTH && (
+          {r.depth < MAX_DEPTH && !readOnly && (
             <button
               className="hover:text-accent flex items-center gap-1 font-medium"
               onClick={() => startReply(r.id)}
@@ -513,8 +524,10 @@ export default function FeedbacksPage() {
         }
       />
 
-      {/* Post New Comment Box (UC 7.1, 7.2, 7.7) */}
-      {thesisId !== null && (
+      {/* Post New Comment Box (UC 7.1, 7.2, 7.7).
+          Ẩn với người xem chỉ đọc: bày ô soạn thảo rồi để server từ chối lúc
+          gửi là mời người ta gõ xong một đoạn nhận xét để rồi mất trắng. */}
+      {thesisId !== null && !readOnly && (
         <Card className="p-5 mb-6">
           <form onSubmit={(e) => void handlePostRootComment(e)}>
             <Textarea
@@ -745,12 +758,14 @@ export default function FeedbacksPage() {
               {/* Actions Bar */}
               {!f.is_deleted && (
                 <div className="flex items-center gap-4 text-[12px] text-tertiary pt-2 border-t border-[var(--border-secondary)] mt-3">
-                  <button
-                    className="hover:text-accent flex items-center gap-1 font-medium"
-                    onClick={() => startReply(f.id)}
-                  >
-                    <ArrowElbowDownRight size={14} /> Trả lời
-                  </button>
+                  {!readOnly && (
+                    <button
+                      className="hover:text-accent flex items-center gap-1 font-medium"
+                      onClick={() => startReply(f.id)}
+                    >
+                      <ArrowElbowDownRight size={14} /> Trả lời
+                    </button>
+                  )}
 
                   {/* Edit window: 15 minutes after posting */}
                   {canEdit(f) && (

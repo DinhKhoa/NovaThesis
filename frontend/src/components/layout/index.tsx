@@ -30,7 +30,8 @@ import {
 	X,
 } from "@phosphor-icons/react";
 import { useAuthStore, type UserRole } from "@/lib/auth";
-import { notificationsApi } from "@/lib/services";
+import { notificationsApi, type NotificationItem } from "@/lib/services";
+import { formatRelative } from "@/lib/format";
 import {
 	Avatar,
 	Dropdown,
@@ -38,6 +39,7 @@ import {
 	DropdownLabel,
 	DropdownSeparator,
 	IconButton,
+	Skeleton,
 	useMounted,
 } from "@/components/ui";
 
@@ -52,12 +54,16 @@ interface NavItem {
 	href: string;
 	icon: React.ReactNode;
 	roles?: UserRole[];
+	/** Hiện nhãn "Chỉ đọc" — dùng cho nhóm Giám sát của quản trị viên. */
+	readOnly?: boolean;
 }
 
 interface NavSection {
 	label?: string;
 	items: NavItem[];
 	roles?: UserRole[];
+	/** Một dòng giải thích dưới tiêu đề nhóm. */
+	hint?: string;
 }
 
 const navSections: NavSection[] = [
@@ -126,7 +132,7 @@ const navSections: NavSection[] = [
 				roles: ["ADMIN"],
 			},
 			{
-				label: "Thống kê",
+				label: "Giám sát AI",
 				href: "/admin/statistics",
 				icon: <ChartBar size={16} />,
 				roles: ["ADMIN"],
@@ -136,6 +142,46 @@ const navSections: NavSection[] = [
 				href: "/admin/settings",
 				icon: <Gear size={16} />,
 				roles: ["ADMIN"],
+			},
+		],
+	},
+	/* Quản trị viên vào được các trang nghiệp vụ ở chế độ chỉ đọc.
+	   Trước đây các trang này chạy được với tài khoản Admin nhưng không có liên
+	   kết nào dẫn tới — tức là "vào được nếu biết đường dẫn", đúng kiểu không
+	   nhất quán mà đợt rà soát này dọn. Đưa hẳn vào nav và ghi rõ "Chỉ đọc" thì
+	   thanh điều hướng nói đúng những gì hệ thống thực sự cho phép. */
+	{
+		label: "Giám sát",
+		hint: "Chỉ đọc",
+		roles: ["ADMIN"],
+		items: [
+			{
+				label: "Đề tài",
+				href: "/theses",
+				icon: <GraduationCap size={16} />,
+				roles: ["ADMIN"],
+				readOnly: true,
+			},
+			{
+				label: "Tiến độ",
+				href: "/milestones",
+				icon: <Kanban size={16} />,
+				roles: ["ADMIN"],
+				readOnly: true,
+			},
+			{
+				label: "Tài liệu",
+				href: "/documents",
+				icon: <Files size={16} />,
+				roles: ["ADMIN"],
+				readOnly: true,
+			},
+			{
+				label: "Phản hồi",
+				href: "/feedbacks",
+				icon: <ChatCircleDots size={16} />,
+				roles: ["ADMIN"],
+				readOnly: true,
 			},
 		],
 	},
@@ -155,7 +201,7 @@ const ROUTE_TITLES: Record<string, string> = {
 	"/profile": "Hồ sơ",
 	"/admin/users": "Người dùng",
 	"/admin/logs": "Nhật ký hệ thống",
-	"/admin/statistics": "Thống kê",
+	"/admin/statistics": "Vận hành hệ thống AI",
 	"/admin/settings": "Cấu hình",
 };
 
@@ -165,9 +211,16 @@ const ROLE_LABELS: Record<UserRole, string> = {
 	STUDENT: "Sinh viên",
 };
 
+/**
+ * Mục điều hướng này có hiện với vai trò kia không.
+ *
+ * Khi CHƯA biết vai trò (`initialize()` chạy chưa xong) thì ẩn mọi mục có giới
+ * hạn. Trước đây nhánh này trả `true`, nên trong khoảnh khắc đầu tiên sau khi
+ * tải trang, toàn bộ menu Quản trị hiện ra cho mọi người dùng rồi mới biến mất.
+ */
 function visibleFor(role: UserRole | undefined, allowed?: UserRole[]) {
 	if (!allowed) return true;
-	if (!role) return true;
+	if (!role) return false;
 	return allowed.includes(role);
 }
 
@@ -273,7 +326,19 @@ export function Sidebar({
 					{sections.map((section, si) => (
 						<div key={section.label ?? si} className={si > 0 ? "mt-4" : ""}>
 							{section.label && !collapsed && (
-								<div className="eyebrow px-2 pb-1.5">{section.label}</div>
+								<div className="eyebrow px-2 pb-1.5 flex items-center gap-1.5">
+									<span>{section.label}</span>
+									{section.hint && (
+										<span
+											className="normal-case tracking-normal font-normal px-1 py-px rounded text-[9.5px]"
+											style={{
+												background: "var(--bg-subtle)",
+												color: "var(--fg-muted)",
+											}}>
+											{section.hint}
+										</span>
+									)}
+								</div>
 							)}
 							{section.label && collapsed && si > 0 && (
 								<div
@@ -289,7 +354,13 @@ export function Sidebar({
 											<Link
 												href={item.href}
 												aria-current={active ? "page" : undefined}
-												title={collapsed ? item.label : undefined}
+												title={
+													collapsed
+														? item.readOnly
+															? `${item.label} — chỉ đọc`
+															: item.label
+														: undefined
+												}
 												onClick={onCloseMobile}
 												className={`nav-item group relative flex items-center gap-2.5 h-8 rounded-[7px] text-[13px] ${
 													active ? "is-active" : ""
@@ -575,50 +646,6 @@ function ThemeSwitch() {
    NOTIFICATION DROPDOWN
    ========================================================================== */
 
-interface NotificationItem {
-	id: number;
-	title: string;
-	content: string;
-	is_read: boolean;
-	type: "MILESTONE" | "THESIS" | "FEEDBACK" | "SYSTEM";
-	created_at: string;
-}
-
-const mockNotifications: NotificationItem[] = [
-	{
-		id: 1,
-		title: "Nhắc nhở: Milestone sắp đến hạn!",
-		content: "Milestone 'Nộp Báo cáo Đề cương Luận văn' còn 6 ngày nữa là đến hạn.",
-		is_read: false,
-		type: "MILESTONE",
-		created_at: "Hôm nay, 08:30",
-	},
-	{
-		id: 2,
-		title: "Giảng viên đã nhận xét bài báo cáo",
-		content: "TS. Nguyễn Văn A đã để lại bình luận trên milestone 'Thiết kế ERD'.",
-		is_read: false,
-		type: "FEEDBACK",
-		created_at: "Hôm qua, 16:45",
-	},
-	{
-		id: 3,
-		title: "Đề tài đã được phê duyệt!",
-		content: "Đề tài 'Hệ thống NovaThesis tích hợp AI' đã chuyển sang trạng thái Đang thực hiện.",
-		is_read: true,
-		type: "THESIS",
-		created_at: "15/07, 10:30",
-	},
-	{
-		id: 4,
-		title: "Cập nhật hệ thống AI pgvector",
-		content: "Hệ thống đã nâng cấp mô hình Vector Search giúp tăng 30% tốc độ RAG.",
-		is_read: true,
-		type: "SYSTEM",
-		created_at: "10/07, 12:00",
-	},
-];
-
 const typeIconMap: Record<string, React.ReactNode> = {
 	MILESTONE: <Kanban size={14} className="text-warning" />,
 	FEEDBACK: <ChatCircleText size={14} className="text-info" />,
@@ -626,10 +653,31 @@ const typeIconMap: Record<string, React.ReactNode> = {
 	SYSTEM: <Bell size={14} className="text-accent" />,
 };
 
-function NotificationDropdown({ unreadCount }: { unreadCount: number }) {
+/**
+ * Chuông thông báo.
+ *
+ * Danh sách được nạp KHI MỞ chứ không nạp sẵn: mỗi lần tải trang mà gọi thêm
+ * một request cho một danh sách phần lớn thời gian không ai nhìn là lãng phí,
+ * trong khi con số trên chuông đã do `useUnreadCount()` lo.
+ */
+function NotificationDropdown({
+	unreadCount,
+	onChanged,
+}: {
+	unreadCount: number;
+	/** Báo cho chuông biết phải đếm lại sau khi một thông báo được đọc. */
+	onChanged: () => void;
+}) {
 	const [open, setOpen] = React.useState(false);
 	const ref = React.useRef<HTMLDivElement>(null);
 	const router = useRouter();
+
+	/* `items === null` VỪA là "chưa tải lần nào" VỪA là tín hiệu đang tải lần
+	   đầu, nên không cần thêm cờ `loading`. Từ lần mở thứ hai trở đi `items` đã
+	   có dữ liệu và ta cố ý giữ nguyên nó trong lúc nạp lại — danh sách nháy
+	   trắng rồi mới hiện lại đúng thứ người dùng vừa nhìn thấy là tệ hơn. */
+	const [items, setItems] = React.useState<NotificationItem[] | null>(null);
+	const [error, setError] = React.useState<string | null>(null);
 
 	React.useEffect(() => {
 		if (!open) return;
@@ -647,7 +695,48 @@ function NotificationDropdown({ unreadCount }: { unreadCount: number }) {
 		};
 	}, [open]);
 
-	const latestNotifications = mockNotifications.slice(0, 4);
+	/* Nạp lại mỗi lần mở. Giữ lại kết quả cũ trong lúc chờ để danh sách không
+	   nháy trắng rồi mới hiện — người dùng vừa nhìn thấy nó một giây trước. */
+	React.useEffect(() => {
+		if (!open) return;
+		let cancelled = false;
+
+		notificationsApi
+			.list({ per_page: 5 })
+			.then((res) => {
+				if (cancelled) return;
+				setItems(res.data);
+				setError(null);
+			})
+			.catch(() => {
+				if (!cancelled) setError("Không tải được thông báo.");
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [open]);
+
+	const openNotification = async (n: NotificationItem) => {
+		setOpen(false);
+
+		/* Đánh dấu đã đọc ngay trên giao diện rồi mới gọi API: người dùng đã bấm
+		   vào nó, chờ một vòng mạng mới đổi màu là thừa. Lỗi thì lần mở sau tự
+		   hiện lại đúng trạng thái từ server. */
+		if (!n.is_read) {
+			setItems((prev) =>
+				(prev ?? []).map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
+			);
+			void notificationsApi
+				.markRead(n.id)
+				.then(onChanged)
+				.catch(() => undefined);
+		}
+
+		// `link` do server đặt, trỏ đúng mốc/tài liệu liên quan. Không có thì về
+		// trang danh sách — vẫn tốt hơn một cú bấm không làm gì cả.
+		router.push(n.link ?? "/notifications");
+	};
 
 	return (
 		<div ref={ref} className="relative inline-flex">
@@ -691,16 +780,27 @@ function NotificationDropdown({ unreadCount }: { unreadCount: number }) {
 
 					{/* Notification list */}
 					<div className="max-h-[320px] overflow-y-auto">
-						{latestNotifications.length === 0 ? (
+						{items === null && error === null ? (
+							<div className="p-3 flex flex-col gap-2">
+								{[0, 1, 2].map((i) => (
+									<Skeleton key={i} className="h-12 rounded-lg" />
+								))}
+							</div>
+						) : error ? (
 							<div className="px-4 py-8 text-center text-[13px] text-tertiary">
-								Không có thông báo nào.
+								{error}
+							</div>
+						) : (items?.length ?? 0) === 0 ? (
+							<div className="px-4 py-8 text-center text-[13px] text-tertiary">
+								Bạn chưa có thông báo nào.
 							</div>
 						) : (
-							latestNotifications.map((n) => (
+							items?.map((n) => (
 								<button
 									key={n.id}
 									type="button"
 									role="menuitem"
+									onClick={() => void openNotification(n)}
 									className={`w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)] ${
 										!n.is_read ? "bg-[var(--bg-secondary)]" : ""
 									}`}>
@@ -728,7 +828,7 @@ function NotificationDropdown({ unreadCount }: { unreadCount: number }) {
 											{n.content}
 										</p>
 										<span className="text-[10.5px] text-muted mt-1 flex items-center gap-1">
-											<Clock size={10} /> {n.created_at}
+											<Clock size={10} /> {formatRelative(n.created_at)}
 										</span>
 									</div>
 								</button>
@@ -769,8 +869,11 @@ function NotificationDropdown({ unreadCount }: { unreadCount: number }) {
  * Chỉ hỏi lại khi tab đang hiển thị — polling nền trong ba mươi tab bỏ quên là
  * cách chắc chắn nhất để tự tạo tải cho chính máy chủ của mình.
  */
-function useUnreadCount(enabled: boolean): number {
+function useUnreadCount(enabled: boolean): { count: number; refresh: () => void } {
   const [count, setCount] = React.useState(0);
+  /* Đếm lại theo yêu cầu: đọc một thông báo ngay trong panel phải làm con số
+     trên chuông giảm ngay, chứ không đợi hết chu kỳ 60 giây. */
+  const [nonce, setNonce] = React.useState(0);
   const pathname = usePathname();
 
   React.useEffect(() => {
@@ -798,9 +901,11 @@ function useUnreadCount(enabled: boolean): number {
     };
     // Điều hướng cũng là một tín hiệu: vừa rời trang Thông báo thì con số phải
     // phản ánh những gì người dùng vừa đọc.
-  }, [enabled, pathname]);
+  }, [enabled, pathname, nonce]);
 
-  return count;
+  const refresh = React.useCallback(() => setNonce((n) => n + 1), []);
+
+  return { count, refresh };
 }
 
 /* ==========================================================================
@@ -811,7 +916,7 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 	const pathname = usePathname();
 	const { user } = useAuthStore();
 	const [paletteOpen, setPaletteOpen] = React.useState(false);
-	const unreadCount = useUnreadCount(Boolean(user));
+	const { count: unreadCount, refresh: refreshUnread } = useUnreadCount(Boolean(user));
 	const [shortcutKey, setShortcutKey] = React.useState("⌘K");
 
 	React.useEffect(() => {
@@ -900,7 +1005,10 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 
 				<ThemeSwitch />
 
-				<NotificationDropdown unreadCount={unreadCount} />
+				<NotificationDropdown
+					unreadCount={unreadCount}
+					onChanged={refreshUnread}
+				/>
 
 				<Link
 					href="/profile"

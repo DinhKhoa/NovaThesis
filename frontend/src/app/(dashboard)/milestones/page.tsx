@@ -37,6 +37,7 @@ import {
   useMounted,
 } from "@/components/ui";
 import { useAuthStore, isLecturer } from "@/lib/auth";
+import { isReadOnlyViewer } from "@/lib/permissions";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
@@ -143,13 +144,22 @@ export default function MilestonesPage() {
     [milestones, setData, replaceMilestone]
   );
 
+  /* Quản trị viên xem tiến độ ở chế độ chỉ đọc — xem `lib/permissions.ts`. */
+  const readOnly = isReadOnlyViewer(user);
+
   const canDrop = React.useCallback(
     (id: string, from: MilestoneStatus, to: MilestoneStatus) => {
+      if (readOnly) {
+        return {
+          allowed: false as const,
+          reason: "Quản trị viên xem ở chế độ chỉ đọc, không đổi được trạng thái mốc.",
+        };
+      }
       const m = milestones.find((x) => String(x.id) === id);
       if (!m) return { allowed: false as const, reason: "Không tìm thấy mốc." };
       return checkTransition(from, to, user?.role, m);
     },
-    [milestones, user?.role]
+    [milestones, user?.role, readOnly]
   );
 
   const board = useBoardDrag<MilestoneStatus>({
@@ -198,14 +208,16 @@ export default function MilestonesPage() {
             >
               Xuất PDF
             </Button>
-            <Button
-              variant="primary"
-              icon={<Plus size={15} />}
-              disabled={!thesisId}
-              onClick={() => setCreateOpen(true)}
-            >
-              Thêm mốc
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="primary"
+                icon={<Plus size={15} />}
+                disabled={!thesisId}
+                onClick={() => setCreateOpen(true)}
+              >
+                Thêm mốc
+              </Button>
+            )}
           </div>
         }
       />
@@ -348,7 +360,8 @@ export default function MilestonesPage() {
 
                             <MilestoneActions
                               milestone={m}
-                              isLecturer={isLecturer(user) || user?.role === "ADMIN"}
+                              isLecturer={isLecturer(user)}
+                              readOnly={readOnly}
                               onUpload={() => {
                                 setSelected(m);
                                 setUploadOpen(true);
@@ -619,6 +632,7 @@ export default function MilestonesPage() {
 function MilestoneActions({
   milestone,
   isLecturer,
+  readOnly = false,
   onUpload,
   onExtend,
   onRevision,
@@ -629,6 +643,8 @@ function MilestoneActions({
 }: {
   milestone: Milestone;
   isLecturer: boolean;
+  /** Quản trị viên: chỉ còn xem được lịch sử thay đổi. */
+  readOnly?: boolean;
   onUpload: () => void;
   onExtend: () => void;
   onRevision: () => void;
@@ -638,6 +654,19 @@ function MilestoneActions({
   onReviewExtension: (approve: boolean) => void;
 }) {
   const pendingExtension = milestone.extension_requested && milestone.extension_status === "PENDING";
+
+  /* Chỉ còn đúng một mục thì cả cụm "Thao tác" là thừa — đổi thẳng thành nút
+     mở lịch sử, người dùng bớt được một cú bấm. */
+  if (readOnly) {
+    return (
+      <button
+        className="btn-ghost p-1 rounded hover:text-primary text-[12px] flex items-center gap-1"
+        onClick={onHistory}
+      >
+        <ClockCounterClockwise size={14} /> Lịch sử
+      </button>
+    );
+  }
 
   return (
     <Dropdown

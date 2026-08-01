@@ -46,6 +46,9 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     code: mapped.code,
     status: mapped.status,
     ...(mapped.errors ? { errors: mapped.errors } : {}),
+    // Trải ở cấp gốc chứ không lồng trong `details`: `lib/api.ts` đã đọc thân
+    // lỗi ở cấp này rồi, thêm một tầng nữa là thêm một chỗ để đọc trượt.
+    ...(mapped.extra ?? {}),
     // Stack chỉ lộ ra ở môi trường phát triển.
     ...(env.isProd || mapped.status < 500
       ? {}
@@ -58,6 +61,8 @@ interface Mapped {
   code: string;
   message: string;
   errors?: Record<string, string[]>;
+  /** Trường bổ sung được phép gửi ra client — xem `HttpError.public`. */
+  extra?: Record<string, unknown>;
   logMessage: string;
 }
 
@@ -68,6 +73,7 @@ function mapError(err: unknown): Mapped {
       code: err.code,
       message: err.message,
       errors: err.errors,
+      extra: err.public,
       logMessage: err.message,
     };
   }

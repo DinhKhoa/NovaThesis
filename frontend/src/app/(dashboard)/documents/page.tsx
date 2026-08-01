@@ -45,6 +45,7 @@ import { toast } from "@/lib/toast";
 import { api, isApiError } from "@/lib/api";
 import { useAsync, useDebounced } from "@/lib/use-async";
 import { isAdmin, useAuthStore } from "@/lib/auth";
+import { isReadOnlyViewer } from "@/lib/permissions";
 import { formatDate, formatDateTime, formatFileSize } from "@/lib/format";
 import {
   documentsApi,
@@ -245,25 +246,29 @@ export default function DocumentsPage() {
     [thesesPage, thesisById, user]
   );
 
+  /* Quản trị viên xem toàn hệ thống ở chế độ chỉ đọc — xem `lib/permissions.ts`
+     để hiểu vì sao giao diện chặt hơn API. */
+  const readOnly = isReadOnlyViewer(user);
+
   /** Ghi được khi đề tài còn mở: UC 3.13 đóng băng đề tài đã hoàn thành. */
   const canWrite = React.useCallback(
     (d: ResearchDocument) => {
-      if (isAdmin(user)) return true;
+      if (readOnly) return false;
       const thesis = thesisById.get(d.thesis_id);
       return thesis ? thesis.status !== "COMPLETED" : false;
     },
-    [thesisById, user]
+    [thesisById, readOnly]
   );
 
   /**
-   * UC 5.5 thu hẹp quyền xoá về người đã tải lên; giảng viên hướng dẫn và admin
-   * giữ quyền gỡ nội dung vi phạm. Trong nhóm nhiều thành viên, xoá tài liệu của
-   * bạn cùng nhóm là mất mát không hoàn tác được.
+   * UC 5.5 thu hẹp quyền xoá về người đã tải lên; giảng viên hướng dẫn giữ quyền
+   * gỡ nội dung vi phạm. Trong nhóm nhiều thành viên, xoá tài liệu của bạn cùng
+   * nhóm là mất mát không hoàn tác được.
    */
   const canDelete = React.useCallback(
     (d: ResearchDocument) => {
       if (!canWrite(d)) return false;
-      if (isAdmin(user) || d.uploaded_by === user?.id) return true;
+      if (d.uploaded_by === user?.id) return true;
       const thesis = thesisById.get(d.thesis_id);
       return (
         thesis != null &&
@@ -276,8 +281,8 @@ export default function DocumentsPage() {
 
   /* Đề tài đã hoàn thành không nhận tài liệu mới, nên không đưa vào ô chọn. */
   const uploadTargets = React.useMemo(
-    () => theses.filter((t) => isAdmin(user) || t.status !== "COMPLETED"),
-    [theses, user]
+    () => (readOnly ? [] : theses.filter((t) => t.status !== "COMPLETED")),
+    [theses, readOnly]
   );
 
   /* ---------------------------------------------------------------------- */

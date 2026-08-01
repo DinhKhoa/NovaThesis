@@ -31,6 +31,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { useAuthStore, isLecturer, isStudent } from "@/lib/auth";
+import { isReadOnlyViewer } from "@/lib/permissions";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
@@ -128,20 +129,25 @@ export default function ThesisDetailPage() {
   const statusInfo = statusMap[thesis.status];
   const supervisor = isLecturer(user) && thesis.lecturer_id !== null;
   const owner = isStudent(user);
-  const admin = user?.role === "ADMIN";
 
   /* Nút chỉ hiện khi thao tác thực sự khả thi: bày một nút "Sửa" rồi trả về
      403 khi bấm là để người dùng tự phát hiện luật nghiệp vụ bằng cách va vào
-     nó. Điều kiện dưới đây phản chiếu `can()` ở `backend/src/domain/access.ts`. */
+     nó. Điều kiện dưới đây phản chiếu `can()` ở `backend/src/domain/access.ts`,
+     TRỪ nhánh Admin: quản trị viên xem ở chế độ chỉ đọc (xem `lib/permissions.ts`
+     để hiểu vì sao giao diện cố ý chặt hơn API). */
+  const readOnly = isReadOnlyViewer(user);
+
   const canEdit =
-    admin ||
-    (owner && (thesis.status === "DRAFT" || thesis.status === "REVISION_REQUIRED")) ||
-    (supervisor && thesis.status !== "COMPLETED");
-  const canDelete = admin || (owner && thesis.status === "DRAFT");
+    !readOnly &&
+    ((owner && (thesis.status === "DRAFT" || thesis.status === "REVISION_REQUIRED")) ||
+      (supervisor && thesis.status !== "COMPLETED"));
+  const canDelete = !readOnly && owner && thesis.status === "DRAFT";
   const canSubmit =
-    (owner || admin) && (thesis.status === "DRAFT" || thesis.status === "REVISION_REQUIRED");
-  const canReview = (supervisor || admin) && thesis.status === "PENDING";
-  const canComplete = (supervisor || admin) && thesis.status === "ONGOING";
+    !readOnly &&
+    owner &&
+    (thesis.status === "DRAFT" || thesis.status === "REVISION_REQUIRED");
+  const canReview = !readOnly && supervisor && thesis.status === "PENDING";
+  const canComplete = !readOnly && supervisor && thesis.status === "ONGOING";
 
   return (
     <div>

@@ -2,8 +2,8 @@
 
 import React, { ViewTransition } from "react";
 import { Sidebar, Topbar } from "@/components/layout";
-import { Spinner, ToastContainer, useStoredFlag } from "@/components/ui";
-import { useAuthStore } from "@/lib/auth";
+import { ToastContainer, useStoredFlag } from "@/components/ui";
+import { RequireAuth } from "@/lib/guards";
 import { useToastStore } from "@/lib/toast";
 
 const COLLAPSE_KEY = "nova.sidebar.collapsed";
@@ -13,33 +13,37 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { initialized, initialize } = useAuthStore();
   const { toasts, dismissToast } = useToastStore();
 
+  return (
+    <>
+      {/*
+        `RequireAuth` gánh cả việc gọi `initialize()` lẫn việc chặn khi chưa
+        đăng nhập, nên layout không còn tự làm hai việc đó nữa. Quan trọng hơn:
+        khi chưa xác thực xong, `children` KHÔNG được render — trước đây phần
+        khung vẫn dựng lên và các trang con vẫn kịp gọi API.
+      */}
+      <RequireAuth>
+        <DashboardShell>{children}</DashboardShell>
+      </RequireAuth>
+
+      {/* Nằm ngoài hàng rào: thông báo "không có quyền truy cập" do
+          `RequireRole` phát ra phải hiện được ngay cả khi nội dung bị chặn. */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </>
+  );
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
   // Resolves to the stored preference only after hydration, so the server and
   // first client render agree on the sidebar width.
   const [collapsed, setCollapsed] = useStoredFlag(COLLAPSE_KEY);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    initialize();
-  }, [initialize]);
-
   const toggleCollapsed = React.useCallback(
     () => setCollapsed(!collapsed),
     [collapsed, setCollapsed]
   );
-
-  if (!initialized) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center surface-canvas">
-        <span className="flex items-center gap-2 text-[13px] text-tertiary">
-          <Spinner size={16} />
-          Đang tải…
-        </span>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-dvh surface-canvas">
@@ -78,8 +82,6 @@ export default function DashboardLayout({
           </ViewTransition>
         </main>
       </div>
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

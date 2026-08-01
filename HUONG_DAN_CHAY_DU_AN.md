@@ -78,10 +78,25 @@ openssl rand -hex 32   # → FILE_URL_SECRET
 npm install
 npm run setup          # tải font tiếng Việt cho xuất PDF
 npx prisma migrate deploy   # tạo 22 bảng + chỉ mục HNSW
-npm run db:seed        # tạo tài khoản và dữ liệu mẫu
+npm run db:seed        # tham số hệ thống + 1 tài khoản quản trị
+npm run db:seed:demo   # (tuỳ chọn) dữ liệu mẫu để thử nghiệm
 ```
 
-`npm run db:seed` in ra bảng tài khoản dùng thử ở cuối.
+**`npm run db:seed`** chạy được ở mọi môi trường. Nó cần hai biến trong `.env` và
+sẽ dừng lại nếu thiếu:
+
+```bash
+SEED_ADMIN_EMAIL=admin@truong-cua-ban.edu.vn
+SEED_ADMIN_PASSWORD=<mật khẩu mạnh, tối thiểu 12 ký tự>
+```
+
+Chạy lại lần hai **không** đặt lại mật khẩu quản trị — nếu có, một lần chạy vô ý
+sẽ đưa mật khẩu về giá trị trong `.env` mà bạn đã đổi từ lâu.
+
+**`npm run db:seed:demo`** nạp dữ liệu thử nghiệm (7 tài khoản, 5 đề tài, mốc
+tiến độ, 3 tài liệu thật để trợ lý AI trích dẫn). Lệnh này **tự từ chối chạy khi
+`NODE_ENV=production`** — dữ liệu bịa lẫn vào dữ liệu thật thì thống kê mất ý
+nghĩa và không có nút hoàn tác.
 
 ### Bước 4 — Chạy backend
 
@@ -97,7 +112,7 @@ NovaThesis API đang chạy tại http://localhost:8000
 
 Kiểm tra: mở [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health) → phải trả `{"status":"NOMINAL",...}`
 
-> Lần chạy đầu, backend tự động lập chỉ mục 3 tài liệu mẫu (chia đoạn → sinh vector → lưu pgvector). Quá trình mất khoảng 5–15 giây và chạy ngầm; xem log để theo dõi.
+> Nếu đã chạy `npm run db:seed:demo`, lần khởi động đầu backend tự động lập chỉ mục 3 tài liệu mẫu (chia đoạn → sinh vector → lưu pgvector). Quá trình mất khoảng 5–15 giây và chạy ngầm; xem log để theo dõi.
 
 ### Bước 5 — Chạy frontend
 
@@ -115,6 +130,10 @@ Mở [http://localhost:3000](http://localhost:3000) và đăng nhập.
 ---
 
 ## 3. Tài khoản dùng thử
+
+> Các tài khoản dưới đây chỉ tồn tại sau khi chạy **`npm run db:seed:demo`**.
+> `npm run db:seed` thường chỉ tạo đúng một tài khoản quản trị theo
+> `SEED_ADMIN_EMAIL` trong `.env` của bạn.
 
 Mật khẩu chung: **`Admin@123456`** (đổi được ở `SEED_PASSWORD` trong `backend/.env`).
 
@@ -198,7 +217,8 @@ Thử: **Đăng xuất → Quên mật khẩu →** nhập `student@novathesis.e
 | `npm test`                   | Chạy 25 test đơn vị cho FSM, vector hoá, chia đoạn, chống prompt injection |
 | `npm run typecheck`          | Kiểm tra kiểu TypeScript                                                         |
 | `npm run db:studio`          | Mở Prisma Studio để xem/sửa dữ liệu trực quan                               |
-| `npm run db:seed`            | Nạp lại dữ liệu mẫu (chạy lại được nhiều lần)                          |
+| `npm run db:seed`            | Tham số hệ thống + 1 tài khoản quản trị (chạy lại được nhiều lần)     |
+| `npm run db:seed:demo`       | Dữ liệu mẫu để thử nghiệm — từ chối chạy khi `NODE_ENV=production`     |
 | `npm run db:reset`           | **Xoá sạch** CSDL rồi migrate + seed lại                                 |
 
 ### Frontend (`cd frontend`)
@@ -297,7 +317,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 Hỗ trợ: `openai`, `anthropic`, `gemini`, `local`.
 
-> **Đổi nhà cung cấp embedding thì phải lập chỉ mục lại toàn bộ.** Vector của hai mô hình khác nhau không nằm chung một không gian, nên so sánh chúng với nhau là vô nghĩa. Vào **Tài liệu → menu ⋯ → Lập chỉ mục lại** cho từng tệp, hoặc chạy `npm run db:seed` rồi khởi động lại backend.
+> **Đổi nhà cung cấp embedding thì phải lập chỉ mục lại toàn bộ.** Vector của hai mô hình khác nhau không nằm chung một không gian, nên so sánh chúng với nhau là vô nghĩa. Vào **Tài liệu → menu ⋯ → Lập chỉ mục lại** cho từng tệp, hoặc chạy `npm run db:seed:demo` rồi khởi động lại backend.
 
 ---
 
@@ -313,7 +333,7 @@ Hỗ trợ: `openai`, `anthropic`, `gemini`, `local`.
 | Tài liệu báo`Lỗi xử lý`                               | Tệp PDF là bản quét ảnh hoặc có mật khẩu → không trích được văn bản. Mở chi tiết tài liệu để xem lý do cụ thể.                                                               |
 | Báo cáo PDF bị lỗi dấu tiếng Việt                      | Chưa tải font →`npm run setup` trong `backend/`.                                                                                                                                                |
 | Frontend gọi API bị lỗi CORS                               | `CORS_ORIGINS` trong `backend/.env` phải chứa đúng `http://localhost:3000`.                                                                                                                  |
-| Đăng nhập báo khoá tài khoản                           | Đã sai mật khẩu 5 lần → chờ 15 phút, hoặc`npm run db:seed` để đặt lại.                                                                                                                 |
+| Đăng nhập báo khoá tài khoản                           | Đã sai mật khẩu 5 lần → màn hình đăng nhập hiện đồng hồ đếm ngược, chờ hết là vào lại được. Cần gỡ ngay: đặt `locked_until = NULL` cho tài khoản đó trong `prisma studio`.        |
 | Không nhận được email                                    | Kiểm tra Mailpit tại[http://localhost:8025](http://localhost:8025). Ở chế độ dev, email **không** gửi ra Internet thật.                                                                  |
 | Repo có ~4000 tệp thừa (`venv/`, `.next/`)             | Chúng được commit từ trước khi có`.gitignore` đầy đủ. Gỡ khỏi chỉ mục git (giữ nguyên tệp trên đĩa): `git rm -r --cached backend-legacy-fastapi/venv frontend/.next --quiet` |
 

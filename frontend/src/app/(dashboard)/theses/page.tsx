@@ -16,6 +16,7 @@ import {
   Table,
 } from "@/components/ui";
 import { useAuthStore, isLecturer, isStudent } from "@/lib/auth";
+import { isReadOnlyViewer } from "@/lib/permissions";
 import { useAsync, useDebounced } from "@/lib/use-async";
 import { thesesApi, type Thesis, type ThesisStatus } from "@/lib/services";
 import { formatDate } from "@/lib/format";
@@ -89,8 +90,9 @@ export default function ThesesListPage() {
         }
         actions={
           /* Sinh viên đã có đề tài đang chạy thì không tạo thêm được (UC 3.1 BR),
-             nên nút chỉ hiện khi thao tác thật sự khả thi. */
-          isStudent(user) && user?.thesis_id ? null : (
+             nên nút chỉ hiện khi thao tác thật sự khả thi. Quản trị viên xem ở
+             chế độ chỉ đọc nên cũng không thấy nút này. */
+          isReadOnlyViewer(user) || (isStudent(user) && user?.thesis_id) ? null : (
             <Link href="/theses/new">
               <Button variant="primary" icon={<Plus size={15} />}>
                 {isLecturer(user) ? "Tạo đề tài mới" : "Đề xuất đề tài"}

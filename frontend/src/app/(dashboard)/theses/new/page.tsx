@@ -6,6 +6,7 @@ import { ArrowLeft, FloppyDisk, Warning } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { useAuthStore, isLecturer } from "@/lib/auth";
+import { RequireRole } from "@/lib/guards";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
@@ -22,7 +23,20 @@ const FIELDS = [
   "Robot & Tự động hóa",
 ];
 
+/**
+ * Chỉ sinh viên và giảng viên đề xuất được đề tài (`theses.routes.ts` POST `/`).
+ * Quản trị viên gõ thẳng đường dẫn này sẽ bị đưa về trang tổng quan thay vì
+ * điền xong cả biểu mẫu rồi mới nhận lỗi từ server.
+ */
 export default function NewThesisPage() {
+  return (
+    <RequireRole roles={["STUDENT", "LECTURER"]}>
+      <NewThesisForm />
+    </RequireRole>
+  );
+}
+
+function NewThesisForm() {
   const router = useRouter();
   const { user } = useAuthStore();
   const lecturerMode = isLecturer(user);

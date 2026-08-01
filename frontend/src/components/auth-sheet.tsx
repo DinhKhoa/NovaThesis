@@ -25,7 +25,90 @@ import { isApiError } from "@/lib/api";
 
 export type AuthMode = "login" | "register";
 
-const MAX_ATTEMPTS = 5;
+/* ==========================================================================
+   KHÓA TÀI KHOẢN (UC 1.1 BR-1)
+
+   Bộ đếm số lần sai nằm ở SERVER (`users.failed_login_attempts`), khóa bằng
+   `users.locked_until`. Trước đây phía này giữ một bộ đếm riêng trong React
+   state kèm câu "thử lại sau 15 phút" viết cứng, dẫn tới hai vấn đề: F5 là mất
+   sạch trạng thái khóa trên giao diện, và con số 15 phút đứng yên trong khi
+   thời gian thật vẫn chạy.
+
+   Giờ nguồn sự thật duy nhất là `locked_until` do server trả về trong lỗi 429
+   (`code: "ACCOUNT_LOCKED"`). Ta chỉ ghi nó xuống `localStorage` theo email để
+   sống qua lần tải trang, và đếm ngược từ đó.
+   ========================================================================== */
+
+const LOCK_KEY_PREFIX = "nova.lock.";
+
+const lockKey = (email: string) => `${LOCK_KEY_PREFIX}${email.trim().toLowerCase()}`;
+
+/** Thời điểm hết khóa đã lưu, hoặc `null` nếu chưa khóa / đã hết hạn. */
+function readLock(email: string): number | null {
+  if (typeof window === "undefined" || !email.trim()) return null;
+  const raw = window.localStorage.getItem(lockKey(email));
+  if (!raw) return null;
+
+  const until = Number(raw);
+  // Giá trị hỏng hoặc đã qua thì dọn luôn, đừng để rác tích lại trong
+  // localStorage của người dùng.
+  if (!Number.isFinite(until) || until <= Date.now()) {
+    window.localStorage.removeItem(lockKey(email));
+    return null;
+  }
+  return until;
+}
+
+function writeLock(email: string, until: number): void {
+  if (typeof window === "undefined" || !email.trim()) return;
+  window.localStorage.setItem(lockKey(email), String(until));
+}
+
+function clearLock(email: string): void {
+  if (typeof window === "undefined" || !email.trim()) return;
+  window.localStorage.removeItem(lockKey(email));
+}
+
+/** "14:59" — mm:ss, vì "còn 1 phút" ở giây thứ 89 là nói dối. */
+function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const mm = Math.floor(total / 60);
+  const ss = total % 60;
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+/** Đồng hồ đếm ngược tới thời điểm hết khóa. */
+function LockCountdown({
+  until,
+  onExpire,
+}: {
+  until: number;
+  onExpire: () => void;
+}) {
+  /* Giữ MỐC THỜI GIAN hiện tại chứ không giữ "số giây còn lại": `until` là thời
+     điểm tuyệt đối, nên khi nó đổi thì phần hiển thị tự đúng ngay, không cần một
+     lần setState nữa chỉ để đồng bộ lại bộ đếm. */
+  const [now, setNow] = React.useState(() => Date.now());
+
+  React.useEffect(() => {
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= until) onExpire();
+    };
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [until, onExpire]);
+
+  return (
+    <p className="text-[11.5px] text-center text-tertiary">
+      Mở khóa sau{" "}
+      <span className="tnum font-semibold text-danger">
+        {formatCountdown(until - now)}
+      </span>
+    </p>
+  );
+}
 
 interface FieldErrors {
 	full_name?: string;
@@ -108,10 +191,26 @@ export function AuthSheet({
 	const [showPassword, setShowPassword] = React.useState(false);
 	const [remember, setRemember] = React.useState(true);
 	const [errors, setErrors] = React.useState<FieldErrors>({});
-	const [attempts, setAttempts] = React.useState(0);
 	const [registered, setRegistered] = React.useState<string | null>(null);
 
-	const locked = attempts >= MAX_ATTEMPTS;
+	/* Khóa được tra theo email đang gõ, nên đổi email là đổi luôn trạng thái
+	   khóa — tài khoản A bị khóa không được chặn người ta đăng nhập tài khoản B
+	   trên cùng máy. Suy ra lúc render thay vì đồng bộ bằng effect: cách kia
+	   thêm một lượt render và một khoảnh khắc nút hiện ra rồi mới bị vô hiệu. */
+	const [lockNonce, setLockNonce] = React.useState(0);
+	const lockedUntil = React.useMemo(
+		() => readLock(form.email),
+		// `lockNonce` là tín hiệu đọc lại sau khi ghi hoặc xoá khóa.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[form.email, lockNonce],
+	);
+	const locked = lockedUntil !== null;
+
+	const releaseLock = React.useCallback(() => {
+		clearLock(form.email);
+		setLockNonce((n) => n + 1);
+		setErrors({});
+	}, [form.email]);
 
 	/* Switching modes clears the previous form's complaints. The email carries
      over on purpose — someone who just failed to sign in and is now
@@ -129,37 +228,58 @@ export function AuthSheet({
 		};
 
 	const submitLogin = async () => {
+		if (locked) return;
+
 		const invalid = validateLogin(form.email, form.password);
 		if (Object.keys(invalid).length) return setErrors(invalid);
 		setErrors({});
 
-		if (locked) {
-			setErrors({
-				general: `Đã nhập sai ${MAX_ATTEMPTS} lần. Vui lòng thử lại sau 15 phút.`,
-			});
-			return;
-		}
-
 		try {
 			await login({ email: form.email, password: form.password });
+			clearLock(form.email);
 			window.location.href = "/dashboard";
 		} catch (err) {
-			setAttempts((n) => n + 1);
-			if (isApiError(err)) {
-				if (err.status === 401) {
-					// Deliberately not saying which field was wrong — naming it would
-					// let an attacker enumerate which emails exist.
-					setErrors({ general: "Email hoặc mật khẩu không chính xác." });
-				} else if (err.status === 403) {
-					setErrors({
-						general: "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.",
-					});
-				} else {
-					setErrors({ general: err.message });
-				}
-			} else {
+			if (!isApiError(err)) {
 				setErrors({ general: "Không kết nối được máy chủ. Vui lòng thử lại." });
+				return;
 			}
+
+			/* 429 mang HAI ý nghĩa khác nhau và dẫn tới hai hành động khác nhau,
+			   nên phải tách bằng `code` chứ không bằng mã trạng thái. */
+			if (err.status === 429 && err.code === "ACCOUNT_LOCKED") {
+				const until = err.locked_until
+					? Date.parse(err.locked_until)
+					: Date.now() + (err.retry_after_seconds ?? 0) * 1000;
+
+				if (Number.isFinite(until) && until > Date.now()) {
+					writeLock(form.email, until);
+					setLockNonce((n) => n + 1);
+				}
+				setErrors({ general: err.message });
+				return;
+			}
+
+			if (err.status === 429) {
+				setErrors({
+					general:
+						"Thiết bị này đã gửi quá nhiều yêu cầu đăng nhập. Vui lòng đợi ít phút rồi thử lại.",
+				});
+				return;
+			}
+
+			if (err.status === 401) {
+				// Deliberately not saying which field was wrong — naming it would
+				// let an attacker enumerate which emails exist.
+				setErrors({ general: "Email hoặc mật khẩu không chính xác." });
+				return;
+			}
+
+			if (err.status === 403) {
+				setErrors({ general: err.message });
+				return;
+			}
+
+			setErrors({ general: err.message });
 		}
 	};
 
@@ -333,11 +453,8 @@ export function AuthSheet({
 							{isLogin ? "Đăng nhập" : "Đăng ký"}
 						</Button>
 
-						{isLogin && attempts > 0 && !locked && (
-							<p className="text-[11.5px] text-warning text-center">
-								Còn {MAX_ATTEMPTS - attempts} lần thử trước khi tài khoản tạm
-								khóa.
-							</p>
+						{isLogin && lockedUntil !== null && (
+							<LockCountdown until={lockedUntil} onExpire={releaseLock} />
 						)}
 					</form>
 				</>

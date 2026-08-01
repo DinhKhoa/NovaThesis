@@ -20,6 +20,15 @@ export interface ApiError {
   message: string;
   status: number;
   errors?: Record<string, string[]>;
+  /**
+   * Mã lỗi của backend (`middleware/error.ts`). Cần khi cùng một mã HTTP mang
+   * hai ý nghĩa khác nhau — ví dụ 429 vừa là "thiết bị gửi quá nhanh"
+   * (`TOO_MANY_REQUESTS`) vừa là "tài khoản bị khóa" (`ACCOUNT_LOCKED`).
+   */
+  code?: string;
+  /** ISO timestamp: thời điểm hết khóa tài khoản (`code === "ACCOUNT_LOCKED"`). */
+  locked_until?: string;
+  retry_after_seconds?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -181,6 +190,10 @@ async function request<T>(
       message: body.message || body.detail || "Đã xảy ra lỗi",
       status: response.status,
       errors: body.errors,
+      code: body.code,
+      // Backend trải các trường này ở cấp gốc của thân lỗi (`HttpError.public`).
+      locked_until: body.locked_until,
+      retry_after_seconds: body.retry_after_seconds,
     } as ApiError;
   }
 
