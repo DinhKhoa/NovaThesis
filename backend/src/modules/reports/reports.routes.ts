@@ -21,7 +21,6 @@ import { audit, AuditAction } from "../../lib/audit";
 import { currentUser, requireAuth, requireRole } from "../../middleware/auth";
 import { optionalText, validateParams, validateQuery } from "../../middleware/validate";
 import { assertThesisAccess } from "../../domain/access";
-import { collectAiStats } from "../ai/ai.service";
 import {
   buildGantt,
   buildOverview,
@@ -242,26 +241,21 @@ reportsRouter.get(
 
 /* ==========================================================================
    UC 9.3 — THỐNG KÊ HOẠT ĐỘNG AI
-   ========================================================================== */
 
-/**
- * Cùng hình dạng với `GET /ai/stats`, thêm `generated_at`.
- *
- * Dùng lại `collectAiStats()` thay vì viết truy vấn thứ hai: NFR của UC 9.3 nói
- * độ trễ số liệu không quá 5 phút, và hai bản cài đặt song song chắc chắn sẽ có
- * lúc trả hai con số khác nhau cho cùng một câu hỏi.
- *
- * `generated_at` để giao diện hiển thị "số liệu tính lúc …" — không có nó,
- * người xem không phân biệt được dashboard đang mới hay đang treo ở bản cũ.
- */
-reportsRouter.get(
-  "/ai-usage",
-  requireRole("ADMIN"),
-  asyncHandler(async (_req, res) => {
-    const stats = await collectAiStats();
-    res.json({ ...stats, generated_at: new Date().toISOString() });
-  })
-);
+   ĐÃ XOÁ `GET /reports/ai-usage`.
+   Nó gọi đúng cùng một hàm `collectAiStats()` như `GET /ai/stats`, cùng đòi
+   quyền ADMIN, và khác biệt duy nhất là thêm trường `generated_at`. Không trang
+   nào gọi tới nó. Hai endpoint trả cùng một câu trả lời cho cùng một câu hỏi là
+   hai chỗ để về sau trôi dạt khỏi nhau.
+
+   `generated_at` đã chuyển sang `GET /ai/stats` để không mất thông tin "số liệu
+   tính lúc nào" — thiếu nó thì người xem không phân biệt được bảng đang mới hay
+   đang treo ở bản cũ.
+
+   Lưu ý: đây KHÔNG phải phần thống kê AI trên trang Báo cáo. Phần đó nằm trong
+   `GET /reports/overview` (`ai_by_feature`), lọc theo vai trò người xem, và sinh
+   viên cùng giảng viên cần nó — xem `buildOverview()` trong `reports.service.ts`.
+   ========================================================================== */
 
 /* ==========================================================================
    UC 9.4 — BIỂU ĐỒ GANTT

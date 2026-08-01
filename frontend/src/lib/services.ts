@@ -479,7 +479,7 @@ export const aiApi = {
   regenerateSuggestion: (id: number) => api.post<AISuggestion>(`/ai/suggestions/${id}/regenerate`),
   plagiarism: (thesisId: number, text: string) =>
     api.post<PlagiarismResult>("/ai/plagiarism", { thesis_id: thesisId, text }),
-  stats: () => api.get<AIStats>("/ai/stats"),
+  stats: () => api.get<AIStats & { generated_at: string }>("/ai/stats"),
 };
 
 /* ==========================================================================
@@ -709,6 +709,42 @@ export const notificationsApi = {
    QUẢN TRỊ
    ========================================================================== */
 
+/** Một việc cần xử lý trên trang tổng quan của quản trị viên. */
+export interface AdminAction {
+  key: string;
+  label: string;
+  count: number;
+  /** Đường dẫn kèm bộ lọc, do server đặt để hai bên không ghép lệch nhau. */
+  href: string;
+}
+
+export interface AdminOverview {
+  users: {
+    total: number;
+    students: number;
+    lecturers: number;
+    admins: number;
+    active: number;
+    suspended: number;
+  };
+  theses: {
+    total: number;
+    by_status: { status: ThesisStatus; label: string; count: number; percent: number }[];
+  };
+  milestones: { total: number; completed: number; overdue: number };
+  documents: { total: number; indexed: number; failed: number; total_bytes: number };
+  ai: { total_messages: number; total_sessions: number };
+  ai_usage_weekly: { week: string; count: number }[];
+  actions_required: AdminAction[];
+  recent_errors: {
+    id: number;
+    action: string;
+    created_at: string;
+    actor: string | null;
+    message: string | null;
+  }[];
+}
+
 export interface AccountUser {
   id: number;
   email: string;
@@ -776,6 +812,8 @@ export interface AcademicYear {
 }
 
 export const adminApi = {
+  /** Trang tổng quan: số liệu + việc cần xử lý. Khác `/statistics` ở mục đích. */
+  overview: () => api.get<AdminOverview>("/admin/overview"),
   users: (params?: Record<string, string | number>) =>
     api.get<Paginated<AccountUser>>("/admin/users", params),
   createUser: (data: {
@@ -840,7 +878,6 @@ export interface GanttData {
 export const reportsApi = {
   overview: () => api.get<ReportOverview>("/reports/overview"),
   gantt: (thesisId: number) => api.get<GanttData>("/reports/gantt", { thesis_id: thesisId }),
-  aiUsage: () => api.get<AIStats & { generated_at: string }>("/reports/ai-usage"),
 
   /**
    * Tải tệp xuất ra.

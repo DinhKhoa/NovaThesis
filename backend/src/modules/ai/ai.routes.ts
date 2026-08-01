@@ -1195,6 +1195,9 @@ aiRouter.get(
   requireAuth,
   requireRole("ADMIN"),
   asyncHandler(async (_req, res) => {
-    res.json(await collectAiStats());
+    // `generated_at` để giao diện hiển thị "số liệu tính lúc …". Trước đây nó
+    // chỉ có ở `GET /reports/ai-usage` — endpoint trùng lặp đã bị xoá.
+    const stats = await collectAiStats();
+    res.json({ ...stats, generated_at: new Date().toISOString() });
   })
 );

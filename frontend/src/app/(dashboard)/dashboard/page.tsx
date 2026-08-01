@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
+  ChartBar,
   CheckCircle,
   Clock,
   FileArrowUp,
@@ -12,6 +13,7 @@ import {
   GraduationCap,
   Kanban,
   Robot,
+  Users,
   Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
@@ -29,6 +31,7 @@ import { useAuthStore, isLecturer } from "@/lib/auth";
 import { useAsync } from "@/lib/use-async";
 import { milestonesApi, type LecturerDashboardRow, type MilestoneStatus } from "@/lib/services";
 import { daysUntil, formatDate, formatRelative } from "@/lib/format";
+import { AdminDashboard } from "./admin-dashboard";
 
 const STATUS: Record<
   MilestoneStatus,
@@ -56,7 +59,12 @@ function DeadlineLabel({ days }: { days: number }) {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const lecturerView = isLecturer(user) || user?.role === "ADMIN";
+
+  /* Ba vai trò, ba bảng điều khiển. Trước đây chỉ có hai: Admin bị gộp vào nhánh
+     giảng viên (`isLecturer(user) || role === "ADMIN"`) nên nhận một danh sách
+     luôn rỗng, vì Admin không có `lecturer_id`. */
+  const admin = user?.role === "ADMIN";
+  const lecturerView = isLecturer(user);
 
   /* Resolved only after hydration: the server's clock and the student's clock
      disagree, and a time-of-day greeting rendered on the server would mismatch
@@ -75,31 +83,61 @@ export default function DashboardPage() {
       <PageHeader
         title={`${greeting}${firstName ? `, ${firstName}` : ""}`}
         description={
-          lecturerView
-            ? "Tiến độ của các đề tài bạn đang hướng dẫn."
-            : "Những việc cần chú ý trong tuần này."
+          admin
+            ? "Tình trạng hệ thống và những việc đang chờ bạn xử lý."
+            : lecturerView
+              ? "Tiến độ của các đề tài bạn đang hướng dẫn."
+              : "Những việc cần chú ý trong tuần này."
         }
+        /* Nút theo vai trò. Trước đây Admin cũng thấy "Tải tài liệu" và "Hỏi trợ
+           lý AI" — hai trang không có trong thanh điều hướng của Admin, và
+           `/ai-chat` giờ đã bị chặn hẳn với vai trò này. */
         actions={
-          <>
-            <Button
-              variant="secondary"
-              icon={<FileArrowUp size={15} />}
-              onClick={() => router.push("/documents")}
-            >
-              Tải tài liệu
-            </Button>
-            <Button
-              variant="primary"
-              icon={<Robot size={15} />}
-              onClick={() => router.push("/ai-chat")}
-            >
-              Hỏi trợ lý AI
-            </Button>
-          </>
+          admin ? (
+            <>
+              <Button
+                variant="secondary"
+                icon={<Users size={15} />}
+                onClick={() => router.push("/admin/users")}
+              >
+                Quản lý người dùng
+              </Button>
+              <Button
+                variant="primary"
+                icon={<ChartBar size={15} />}
+                onClick={() => router.push("/admin/statistics")}
+              >
+                Giám sát AI
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                icon={<FileArrowUp size={15} />}
+                onClick={() => router.push("/documents")}
+              >
+                Tải tài liệu
+              </Button>
+              <Button
+                variant="primary"
+                icon={<Robot size={15} />}
+                onClick={() => router.push("/ai-chat")}
+              >
+                Hỏi trợ lý AI
+              </Button>
+            </>
+          )
         }
       />
 
-      {lecturerView ? <LecturerDashboard /> : <StudentDashboard />}
+      {admin ? (
+        <AdminDashboard />
+      ) : lecturerView ? (
+        <LecturerDashboard />
+      ) : (
+        <StudentDashboard />
+      )}
     </div>
   );
 }

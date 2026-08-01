@@ -32,6 +32,7 @@ import { toAccountDTO, toConfigDTO, toSystemLogDTO } from "../serializers";
 import {
   ROLE_LABELS,
   activateAcademicYear,
+  buildAdminOverview,
   applyConfigUpdates,
   buildStatistics,
   changeAccountRole,
@@ -454,6 +455,23 @@ adminRouter.delete(
     });
 
     noContent(res);
+  })
+);
+
+/* ==========================================================================
+   TRANG TỔNG QUAN CỦA QUẢN TRỊ VIÊN
+   ========================================================================== */
+
+/**
+ * Số liệu + danh sách việc cần xử lý cho màn hình đầu tiên sau khi đăng nhập.
+ *
+ * Khác `/statistics` ở mục đích, không ở dữ liệu: nơi này trả lời "hôm nay tôi
+ * phải làm gì", `/statistics` trả lời "hệ thống đang chạy thế nào".
+ */
+adminRouter.get(
+  "/overview",
+  asyncHandler(async (req, res) => {
+    res.json(await buildAdminOverview(currentUser(req)));
   })
 );
 

@@ -124,7 +124,7 @@ export default function AdminStatisticsPage() {
   return (
     <div>
       <PageHeader
-        title="Thống kê"
+        title="Vận hành hệ thống AI"
         description="Số liệu người dùng, đề tài, mức sử dụng AI và trạng thái vận hành của hệ thống."
       />
 
@@ -335,7 +335,7 @@ function AiDetailSection({ stats }: { stats: AIStats }) {
 
   return (
     <>
-      <h2 className="eyebrow mt-6 mb-3">Thống kê AI chi tiết</h2>
+      <h2 className="eyebrow mt-6 mb-3">Vận hành trợ lý AI</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-5">

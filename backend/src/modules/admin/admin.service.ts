@@ -770,6 +770,155 @@ export async function buildStatistics(user: AuthUser, academicYearId?: number) {
 }
 
 /* ==========================================================================
+   TRANG TỔNG QUAN CỦA QUẢN TRỊ VIÊN
+
+   Trước đây `/dashboard` đưa Admin vào đúng bảng điều khiển của GIẢNG VIÊN
+   (`lecturerView = isLecturer(user) || role === "ADMIN"`). Admin không có
+   `lecturer_id` nên danh sách luôn rỗng, và màn hình đầu tiên sau khi đăng nhập
+   là dòng "Chưa hướng dẫn đề tài nào" kèm hai nút dẫn tới trang Admin không có
+   quyền vào.
+
+   Điểm khác biệt so với trang Thống kê: nơi này trả lời "hôm nay tôi phải làm
+   gì", còn trang Thống kê trả lời "hệ thống đang chạy thế nào". Một trang tổng
+   quan chỉ có số liệu tĩnh thì đọc xong vẫn không biết làm gì tiếp.
+   ========================================================================== */
+
+/** Ngưỡng coi một đề tài là "để quên trong hàng đợi duyệt". */
+const STALE_PENDING_DAYS = 7;
+
+/** Số dòng nhật ký lỗi gần nhất hiển thị trên trang tổng quan. */
+const RECENT_ERROR_LIMIT = 5;
+
+export async function buildAdminOverview(user: AuthUser) {
+  const now = new Date();
+  const stalePendingBefore = new Date(now.getTime() - STALE_PENDING_DAYS * 86_400_000);
+
+  const [
+    statistics,
+    pendingVerification,
+    stalePendingTheses,
+    documentsAiError,
+    overdueMilestones,
+    unassignedTheses,
+    storage,
+    recentErrors,
+  ] = await Promise.all([
+    // Dùng lại thay vì viết truy vấn thứ hai: hai bản cài đặt song song chắc
+    // chắn sẽ có lúc trả hai con số khác nhau cho cùng một câu hỏi.
+    buildStatistics(user),
+
+    prisma.user.count({ where: { deleted_at: null, status: "PENDING_VERIFICATION" } }),
+
+    prisma.thesis.count({
+      where: {
+        deleted_at: null,
+        status: "PENDING",
+        // `submitted_at` chứ không phải `created_at`: một bản nháp nằm hai tháng
+        // rồi mới gửi duyệt hôm qua thì không phải là hồ sơ bị bỏ quên.
+        submitted_at: { lt: stalePendingBefore },
+      },
+    }),
+
+    prisma.document.count({ where: { deleted_at: null, status_ai: "ERROR" } }),
+
+    prisma.milestone.count({
+      where: {
+        deleted_at: null,
+        thesis: { deleted_at: null },
+        status: { not: "COMPLETED" },
+        deadline: { lt: now },
+      },
+    }),
+
+    // Đề tài đã duyệt nhưng chưa có người hướng dẫn — sinh viên đang chờ mà
+    // không có ai chịu trách nhiệm.
+    prisma.thesis.count({
+      where: { deleted_at: null, lecturer_id: null, status: { in: ["PENDING", "ONGOING"] } },
+    }),
+
+    prisma.document.aggregate({
+      where: { deleted_at: null },
+      _sum: { file_size: true },
+      _count: { _all: true },
+    }),
+
+    prisma.systemLog.findMany({
+      where: { level: "ERROR" },
+      orderBy: { created_at: "desc" },
+      take: RECENT_ERROR_LIMIT,
+      select: {
+        id: true,
+        action: true,
+        created_at: true,
+        details: true,
+        user: { select: { full_name: true, email: true } },
+      },
+    }),
+  ]);
+
+  return {
+    users: statistics.users,
+    theses: statistics.theses,
+    milestones: statistics.milestones,
+    documents: {
+      ...statistics.documents,
+      total_bytes: Number(storage._sum.file_size ?? 0),
+    },
+    ai: statistics.ai,
+    ai_usage_weekly: statistics.ai_usage_weekly,
+
+    /* Mỗi mục là một việc CÓ THỂ BẤM VÀO. `href` do server đặt để giao diện
+       không phải tự ghép đường dẫn kèm bộ lọc — hai nơi ghép sẽ có lúc lệch, và
+       người dùng bấm vào một danh sách không khớp con số vừa đọc. */
+    actions_required: [
+      {
+        key: "pending_verification",
+        label: "Tài khoản chờ xác minh email",
+        count: pendingVerification,
+        href: "/admin/users?status=PENDING_VERIFICATION",
+      },
+      {
+        key: "stale_pending_theses",
+        label: `Đề tài chờ duyệt quá ${STALE_PENDING_DAYS} ngày`,
+        count: stalePendingTheses,
+        href: "/theses?status=PENDING",
+      },
+      {
+        key: "unassigned_theses",
+        label: "Đề tài chưa có giảng viên hướng dẫn",
+        count: unassignedTheses,
+        href: "/theses?status=PENDING",
+      },
+      {
+        key: "documents_ai_error",
+        label: "Tài liệu lỗi lập chỉ mục",
+        count: documentsAiError,
+        href: "/documents?status_ai=ERROR",
+      },
+      {
+        key: "overdue_milestones",
+        label: "Mốc tiến độ quá hạn toàn hệ thống",
+        count: overdueMilestones,
+        href: "/milestones",
+      },
+    ],
+
+    recent_errors: recentErrors.map((log) => ({
+      id: log.id,
+      action: log.action,
+      created_at: log.created_at,
+      actor: log.user?.full_name ?? null,
+      // `details` là JSONB tự do; chỉ lấy trường `message` nếu có, phần còn lại
+      // thuộc về trang Nhật ký chứ không phải một dòng tóm tắt.
+      message:
+        log.details !== null && typeof log.details === "object" && !Array.isArray(log.details)
+          ? ((log.details as Record<string, unknown>).message as string | undefined) ?? null
+          : null,
+    })),
+  };
+}
+
+/* ==========================================================================
    UC 2.8 — NHẬT KÝ HỆ THỐNG (chỉ đọc)
    ========================================================================== */
 

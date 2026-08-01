@@ -112,6 +112,20 @@ export default function ReportsPage() {
       ? "Đề tài bạn hướng dẫn"
       : "Đề tài của bạn";
 
+  /* Tên panel nói rõ ĐANG ĐẾM PHẠM VI NÀO.
+     Tên cũ — "Thống kê Tần suất Sử dụng AI & Vector Search" — đọc gần như trùng
+     với trang `/admin/statistics`, khiến hai chỗ trông như một chỗ bị làm hai
+     lần. Thực tế chúng khác nhau: chỗ này lọc theo vai trò người xem (SV thấy số
+     của mình, GV thấy nhóm mình hướng dẫn) và chỉ có 5 tính năng kèm tỷ lệ; còn
+     `/admin/statistics` luôn là toàn hệ thống và đi sâu vào xu hướng theo tuần,
+     top tài liệu được trích dẫn, tỷ lệ đánh giá, thống kê theo model.
+     Vì khác nhau nên giữ cả hai — chỉ đổi tên cho khỏi nhầm. */
+  const aiPanelTitle = isAdmin(user)
+    ? "Lượt sử dụng AI toàn hệ thống"
+    : isLecturer(user)
+      ? "Lượt sử dụng AI của nhóm bạn hướng dẫn"
+      : "Lượt sử dụng AI của bạn";
+
   const completedTheses =
     overview?.theses_by_status.find((s) => s.status === "COMPLETED")?.count ?? 0;
 
@@ -121,7 +135,7 @@ export default function ReportsPage() {
     <div>
       <PageHeader
         title="Báo cáo"
-        description="Xuất dữ liệu tiến độ, danh sách đề tài và thống kê sử dụng AI."
+        description="Xuất dữ liệu tiến độ, danh sách đề tài và xem lượt sử dụng AI trong phạm vi của bạn."
         actions={
           canExportList ? (
             <div className="flex items-center gap-2">
@@ -260,7 +274,7 @@ export default function ReportsPage() {
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 className="text-base font-semibold flex items-center gap-2">
                   <Robot size={20} style={{ color: "var(--accent)" }} />
-                  Thống kê Tần suất Sử dụng AI & Vector Search
+                  {aiPanelTitle}
                 </h2>
                 {/* UC 9.3: dashboard AI đầy đủ là màn hình riêng của Admin. */}
                 {isAdmin(user) && (
@@ -268,7 +282,7 @@ export default function ReportsPage() {
                     href="/admin/statistics"
                     className="text-[12.5px] font-medium text-accent hover:underline flex items-center gap-1 whitespace-nowrap flex-shrink-0"
                   >
-                    Xem thống kê AI chi tiết
+                    Mở bảng giám sát AI
                     <ArrowRight size={12} />
                   </Link>
                 )}
