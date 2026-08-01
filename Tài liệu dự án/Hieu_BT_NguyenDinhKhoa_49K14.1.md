@@ -901,10 +901,10 @@ Bảng . Đặc tả UC Đăng nhập
 | Priority | Cao |
 | Triggers | Người dùng truy cập trang đăng nhập và có nhu cầu sử dụng hệ thống. |
 | Pre-conditions | Người dùng đã có tài khoản trên hệ thống và tài khoản không bị khóa. Người dùng chưa đăng nhập. |
-| Post-conditions | Người dùng được chuyển hướng đến dashboard tương ứng và hệ thống cấp JWT token hợp lệ. |
-| Main flow | 1\. Người dùng bấm “Đăng nhập” ở trang chủ.<br><br>2\. Hệ thống hiển thị form đăng nhập (Email, Mật khẩu).<br><br>3\. Người dùng nhập thông tin Email và Mật khẩu, nhấn “Đăng nhập”.<br><br>4\. Hệ thống kiểm tra tính hợp lệ của định dạng dữ liệu (email đúng chuẩn, mật khẩu không rỗng).<br><br>5\. Hệ thống đối chiếu thông tin đăng nhập với cơ sở dữ liệu.<br><br>6\. Hệ thống tạo và trả về JWT token cho phiên làm việc.<br><br>7\. Hệ thống chuyển hướng người dùng tới Dashboard tương ứng với vai trò (Sinh viên/Giảng viên/Admin). |
+| Post-conditions | Người dùng được chuyển hướng đến dashboard tương ứng. Hệ thống cấp access token (trả trong thân phản hồi, ứng dụng giữ trong bộ nhớ) và refresh token (đặt vào cookie `httpOnly`, JavaScript không đọc được). |
+| Main flow | 1\. Người dùng bấm “Đăng nhập” ở trang chủ.<br><br>2\. Hệ thống hiển thị form đăng nhập (Email, Mật khẩu).<br><br>3\. Người dùng nhập thông tin Email và Mật khẩu, nhấn “Đăng nhập”.<br><br>4\. Hệ thống kiểm tra tính hợp lệ của định dạng dữ liệu (email đúng chuẩn, mật khẩu không rỗng).<br><br>5\. Hệ thống đối chiếu thông tin đăng nhập với cơ sở dữ liệu.<br><br>6\. Hệ thống tạo access token trả về trong thân phản hồi và đặt refresh token vào cookie `httpOnly`.<br><br>7\. Hệ thống chuyển hướng người dùng tới Dashboard tương ứng với vai trò (Sinh viên/Giảng viên/Admin). |
 | Alternative flows | 4a Định dạng email không hợp lệ hoặc thiếu thông tin: Hệ thống báo lỗi “Vui lòng nhập đầy đủ và đúng định dạng”. Quay lại bước 2. |
-| Exception flows | 5a Sai email hoặc mật khẩu (< 5 lần): Hệ thống báo lỗi “Email hoặc mật khẩu không chính xác”. Tăng biến đếm số lần sai. Quay lại bước 2.<br><br>5b Đăng nhập sai quá 5 lần: Hệ thống khóa tài khoản 15 phút, thông báo “Tài khoản bị khóa tạm thời 15 phút do nhập sai quá nhiều lần”.<br><br>5c Tài khoản chưa xác minh email: Hệ thống thông báo “Vui lòng kiểm tra email để xác minh tài khoản trước khi đăng nhập” và chặn truy cập. |
+| Exception flows | 5a Sai email hoặc mật khẩu (< 5 lần): Hệ thống báo lỗi “Email hoặc mật khẩu không chính xác”. Tăng biến đếm số lần sai. Quay lại bước 2.<br><br>5b Đăng nhập sai quá 5 lần: Hệ thống khóa tài khoản 15 phút và trả về thời điểm hết khóa dưới dạng dữ liệu có cấu trúc, để giao diện hiển thị đồng hồ đếm ngược theo thời gian thật.<br><br>5c Tài khoản chưa xác minh email: Hệ thống thông báo “Vui lòng kiểm tra email để xác minh tài khoản trước khi đăng nhập” và chặn truy cập. |
 | Business rules | 1\. Đăng nhập sai quá 5 lần liên tiếp sẽ bị khóa tài khoản tạm thời trong 15 phút.<br><br>2\. Tài khoản chưa xác minh email (với SV/GV đăng ký mới) sẽ không thể đăng nhập. |
 | Non-functional requirement | Mật khẩu phải được truyền qua kết nối mã hóa (HTTPS). Thời gian phản hồi của API đăng nhập < 1s. |
 
@@ -1368,7 +1368,7 @@ Bảng . Mô tả bảng theses
 | lecturer_id | INT | Foreign Key (lecturers.id), Null | Khóa ngoại liên kết giảng viên trực tiếp hướng dẫn đề tài. |
 | created_by | INT | Foreign Key (users.id), Not Null | Người khởi tạo đề tài (sinh viên hoặc giảng viên). |
 | start_date | DATE | Null | Ngày bắt đầu kỳ nghiên cứu. Hạn chót mọi mốc tiến độ phải nằm trong khoảng này. |
-| end_date | DATE | Null | Ngày kết thúc kỳ nghiên cứu. Hai cột này thay cho bảng năm học: một nền tảng công khai không áp được lịch chung cho mọi người dùng. |
+| end_date | DATE | Null | Ngày kết thúc kỳ nghiên cứu. Khoảng thời gian do chính người tạo đề tài đặt: NovaThesis là nền tảng công khai dùng cho nhiều cơ sở và nhiều nhóm nghiên cứu độc lập, nên không tồn tại một lịch chung mà hệ thống áp được cho mọi người. |
 | rejection_reason | TEXT | Null | Ghi nhận lý do giảng viên từ chối phê duyệt đề tài (trạng thái cuối). |
 | revision_note | TEXT | Null | Nội dung giảng viên yêu cầu sinh viên chỉnh sửa rồi gửi lại. Khác nghĩa rejection_reason. |
 | submitted_at | TIMESTAMP | Null | Thời điểm gửi duyệt, dùng để sắp hàng đợi phê duyệt theo thứ tự gửi. |
@@ -1732,11 +1732,29 @@ Mật khẩu được băm bằng Argon2id trước khi lưu. Phiên đăng nh�
 
 Token xác minh email và token đặt lại mật khẩu cũng chỉ được lưu dạng băm. Nguyên tắc là một bản sao cơ sở dữ liệu bị rò rỉ không được phép biến thành khả năng chiếm quyền tài khoản.
 
+Nơi lưu token phía trình duyệt
+
+Hệ thống KHÔNG dùng `localStorage`, và cũng không dùng `sessionStorage`, cho bất kỳ dữ liệu nào.
+
+Thiết kế ban đầu trả cả hai token về trong thân phản hồi và trình duyệt lưu chúng vào `localStorage`. Cách đó có một lỗ hổng không vá được bằng mã nguồn của chính ứng dụng: mọi đoạn script chạy trên trang đều đọc được `localStorage`. Một thư viện phụ thuộc bị chèn mã độc, một đoạn nhúng của bên thứ ba, hay một lỗ XSS ở bất kỳ đâu trong ứng dụng đều đủ để lấy trọn phiên đăng nhập. Refresh token là thứ tệ nhất để mất, vì nó đổi được thành access token mới trong suốt mười bốn ngày.
+
+Thiết kế hiện tại chia hai:
+
+Refresh token đi trong cookie có cờ `httpOnly`, nghĩa là JavaScript của trang không đọc được nó. Đường dẫn của cookie được giới hạn ở nhóm `/auth`, nên chỉ hai endpoint thật sự cần nó — làm mới phiên và đăng xuất — nhận được cookie; mọi request khác như tải tài liệu, gọi trợ lý AI hay xuất báo cáo đều không mang theo refresh token.
+
+Access token chỉ nằm trong một biến trong bộ nhớ của trang và mất khi tải lại. Sau khi tải lại, ứng dụng gọi endpoint làm mới đúng một lần để lấy token mới, cookie đi kèm tự động và người dùng không thấy gì. Cái giá phải trả là một request phụ mỗi lần tải trang; đổi lại, không còn bất kỳ chỗ nào trên máy người dùng lưu thứ có thể dùng để đăng nhập.
+
+Đánh đổi kèm theo là phải xử lý CSRF, vì cookie được trình duyệt gửi tự động. Giải pháp là đối chiếu header `Origin` với danh sách nguồn được phép ở hai endpoint dựa vào cookie. Trình duyệt luôn gửi `Origin` cho request POST, kể cả POST phát sinh từ một biểu mẫu ở trang khác, nên hàng rào này đủ dùng mà không cần thêm token CSRF và không cần lưu gì ở phía client.
+
+Các tuỳ chọn giao diện — chế độ sáng/tối và trạng thái thu gọn của thanh điều hướng — cũng chuyển sang cookie. Ở đây lý do không phải bảo mật mà thực dụng: cookie đọc được từ phía máy chủ, nên tầng layout gốc gắn luôn lớp giao diện tối vào HTML đầu tiên gửi về. Không có khung hình nào hiện giao diện sáng rồi mới nháy sang tối. Với `localStorage`, máy chủ không đọc được nên buộc phải chèn một đoạn script chặn quá trình vẽ trang để tránh hiện tượng nháy đó.
+
 Chống dò mật khẩu
 
 Hệ thống có hai lớp độc lập. Lớp thứ nhất đếm số lần đăng nhập sai liên tiếp theo từng tài khoản và khoá tạm thời mười lăm phút sau năm lần sai; việc kiểm tra khoá được thực hiện TRƯỚC khi so mật khẩu, bởi nếu không thì trong thời gian khoá người gõ đúng vẫn vào được và quy tắc khoá chỉ là hình thức. Lớp thứ hai giới hạn tần suất theo địa chỉ IP, bù đúng vào chỗ lớp thứ nhất không phủ được: khi email không tồn tại thì không có tài khoản nào để đếm.
 
-Thời điểm hết khoá được trả về cho giao diện dưới dạng dữ liệu có cấu trúc chứ không chỉ là một câu chữ, nhờ đó màn hình đăng nhập hiển thị được đồng hồ đếm ngược thật và trạng thái khoá sống qua cả lần tải lại trang.
+Thời điểm hết khoá được trả về cho giao diện dưới dạng dữ liệu có cấu trúc chứ không chỉ là một câu chữ, nhờ đó màn hình đăng nhập hiển thị được đồng hồ đếm ngược theo thời gian thật thay vì một con số đứng yên.
+
+Giá trị này không được lưu ở phía trình duyệt, nên tải lại trang thì đồng hồ biến mất và chỉ hiện lại sau lần bấm đăng nhập kế tiếp. Đây là đánh đổi có ý thức: giữ đồng hồ sống qua lần tải lại đòi hỏi một endpoint cho phép hỏi "email này có đang bị khoá không", và một endpoint như vậy chính là công cụ để dò xem email nào đã đăng ký trong hệ thống — đúng thứ mà nguyên tắc không tiết lộ sự tồn tại của email đặt ra để ngăn.
 
 Phân quyền
 
@@ -1799,6 +1817,7 @@ Bảng . Thư viện chính phía máy chủ
 | @node-rs/argon2 | 2.0 | Băm mật khẩu bằng Argon2id |
 | jsonwebtoken | 9.0 | Phát và xác thực access token |
 | helmet | 8.0 | Thiết lập các header bảo mật HTTP |
+| cookie-parser | 1.4 | Đọc cookie phiên đăng nhập |
 | express-rate-limit | 7.5 | Giới hạn tần suất theo IP và theo người dùng |
 | multer | 2.0 | Nhận tệp tải lên dưới dạng multipart |
 | pdfjs-dist | 4.10 | Trích xuất văn bản từ tệp PDF |
@@ -1820,9 +1839,10 @@ Bảng . Thư viện chính phía giao diện
 | tailwindcss | 4.x | Hệ thống lớp tiện dụng cho định kiểu |
 | zustand | 5.0 | Quản lý trạng thái toàn cục cho phiên đăng nhập và thông báo nổi |
 | @phosphor-icons/react | 2.1 | Bộ biểu tượng |
-| next-themes | 0.4 | Chuyển đổi giao diện sáng và tối |
 | motion | 12.4 | Hiệu ứng chuyển động |
 | three / vanta | 0.185 / 0.5 | Hiệu ứng nền cho trang giới thiệu |
+
+Một thư viện bị loại bỏ có chủ đích là `next-themes`, thư viện phổ biến nhất cho việc chuyển giao diện sáng/tối trong ứng dụng Next.js. Lý do là nó lưu lựa chọn của người dùng vào `localStorage`, còn hệ thống này không dùng `localStorage` ở bất kỳ đâu (xem mục 3.3). Phần thay thế được viết trong khoảng một trăm dòng, dùng cookie, và hoá ra còn tốt hơn cho đúng bài toán đó: cookie đọc được từ phía máy chủ nên lớp giao diện tối có mặt ngay trong HTML đầu tiên, không cần đoạn script chặn quá trình vẽ trang mà `next-themes` buộc phải chèn để tránh hiện tượng nháy màu.
 
 Cơ sở dữ liệu được chạy trong Docker bằng ảnh `pgvector/pgvector:pg16` thay vì ảnh PostgreSQL tiêu chuẩn. Lý do là extension `vector` cần được biên dịch cùng phiên bản PostgreSQL đang dùng; cài thủ công lên ảnh gốc đòi hỏi trình biên dịch trong container và làm mất tính tái lập của môi trường. Tệp `docker-compose.yml` khai báo thêm một container Mailpit đóng vai trò máy chủ thư giả, nhờ đó luồng xác minh email được kiểm thử trọn vẹn ở môi trường phát triển mà không gửi thư thật ra ngoài. Cổng của cơ sở dữ liệu được đặt là 5433 thay vì 5432 để không xung đột với bản PostgreSQL có thể đã được cài sẵn trên máy người phát triển.
 
@@ -1836,7 +1856,9 @@ Lược đồ cơ sở dữ liệu được khai báo trong một tệp Prisma d
 
 Quy ước đặt tên được chọn là `snake_case` cho cả tên cột trong cơ sở dữ liệu lẫn tên trường trong mã nguồn. Cách làm thông thường là dùng `camelCase` ở tầng ứng dụng rồi ánh xạ sang `snake_case` ở tầng cơ sở dữ liệu, nhưng điều đó tạo ra một tầng chuyển đổi mà mọi dữ liệu phải đi qua hai lần, kèm theo cả một lớp lỗi thuộc dạng "quên ánh xạ một trường". Giữ một quy ước duy nhất từ cột cơ sở dữ liệu đến khoá JSON mà giao diện đọc giúp loại bỏ hẳn tầng đó.
 
-Bảy migration được áp dụng theo thứ tự, trong đó ba migration cuối minh hoạ một nguyên tắc quan trọng khi thay đổi lược đồ trên cơ sở dữ liệu đã có dữ liệu thật: một thay đổi mang tính chuyển đổi dữ liệu phải được tách thành nhiều bước độc lập. Việc thay khái niệm "năm học" bằng "kỳ nghiên cứu" gắn trên từng đề tài được chia thành ba migration riêng biệt gồm thêm cột mới, chuyển dữ liệu từ bảng cũ sang cột mới, và cuối cùng mới xoá bảng cũ. Nếu gộp cả ba vào một tệp, lệnh xoá bảng sẽ nằm cùng giao dịch với lệnh chuyển dữ liệu; điều này thoạt nghe an toàn hơn nhưng thực chất làm mất cơ hội dừng lại và đối chiếu giữa hai bước, vốn là cách duy nhất phát hiện được một phép chuyển dữ liệu sai nhưng vẫn chạy trơn.
+Bảy migration được áp dụng theo thứ tự, trong đó ba migration cuối minh hoạ một nguyên tắc quan trọng khi thay đổi lược đồ trên cơ sở dữ liệu đã có dữ liệu thật: một thay đổi mang tính chuyển đổi dữ liệu phải được tách thành nhiều bước độc lập. Việc chuyển khung thời gian của đề tài từ một bảng tra riêng sang hai cột `start_date` và `end_date` nằm ngay trên bảng `theses` được chia thành ba migration riêng biệt gồm thêm cột mới, chuyển dữ liệu sang cột mới, và cuối cùng mới xoá bảng cũ.
+
+Mỗi bước là một tệp riêng, và tệp thứ hai ghi kèm câu truy vấn đối chiếu phải chạy trước khi sang bước ba. Nếu gộp cả ba vào một tệp, lệnh xoá bảng sẽ nằm cùng giao dịch với lệnh chuyển dữ liệu; điều này thoạt nghe an toàn hơn nhưng thực chất làm mất cơ hội dừng lại và đối chiếu giữa hai bước, vốn là cách duy nhất phát hiện được một phép chuyển dữ liệu sai nhưng vẫn chạy trơn. Bước xoá không hoàn tác được, nên nó phải là bước cuối và phải được thực hiện có ý thức.
 
 ### Chỉ mục cho tìm kiếm
 
@@ -1858,7 +1880,9 @@ Giao diện không gọi trực tiếp các đường dẫn API. Toàn bộ endp
 
 Phiên đăng nhập dùng cơ chế hai token. Access token có thời hạn ngắn, còn refresh token được lưu dạng băm trong cơ sở dữ liệu và có thể thu hồi. Cơ chế này cần thiết vì JWT tự nó không thu hồi được: khi quản trị viên vô hiệu hoá một tài khoản, token đã phát vẫn hợp lệ cho tới khi hết hạn. Hệ thống giải quyết bằng hai lớp bổ sung cho nhau gồm thu hồi refresh token trong cơ sở dữ liệu, và đọc lại trạng thái tài khoản từ cơ sở dữ liệu ở mỗi request thay vì tin vào nội dung token. Lớp thứ hai làm cho việc "buộc đăng xuất khỏi mọi phiên" có hiệu lực tức thì.
 
-Ở phía giao diện, khi một request trả về mã 401, lớp gọi API tự động thử làm mới token một lần rồi gọi lại đúng request đó. Mọi request 401 xảy ra đồng thời được gom vào chung một lần làm mới; nếu không, năm request cùng lúc sẽ gửi năm yêu cầu làm mới, và vì máy chủ xoay vòng refresh token nên bốn yêu cầu sau sẽ dùng token đã bị thu hồi và làm người dùng bị đăng xuất oan.
+Về nơi lưu, refresh token đi trong cookie `httpOnly` còn access token chỉ nằm trong bộ nhớ của trang; chi tiết và lý do đã trình bày ở mục 3.3. Hệ quả ở tầng cài đặt là mọi lời gọi API đều phải bật `credentials` để cookie đi kèm, kể cả nhánh tải tệp dùng `XMLHttpRequest` — thiếu một chỗ thì đúng chỗ đó không làm mới được token khi hết hạn.
+
+Khi một request trả về mã 401, lớp gọi API tự động thử làm mới token một lần rồi gọi lại đúng request đó. Mọi request 401 xảy ra đồng thời được gom vào chung một lần làm mới; nếu không, năm request cùng lúc sẽ gửi năm yêu cầu làm mới, và vì máy chủ xoay vòng refresh token nên bốn yêu cầu sau sẽ dùng token đã bị thu hồi và làm người dùng bị đăng xuất oan. Cùng cơ chế đó phục vụ luôn tình huống trang vừa được tải lại: lúc đó bộ nhớ chưa có token nào, và một lời gọi làm mới là đủ để phục hồi phiên.
 
 ## Triển khai các chức năng chính của hệ thống
 
@@ -2012,7 +2036,9 @@ Thứ ba, chế độ trả lời có dùng kiến thức chung phụ thuộc v�
 
 Thứ tư, giao diện hạn chế quản trị viên ở chế độ chỉ đọc trên dữ liệu nghiệp vụ, nhưng điều đó cũng đồng nghĩa với việc hệ thống hiện chưa có công cụ để quản trị viên gỡ bỏ nội dung vi phạm. Hướng khắc phục là bổ sung một luồng kiểm duyệt riêng, có ghi nhật ký kiểm toán tường minh, thay vì cho quản trị viên dùng chung các tuyến đường ghi của người dùng thường.
 
-Thứ năm, chức năng trợ lý AI hiện chỉ nhận nguồn là tệp đã tải lên hệ thống. Việc nhận thêm nguồn dạng đường dẫn web hoặc văn bản dán trực tiếp, như NotebookLM cho phép, chưa được cài đặt và là hướng phát triển gần nhất.
+Thứ năm, hàng rào chống CSRF hiện dựa vào việc đối chiếu header `Origin`. Cách này đúng với mọi trình duyệt hiện hành, nhưng nó là một hàng rào duy nhất chứ không phải nhiều lớp. Khi triển khai frontend và backend trên hai tên miền khác nhau hẳn, cookie phải chuyển sang `SameSite=None` và lúc đó `Origin` trở thành lớp phòng thủ duy nhất; bổ sung thêm một token CSRF theo cơ chế double-submit là bước nên làm trước khi triển khai theo cấu hình đó.
+
+Thứ sáu, chức năng trợ lý AI hiện chỉ nhận nguồn là tệp đã tải lên hệ thống. Việc nhận thêm nguồn dạng đường dẫn web hoặc văn bản dán trực tiếp, như NotebookLM cho phép, chưa được cài đặt và là hướng phát triển gần nhất.
 
 KẾT LUẬN CHƯƠNG 4
 
@@ -2020,7 +2046,7 @@ Chương 4 đã trình bày quá trình hiện thực hoá các thiết kế c�
 
 Nội dung chương cho thấy một số quyết định kỹ thuật không thể suy ra được từ bản thiết kế mà chỉ xuất hiện khi đối diện với dữ liệu thật. Tiêu biểu nhất là việc chuyển từ tìm kiếm dựa hoàn toàn vào khoảng cách cosine sang cơ chế tìm kiếm lai, xuất phát từ một phép đo cụ thể cho thấy hai câu truy vấn khác nhau căn bản về mức độ liên quan lại cho hai điểm tương đồng gần như trùng nhau. Tương tự, việc bổ sung bảng nguồn theo từng hội thoại chỉ trở nên cần thiết khi thử nghiệm với một đề tài chứa nhiều tài liệu thuộc các chủ đề khác nhau.
 
-Phần đánh giá kết quả đối chiếu các số đo thực tế với những yêu cầu phi chức năng đã đặt ra ở Chương 2, đồng thời nêu rõ năm hạn chế còn tồn tại cùng hướng khắc phục tương ứng cho từng hạn chế.
+Phần đánh giá kết quả đối chiếu các số đo thực tế với những yêu cầu phi chức năng đã đặt ra ở Chương 2, đồng thời nêu rõ sáu hạn chế còn tồn tại cùng hướng khắc phục tương ứng cho từng hạn chế.
 
 KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
 
@@ -2032,9 +2058,9 @@ Về mặt nghiệp vụ, hệ thống đã số hoá trọn vẹn quy trình th
 
 Về mặt kỹ thuật, đóng góp đáng kể nhất của đề tài nằm ở phần trợ lý học thuật, với ba điểm cụ thể. Thứ nhất là cơ chế tìm kiếm lai hợp nhất xếp hạng vector với xếp hạng toàn văn bằng phương pháp Reciprocal Rank Fusion, giải quyết một vấn đề đo được là khoảng cách cosine đơn thuần không phân biệt nổi câu truy vấn liên quan với câu truy vấn lạc đề khi câu hỏi ngắn và chứa thuật ngữ hiếm. Thứ hai là mô hình không gian tài liệu ba cấp gồm đề tài, hội thoại và tập nguồn, cho phép người dùng thu hẹp phạm vi truy xuất về đúng những tài liệu liên quan tới câu hỏi thay vì để trợ lý trộn lẫn trích dẫn từ mọi chủ đề trong kho. Thứ ba là cơ chế hai chế độ trả lời, trong đó chế độ có dùng kiến thức chung buộc phân tách rõ phần dựa trên tài liệu và phần ngoài tài liệu, thay vì hoặc từ chối trả lời hoàn toàn hoặc trộn lẫn hai loại nội dung mà người đọc không phân biệt được.
 
-Về mặt bảo mật, hệ thống áp dụng nhiều lớp phòng thủ bổ sung cho nhau: băm mật khẩu bằng Argon2id, xác thực hai token với khả năng thu hồi, hai lớp chống dò mật khẩu theo tài khoản và theo địa chỉ IP, cô lập dữ liệu giữa các người dùng qua một nguồn sự thật duy nhất, chống prompt injection từ nội dung tệp tải lên, và một bộ kiểm thử cấu trúc duyệt toàn bộ tuyến đường để phát hiện việc thiếu hàng rào phân quyền.
+Về mặt bảo mật, hệ thống áp dụng nhiều lớp phòng thủ bổ sung cho nhau: băm mật khẩu bằng Argon2id, xác thực hai token với khả năng thu hồi, refresh token đặt trong cookie `httpOnly` và access token chỉ nằm trong bộ nhớ nên không có gì lưu ở trình duyệt để mất, hai lớp chống dò mật khẩu theo tài khoản và theo địa chỉ IP, cô lập dữ liệu giữa các người dùng qua một nguồn sự thật duy nhất, chống prompt injection từ nội dung tệp tải lên, và một bộ kiểm thử cấu trúc duyệt toàn bộ tuyến đường để phát hiện việc thiếu hàng rào phân quyền.
 
-Quá trình thực hiện đề tài cũng cho thấy giá trị của việc rà soát lại thiết kế sau khi hệ thống đã chạy. Một số quyết định trong thiết kế ban đầu tỏ ra không phù hợp khi đối diện với dữ liệu thật hoặc với định vị sản phẩm, chẳng hạn khái niệm năm học vốn chỉ đúng với một cơ sở đào tạo duy nhất, hoặc ngưỡng tương đồng tuyệt đối vốn không tồn tại giá trị nào phù hợp. Việc phát hiện và sửa những điểm này đóng góp vào kết quả cuối cùng không kém phần thiết kế ban đầu.
+Quá trình thực hiện đề tài cũng cho thấy giá trị của việc rà soát lại thiết kế sau khi hệ thống đã chạy. Một số quyết định trong thiết kế ban đầu tỏ ra không phù hợp khi đối diện với dữ liệu thật hoặc với định vị sản phẩm, chẳng hạn việc áp một lịch học chung cho toàn hệ thống — điều chỉ đúng với một cơ sở đào tạo duy nhất, không đúng với một nền tảng công khai — hoặc ngưỡng tương đồng tuyệt đối vốn không tồn tại giá trị nào phù hợp. Việc phát hiện và sửa những điểm này đóng góp vào kết quả cuối cùng không kém phần thiết kế ban đầu.
 
 Hướng phát triển
 
@@ -2119,8 +2145,8 @@ Bảng . Đặc tả UC Đăng xuất
 | Post-conditions | Phiên đăng nhập bị hủy, token bị xóa. Người dùng trở về trang Đăng nhập. |
 | Main flow | 1\. Người dùng nhấn nút “Đăng xuất” ở menu tài khoản.<br><br>2\. Hệ thống yêu cầu xác nhận “Bạn có chắc chắn muốn đăng xuất?”.<br><br>3\. Người dùng nhấn “Đồng ý”.<br><br>4\. Hệ thống gọi API hủy phiên làm việc, xóa JWT token ở phía client.<br><br>5\. Hệ thống chuyển hướng người dùng về trang Đăng nhập. |
 | Alternative flows | 3a Người dùng chọn “Hủy”: Đóng hộp thoại xác nhận, người dùng tiếp tục phiên làm việc hiện tại. |
-| Exception flows | 4a Lỗi kết nối mạng trong quá trình gọi API đăng xuất: Ứng dụng client tự động xóa token local và chuyển về trang đăng nhập để đảm bảo an toàn bề mặt. |
-| Business rules | 1\. Token sau khi đăng xuất phải bị đưa vào blacklist (nếu có cấu hình) hoặc client tự động xóa cookie/local storage.<br><br>2\. Mọi route trong nhóm dashboard phải chuyển hướng về trang chủ nếu chưa xác thực. |
+| Exception flows | 4a Lỗi kết nối mạng trong quá trình gọi API đăng xuất: Ứng dụng client xóa access token trong bộ nhớ và chuyển về trang đăng nhập ngay. Cookie phiên vẫn còn nhưng refresh token sẽ tự hết hạn, và lần đăng nhập kế tiếp ghi đè nó. |
+| Business rules | 1\. Refresh token sau khi đăng xuất phải bị thu hồi trong cơ sở dữ liệu và cookie phiên phải bị xóa ở phía máy chủ. Client chỉ cần xóa access token trong bộ nhớ.<br><br>2\. Mọi route trong nhóm dashboard phải chuyển hướng về trang chủ nếu chưa xác thực. |
 | Non-functional requirement | Chuyển hướng người dùng về trang chủ trong vòng 1s. |
 
 **1.4. Use case Quên mật khẩu**
@@ -2308,11 +2334,11 @@ Bảng . Đặc tả UC Xem thống kê tổng quan hệ thống
 | Triggers | Admin truy cập vào menu “Dashboard / Thống kê”. |
 | Pre-conditions | Admin đã đăng nhập. |
 | Post-conditions | Màn hình Dashboard hiển thị đầy đủ số liệu mới nhất. |
-| Main flow | 1\. Admin chọn “Dashboard”.<br><br>2\. Hệ thống truy xuất dữ liệu thống kê tổng hợp từ các bảng liên quan.<br><br>3\. Hệ thống render các biểu đồ (tròn, cột) và các thẻ số liệu tổng quan.<br><br>4\. Admin có thể chọn Năm học/Học kỳ ở bộ lọc góc trên.<br><br>5\. Hệ thống tải lại dữ liệu thống kê tương ứng với bộ lọc. |
+| Main flow | 1\. Admin chọn “Dashboard”.<br><br>2\. Hệ thống truy xuất dữ liệu thống kê tổng hợp từ các bảng liên quan.<br><br>3\. Hệ thống render các biểu đồ (tròn, cột) và các thẻ số liệu tổng quan.<br><br>4\. Admin có thể chọn khoảng thời gian ở bộ lọc góc trên.<br><br>5\. Hệ thống tải lại dữ liệu thống kê tương ứng với bộ lọc. |
 | Alternative flows | N/A |
 | Exception flows | 2a Khối lượng dữ liệu quá lớn gây timeout truy vấn: Hệ thống hiển thị dữ liệu cache gần nhất và báo “Dữ liệu đang được đồng bộ, hiển thị kết quả từ \[thời gian\]”. |
 | Business rules | Dữ liệu thống kê bao gồm: Tổng số đề tài, Số đề tài đang thực hiện, Số milestone đã hoàn thành, Tổng lượt sử dụng API AI, Số lượng người dùng theo vai trò. |
-| Non-functional requirement | Tốc độ load dashboard dưới 3 giây. Cho phép lọc thống kê theo Năm học/Học kỳ. |
+| Non-functional requirement | Tốc độ load dashboard dưới 3 giây. Cho phép lọc thống kê theo khoảng thời gian. |
 
 **2.7. Use case Xem log hoạt động hệ thống**
 
@@ -3345,14 +3371,14 @@ Bảng . Đặc tả UC Xuất danh sách đề tài theo trạng thái
 | **Thành phần** | **Nội dung** |
 | Use case ID | 9.2 |
 | Use case name | Xuất danh sách đề tài theo trạng thái |
-| Description | Cho phép Giảng viên và Quản trị viên xuất danh sách các đề tài dưới định dạng Excel hoặc PDF sau khi đã lọc theo trạng thái, năm học hoặc giảng viên. |
+| Description | Cho phép Giảng viên và Quản trị viên xuất danh sách các đề tài dưới định dạng Excel hoặc CSV sau khi đã lọc theo trạng thái, lĩnh vực, khoảng kỳ nghiên cứu hoặc giảng viên. |
 | Actors | Giảng viên hướng dẫn |
 | Priority | Trung bình |
 | Triggers | Người dùng nhấn nút “Xuất danh sách” trên trang quản lý hoặc danh sách đề tài. |
 | Pre-conditions | Người dùng có quyền Giảng viên hoặc Admin. Có ít nhất một đề tài thỏa mãn bộ lọc hiện tại. |
 | Post-conditions | File danh sách đề tài (Excel/PDF) được tải về máy người dùng. |
-| Main flow | 1\. Người dùng vào trang Danh sách đề tài.<br><br>2\. Người dùng thiết lập các bộ lọc (trạng thái, năm học, giảng viên) và nhấn “Lọc”.<br><br>3\. Người dùng nhấn “Xuất danh sách”, sau đó chọn định dạng mong muốn (Excel hoặc PDF).<br><br>4\. Hệ thống truy vấn danh sách đề tài theo các tiêu chí bộ lọc và quyền hạn người dùng.<br><br>5\. Hệ thống sinh file báo cáo (Excel hoặc PDF) tương ứng với dữ liệu lấy được.<br><br>6\. Hệ thống gửi file về client để người dùng tải xuống. |
-| Alternative flows | 3a Người dùng không thiết lập bộ lọc nào: Hệ thống áp dụng thiết lập mặc định (năm học hiện tại, tất cả trạng thái) để xuất báo cáo, tiếp tục bước 4. |
+| Main flow | 1\. Người dùng vào trang Danh sách đề tài.<br><br>2\. Người dùng thiết lập các bộ lọc (trạng thái, lĩnh vực, khoảng kỳ nghiên cứu, giảng viên) và nhấn “Lọc”.<br><br>3\. Người dùng nhấn “Xuất danh sách”, sau đó chọn định dạng mong muốn (Excel hoặc CSV).<br><br>4\. Hệ thống truy vấn danh sách đề tài theo các tiêu chí bộ lọc và quyền hạn người dùng.<br><br>5\. Hệ thống sinh file báo cáo (Excel hoặc PDF) tương ứng với dữ liệu lấy được.<br><br>6\. Hệ thống gửi file về client để người dùng tải xuống. |
+| Alternative flows | 3a Người dùng không thiết lập bộ lọc nào: Hệ thống xuất toàn bộ đề tài trong phạm vi quyền của người dùng, tiếp tục bước 4. |
 | Exception flows | 4a Không có đề tài nào khớp với tiêu chí lọc: Hệ thống thông báo “Không có dữ liệu phù hợp để xuất” và hủy thao tác.<br><br>5a Quá trình sinh file bị vượt quá thời gian (Timeout): Hệ thống thông báo “Dữ liệu quá lớn, vui lòng thu hẹp phạm vi lọc” và ngừng quá trình xuất. |
 | Business rules | 1\. Giảng viên chỉ được xuất danh sách các đề tài mà mình đang hướng dẫn.<br><br>2\. Admin được quyền lọc và xuất danh sách toàn bộ hệ thống.<br><br>3\. Các bộ lọc áp dụng trên UI phải được phản ánh chính xác trong file xuất ra. |
 | Non-functional requirement | Hỗ trợ xuất dữ liệu lớn (hàng trăm đề tài) trong dưới 10 giây mà không gây gián đoạn hệ thống (timeout). |

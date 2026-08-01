@@ -196,3 +196,114 @@ Mục hoàn toàn mới, gồm 7 phần: xác thực và quản lý phiên, ch�
 3. Đồng bộ `00_UC_Overview.md`, `02_UC_Admin.md`, `03_UC_Thesis.md`, `05_UC_Document.md`, `06_UC_AI.md`, `ALL_UC_Consolidated.md`, `ERD_Specification.md`, `Screen_Flow_Diagram.md`, `ARCHITECTURE.md`.
 4. Đánh số toàn bộ "Bảng ." và "Hình ." thành "Bảng 1..n" / "Hình 1..n" — cần làm sau khi chốt nội dung để số không phải sửa lại.
 5. Chèn ảnh chụp giao diện mới (bảng nguồn AI, trang tổng quan quản trị) vào Phụ lục 2.
+
+---
+
+# ĐỢT RÀ SOÁT 3 — Bỏ localStorage, dọn sạch năm học
+
+> Ngày thực hiện: 01/08/2026
+> Ba quyết định của người hướng dẫn dự án
+
+## 1. Bỏ hoàn toàn "năm học" khỏi source code, backend, router và database
+
+| Nơi | Trạng thái |
+|---|---|
+| `schema.prisma` | Không còn model, không còn cột, không còn quan hệ |
+| Router (`admin`, `theses`, `reports`) | Không còn endpoint, không còn bộ lọc, không còn schema |
+| Service | Không còn hàm CRUD, `resolveAcademicYearId` đã xoá |
+| Serializer | Không còn trường trả về |
+| Frontend | Không còn tab cấu hình, không còn kiểu dữ liệu, không còn lời gọi API |
+| Audit action | `ACADEMIC_YEAR_UPDATE` đã xoá |
+| **Comment trong code** | Đã xoá hết tham chiếu, kể cả các ghi chú giải thích lịch sử |
+| **Cơ sở dữ liệu** | Bảng `academic_years` bị `DROP` ở migration `20260801100200` |
+| **Migration SQL** | **Vẫn giữ** — xem ghi chú dưới |
+
+`grep -ri "academic\|năm học"` trên `backend/src`, `frontend/src`, `schema.prisma`, `seed*.ts` và `tests` giờ **không trả về gì**.
+
+**Vì sao migration phải giữ:** cơ sở dữ liệu đang chạy đã áp dụng migration `20260729175121_init`, và migration đó tạo bảng `academic_years`. Xoá nó khỏi thư mục `migrations/` sẽ làm lệch bảng `_prisma_migrations` và Prisma từ chối chạy tiếp. Ba migration `20260801100000` → `20260801100200` chính là các bước hợp thức để loại bảng đó khỏi cơ sở dữ liệu. Chúng là nhật ký, không phải mã nguồn đang hoạt động; kết quả cuối cùng trong cơ sở dữ liệu là sạch.
+
+Chỉ khi nào tạo lại cơ sở dữ liệu từ đầu (mất toàn bộ dữ liệu hiện có) thì mới gộp được bốn migration đó lại thành một.
+
+## 2. Không lưu dữ liệu ở localStorage
+
+### Phiên đăng nhập
+
+| Trước | Sau |
+|---|---|
+| Access token + refresh token đều nằm trong `localStorage` | Refresh token: cookie `httpOnly`, path giới hạn `/api/v1/auth`. Access token: một biến trong bộ nhớ trang |
+
+Lý do: mọi script chạy trên trang đọc được `localStorage`. Một thư viện phụ thuộc bị chèn mã độc, một đoạn nhúng bên thứ ba, hay một lỗ XSS ở bất kỳ đâu đều đủ để lấy trọn phiên 14 ngày.
+
+Tệp mới: `backend/src/lib/cookies.ts` (đặt/xoá/đọc cookie + `assertSameOrigin` chống CSRF), biến môi trường `COOKIE_SAMESITE`.
+
+Thay đổi hợp đồng API:
+
+| Endpoint | Trước | Sau |
+|---|---|---|
+| `POST /auth/login` | Trả `access_token` + `refresh_token` trong body | Trả `access_token`; refresh token vào cookie |
+| `POST /auth/refresh` | Nhận `{ refresh_token }` trong body | Không nhận tham số; đọc cookie, xoay vòng cookie |
+| `POST /auth/logout` | Nhận `{ refresh_token }` trong body | Không nhận tham số; đọc cookie, xoá cookie |
+
+Hệ quả ở frontend: `initialize()` gọi `/auth/refresh` **trước** `/auth/me`, vì sau khi tải lại trang bộ nhớ chưa có token nào. Thêm một request mỗi lần tải trang — cái giá của việc không lưu gì ở máy người dùng.
+
+### Tuỳ chọn giao diện
+
+| Trước | Sau |
+|---|---|
+| `next-themes` lưu chế độ sáng/tối vào `localStorage` | `ThemeProvider` tự viết, dùng cookie. Đã **gỡ dependency `next-themes`** |
+| `useStoredFlag` (sidebar thu gọn) dùng `localStorage` | Dùng cookie |
+
+Cookie hoá ra tốt hơn cho đúng bài toán này: root layout là server component nên đọc được cookie và gắn class `dark` vào HTML đầu tiên — không script chặn render, không nháy sáng-rồi-tối.
+
+Tệp mới: `frontend/src/lib/client-cookies.ts`.
+
+### Khoá đăng nhập
+
+| Trước | Sau |
+|---|---|
+| `locked_until` ghi vào `localStorage` theo email để sống qua F5 | Không lưu ở đâu; lấy thẳng từ phản hồi 429 |
+
+Đánh đổi có ý thức: tải lại trang thì đồng hồ mất, bấm "Đăng nhập" một lần là hiện lại. Giữ đồng hồ sống qua F5 đòi hỏi một endpoint hỏi "email này có bị khoá không" — chính là công cụ dò email đã đăng ký.
+
+### Nhân đây sửa 3 lỗi lint React Compiler
+
+| Tệp | Lỗi |
+|---|---|
+| `ThemeProvider.tsx` | `setState` trong effect → dùng `useSyncExternalStore` |
+| `auth-sheet.tsx` | Gọi `Date.now()` trong lúc render |
+| `layout/index.tsx` | `setState` trong effect cho nhãn phím tắt (**lỗi có từ trước**) |
+
+`npx eslint src` giờ **0 lỗi**.
+
+## 3. Hoàn tất phần spec còn dở
+
+- Bộ lọc khoảng kỳ nghiên cứu (`from`/`to`) ở trang Báo cáo, đi thẳng vào query của endpoint xuất theo business rule UC 9.2-3.
+- Sửa được kỳ nghiên cứu ở trang chi tiết đề tài; `updateSchema` nhận `start_date`/`end_date` kèm ràng buộc `end > start`.
+
+## Thay đổi trong `Hieu_BT_NguyenDinhKhoa_49K14.1.md`
+
+| Mục | Sửa |
+|---|---|
+| ERD `theses.end_date` | Bỏ câu "thay cho bảng năm học" |
+| Chương 4 §4.2 (migration nhiều bước) | Diễn đạt lại không nêu khái niệm cũ, bổ sung ý "bước xoá không hoàn tác được" |
+| Chương 4 §4.1 | Bổ sung đoạn giải thích vì sao loại bỏ `next-themes` |
+| Bảng thư viện | Gỡ `next-themes`, thêm `cookie-parser` |
+| **Mục 3.3 Bảo mật** | Thêm hẳn phần "Nơi lưu token phía trình duyệt" (~6 đoạn) |
+| Mục 3.3 chống dò mật khẩu | Bổ sung đánh đổi của việc không lưu `locked_until` ở client |
+| Chương 4 §4.2 kết nối dữ liệu | Bổ sung yêu cầu bật `credentials` ở cả nhánh `XMLHttpRequest` |
+| UC 1.1 | Post-condition và main flow nói rõ token nào đi đâu; exception 5b bỏ phần đồng hồ sống qua F5 |
+| UC 1.3 | Business rule và exception flow bỏ `local storage` |
+| UC 2.6 | Bộ lọc "Năm học/Học kỳ" → "khoảng thời gian" |
+| UC 9.2 | Bộ lọc năm học → khoảng kỳ nghiên cứu; định dạng PDF → CSV cho khớp cài đặt thật |
+| Kết luận | Bổ sung ý về nơi lưu token; bài học thiết kế diễn đạt lại không nêu khái niệm cũ |
+| Hạn chế | Thêm hạn chế thứ năm về CSRF chỉ dựa vào `Origin`; tổng 5 → 6 hạn chế |
+
+`grep -i "năm học\|academic"` trên báo cáo giờ trả về **0**. Ba lần còn nhắc `localStorage` đều nằm trong mục 3.3 và là phần giải thích tại sao không dùng nó.
+
+## Việc còn lại (giữ nguyên từ đợt 2)
+
+1. Bổ sung đặc tả UC cho: chọn nguồn hội thoại AI, chuyển chế độ trả lời, kiểm tra trùng lặp, phiên bản tài liệu, chia sẻ tài liệu, xin gia hạn mốc, trang tổng quan quản trị.
+2. Xoá UC 2.7 "Quản lý năm học" khỏi các tệp UC rời, thay bằng "Đặt kỳ nghiên cứu cho đề tài".
+3. Đồng bộ 9 tệp tài liệu còn lại trong thư mục này.
+4. Đánh số toàn bộ "Bảng ." và "Hình .".
+5. Chèn ảnh chụp giao diện mới vào Phụ lục 2.

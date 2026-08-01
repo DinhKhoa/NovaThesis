@@ -71,6 +71,13 @@ openssl rand -hex 32   # → FILE_URL_SECRET
 
 > Server **từ chối khởi động** nếu hai biến này vẫn là giá trị mẫu. Đó là chủ ý: một khoá JWT mặc định trong mã nguồn là lỗ hổng, không phải sự tiện lợi.
 
+**Phiên đăng nhập dùng cookie, không dùng localStorage.** Refresh token đi trong
+cookie `httpOnly` do backend đặt; access token chỉ nằm trong bộ nhớ của trang.
+Mặc định `COOKIE_SAMESITE=lax` chạy đúng cho `localhost` và cho trường hợp
+frontend/backend cùng tên miền. Nếu triển khai hai tên miền khác nhau hẳn, đổi
+sang `COOKIE_SAMESITE=none` **và** đặt `NODE_ENV=production` — trình duyệt từ chối
+`SameSite=None` mà không có cờ `Secure`.
+
 ### Bước 3 — Cài đặt và khởi tạo dữ liệu
 
 ```bash
@@ -333,7 +340,7 @@ Hỗ trợ: `openai`, `anthropic`, `gemini`, `local`.
 | Tài liệu báo`Lỗi xử lý`                               | Tệp PDF là bản quét ảnh hoặc có mật khẩu → không trích được văn bản. Mở chi tiết tài liệu để xem lý do cụ thể.                                                               |
 | Báo cáo PDF bị lỗi dấu tiếng Việt                      | Chưa tải font →`npm run setup` trong `backend/`.                                                                                                                                                |
 | Frontend gọi API bị lỗi CORS                               | `CORS_ORIGINS` trong `backend/.env` phải chứa đúng `http://localhost:3000`.                                                                                                                  |
-| Đăng nhập báo khoá tài khoản                           | Đã sai mật khẩu 5 lần → màn hình đăng nhập hiện đồng hồ đếm ngược, chờ hết là vào lại được. Cần gỡ ngay: đặt `locked_until = NULL` cho tài khoản đó trong `prisma studio`.        |
+| Đăng nhập báo khoá tài khoản                           | Đã sai mật khẩu 5 lần → chờ 15 phút. Đồng hồ đếm ngược hiện sau lần bấm Đăng nhập kế tiếp (trạng thái khoá không lưu ở trình duyệt — xem `lib/cookies.ts`). Cần gỡ ngay: đặt `locked_until = NULL` cho tài khoản đó trong `prisma studio`. |
 | Không nhận được email                                    | Kiểm tra Mailpit tại[http://localhost:8025](http://localhost:8025). Ở chế độ dev, email **không** gửi ra Internet thật.                                                                  |
 | Repo có ~4000 tệp thừa (`venv/`, `.next/`)             | Chúng được commit từ trước khi có`.gitignore` đầy đủ. Gỡ khỏi chỉ mục git (giữ nguyên tệp trên đĩa): `git rm -r --cached backend-legacy-fastapi/venv frontend/.next --quiet` |
 
