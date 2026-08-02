@@ -71,8 +71,8 @@ const THESIS_STATUS_ORDER = [
  * không thể lệch hình dạng JSON của nhau.
  */
 export const ACCOUNT_INCLUDE = {
-  student: { select: { id: true, student_code: true } },
-  lecturer: { select: { id: true, lecturer_code: true, department: true, max_students: true } },
+  student: { select: { id: true } },
+  lecturer: { select: { id: true } },
 } satisfies Prisma.UserInclude;
 
 export type AccountRecord = Prisma.UserGetPayload<{ include: typeof ACCOUNT_INCLUDE }>;
@@ -101,8 +101,7 @@ function rethrowUnique(err: unknown): never {
       ? known.meta.target.join(",")
       : String(known.meta?.target ?? "");
     if (target.includes("email")) throw conflict("Email này đã được sử dụng.");
-    if (target.includes("student_code")) throw conflict("Mã số sinh viên này đã được sử dụng.");
-    if (target.includes("lecturer_code")) throw conflict("Mã số giảng viên này đã được sử dụng.");
+
     throw conflict("Dữ liệu bị trùng với một bản ghi đã có trong hệ thống.");
   }
   throw err;
@@ -136,8 +135,7 @@ export async function listAccounts(
     where.OR = [
       { full_name: { contains: search, mode: "insensitive" } },
       { email: { contains: search, mode: "insensitive" } },
-      { student: { student_code: { contains: search, mode: "insensitive" } } },
-      { lecturer: { lecturer_code: { contains: search, mode: "insensitive" } } },
+
     ];
   }
 
@@ -205,46 +203,7 @@ export interface CreateAccountInput {
   email: string;
   full_name: string;
   role: UserRole;
-  student_code?: string | undefined;
-  lecturer_code?: string | undefined;
-  department?: string | undefined;
-  max_students?: number | undefined;
-}
-
-interface LecturerProfileInput {
-  lecturer_code?: string | undefined;
-  department?: string | undefined;
-  max_students?: number | undefined;
-}
-
-/**
- * Ràng buộc "giảng viên phải có mã số và bộ môn" được cưỡng chế ở tầng nghiệp vụ
- * chứ không chỉ ở zod: cả tạo mới (UC 2.2) lẫn đổi vai trò (UC 2.5) đều đi qua
- * đây, nên chỉ cần một chỗ để không bao giờ tạo ra hồ sơ giảng viên khuyết.
- */
-function lecturerProfile(input: LecturerProfileInput): {
-  lecturer_code: string;
-  department: string;
-  max_students: number;
-} {
-  const code = input.lecturer_code;
-  const department = input.department;
-
-  if (!code || !department) {
-    const errors: Record<string, string[]> = {};
-    if (!code) errors.lecturer_code = ["Mã số giảng viên là bắt buộc."];
-    if (!department) errors.department = ["Khoa/Bộ môn là bắt buộc."];
-    throw unprocessable("Vui lòng nhập đủ thông tin giảng viên.", errors);
-  }
-
-  return {
-    lecturer_code: code,
-    department,
-    max_students: input.max_students ?? DEFAULT_MAX_STUDENTS,
-  };
-}
-
-/**
+}/**
  * Tạo tài khoản kèm hồ sơ tương ứng và gửi mật khẩu tạm qua email.
  *
  * `status = ACTIVE` và `email_verified_at = now` vì địa chỉ email do chính Admin
@@ -256,14 +215,8 @@ function lecturerProfile(input: LecturerProfileInput): {
  * tay ghi vào phản hồi hay nhật ký.
  */
 export async function createAccount(input: CreateAccountInput): Promise<AccountRecord> {
-  const [existingEmail, duplicateStudent, duplicateLecturer] = await Promise.all([
+  const [existingEmail] = await Promise.all([
     prisma.user.findUnique({ where: { email: input.email }, select: { id: true, deleted_at: true } }),
-    input.student_code
-      ? prisma.student.findUnique({ where: { student_code: input.student_code }, select: { id: true } })
-      : Promise.resolve(null),
-    input.lecturer_code
-      ? prisma.lecturer.findUnique({ where: { lecturer_code: input.lecturer_code }, select: { id: true } })
-      : Promise.resolve(null),
   ]);
 
   if (existingEmail) {
@@ -276,8 +229,7 @@ export async function createAccount(input: CreateAccountInput): Promise<AccountR
         : "Email này đã được sử dụng."
     );
   }
-  if (duplicateStudent) throw conflict("Mã số sinh viên này đã được sử dụng.");
-  if (duplicateLecturer) throw conflict("Mã số giảng viên này đã được sử dụng.");
+
 
   const tempPassword = generateTempPassword();
   const password_hash = await hashPassword(tempPassword);
@@ -292,10 +244,10 @@ export async function createAccount(input: CreateAccountInput): Promise<AccountR
   };
 
   if (input.role === "STUDENT") {
-    data.student = { create: { student_code: input.student_code ?? null } };
+    data.student = { create: {} };
   }
   if (input.role === "LECTURER") {
-    data.lecturer = { create: lecturerProfile(input) };
+    data.lecturer = { create: {} };
   }
 
   const account = await prisma.user
@@ -318,8 +270,6 @@ export async function createAccount(input: CreateAccountInput): Promise<AccountR
 
 export interface UpdateAccountInput {
   full_name?: string | undefined;
-  department?: string | undefined;
-  max_students?: number | undefined;
 }
 
 /**
@@ -344,23 +294,7 @@ export async function updateAccount(
     changed.push("full_name");
   }
 
-  const lecturerUpdate: Prisma.LecturerUpdateWithoutUserInput = {};
 
-  if (input.department !== undefined || input.max_students !== undefined) {
-    if (!account.lecturer) {
-      throw badRequest("Chỉ tài khoản giảng viên mới có khoa/bộ môn và hạn mức hướng dẫn.");
-    }
-    if (input.department !== undefined && input.department !== account.lecturer.department) {
-      lecturerUpdate.department = input.department;
-      changed.push("department");
-    }
-    if (input.max_students !== undefined && input.max_students !== account.lecturer.max_students) {
-      lecturerUpdate.max_students = input.max_students;
-      changed.push("max_students");
-    }
-  }
-
-  if (Object.keys(lecturerUpdate).length > 0) data.lecturer = { update: lecturerUpdate };
 
   // Không có gì đổi thì không ghi: một `update` rỗng vẫn đẩy `updated_at` lên và
   // sinh ra một dòng nhật ký kiểm toán vô nghĩa.
@@ -441,10 +375,6 @@ export async function changeAccountStatus(
 
 export interface ChangeRoleInput {
   role: UserRole;
-  student_code?: string | undefined;
-  lecturer_code?: string | undefined;
-  department?: string | undefined;
-  max_students?: number | undefined;
 }
 
 /**
@@ -510,11 +440,11 @@ export async function changeAccountRole(
       }
       if (input.role === "STUDENT" && !account.student) {
         await tx.student.create({
-          data: { user_id: userId, student_code: input.student_code ?? null },
+          data: { user_id: userId },
         });
       }
       if (input.role === "LECTURER" && !account.lecturer) {
-        await tx.lecturer.create({ data: { user_id: userId, ...lecturerProfile(input) } });
+        await tx.lecturer.create({ data: { user_id: userId } });
       }
 
       // Không thu hồi phiên: `middleware/auth.ts` đọc vai trò từ CSDL ở mỗi

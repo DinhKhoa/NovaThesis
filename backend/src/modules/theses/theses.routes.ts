@@ -254,9 +254,6 @@ thesesRouter.get(
       where: { user: { deleted_at: null, status: "ACTIVE" } },
       select: {
         id: true,
-        lecturer_code: true,
-        department: true,
-        max_students: true,
         user: { select: { full_name: true, email: true } },
         _count: { select: { theses: { where: { status: "ONGOING", deleted_at: null } } } },
       },
@@ -275,7 +272,7 @@ thesesRouter.get(
  */
 thesesRouter.get(
   "/pending",
-  requireRole("LECTURER", "ADMIN"),
+  requireRole("LECTURER"),
   validateQuery(paginationSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);

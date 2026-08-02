@@ -326,11 +326,11 @@ export function statusSentence(name: string, thesisTitle: string, to: MilestoneS
    ========================================================================== */
 
 const THESIS_CARD_INCLUDE = {
-  lecturer: { select: { id: true, department: true, user: { select: { full_name: true } } } },
+  lecturer: { select: { id: true, user: { select: { full_name: true } } } },
   members: {
     where: { left_at: null },
     select: {
-      student: { select: { id: true, student_code: true, user: { select: { full_name: true } } } },
+      student: { select: { id: true, user: { select: { full_name: true } } } },
     },
   },
   _count: { select: { milestones: true, documents: true } },

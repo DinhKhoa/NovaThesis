@@ -227,7 +227,7 @@ export default function MilestonesPage() {
           value={viewMode}
           onChange={setViewMode}
           options={[
-            { value: "kanban", label: "Bảng Kanban" },
+            { value: "kanban", label: "Dạng bảng" },
             { value: "list", label: "Danh sách" },
           ]}
         />
@@ -272,13 +272,13 @@ export default function MilestonesPage() {
           description="Mốc tiến độ thuộc về một đề tài. Hãy tạo hoặc tham gia một đề tài trước."
         />
       ) : viewMode === "kanban" ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-4 items-start">
           {statusColumns.map((col) => {
             const items = milestones.filter((m) => m.status === col.key);
             const state = board.columnState(col.key);
 
             return (
-              <div key={col.key} className="flex flex-col gap-2 min-w-[240px]">
+              <div key={col.key} className="flex flex-col gap-2 w-[280px] min-w-[280px] flex-shrink-0">
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-primary)]">
                   <span className="text-[12.5px] font-semibold text-secondary">{col.label}</span>
                   <Badge variant={col.variant}>{items.length}</Badge>
@@ -494,10 +494,13 @@ export default function MilestonesPage() {
                         void handleStatusChange(m.id, e.target.value as MilestoneStatus)
                       }
                     >
-                      <option value={m.status}>{STATUS_LABELS[m.status]}</option>
-                      {targets.map((t) => (
-                        <option key={t} value={t}>
-                          {STATUS_LABELS[t]}
+                      {statusColumns.map((col) => (
+                        <option
+                          key={col.key}
+                          value={col.key}
+                          disabled={col.key !== m.status && !targets.includes(col.key)}
+                        >
+                          {col.label}
                         </option>
                       ))}
                     </Select>

@@ -287,7 +287,7 @@ export async function loadProgressReport(thesisId: number): Promise<ProgressRepo
           orderBy: { joined_at: "asc" },
           select: {
             student: {
-              select: { student_code: true, user: { select: { full_name: true } } },
+              select: { user: { select: { full_name: true } } },
             },
           },
         },
@@ -335,10 +335,7 @@ export async function loadProgressReport(thesisId: number): Promise<ProgressRepo
   const done = milestones.filter((m) => m.status === "COMPLETED").length;
 
   const students = thesis.members
-    .map((m) => {
-      const code = m.student.student_code;
-      return code ? `${m.student.user.full_name} (${code})` : m.student.user.full_name;
-    })
+    .map((m) => m.student.user.full_name)
     .join(", ");
 
   return {

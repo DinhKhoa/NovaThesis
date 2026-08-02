@@ -342,7 +342,7 @@ Hỗ trợ: `openai`, `anthropic`, `gemini`, `local`.
 | Frontend gọi API bị lỗi CORS                               | `CORS_ORIGINS` trong `backend/.env` phải chứa đúng `http://localhost:3000`.                                                                                                                  |
 | Đăng nhập báo khoá tài khoản                           | Đã sai mật khẩu 5 lần → chờ 15 phút. Đồng hồ đếm ngược hiện sau lần bấm Đăng nhập kế tiếp (trạng thái khoá không lưu ở trình duyệt — xem `lib/cookies.ts`). Cần gỡ ngay: đặt `locked_until = NULL` cho tài khoản đó trong `prisma studio`. |
 | Không nhận được email                                    | Kiểm tra Mailpit tại[http://localhost:8025](http://localhost:8025). Ở chế độ dev, email **không** gửi ra Internet thật.                                                                  |
-| Repo có ~4000 tệp thừa (`venv/`, `.next/`)             | Chúng được commit từ trước khi có`.gitignore` đầy đủ. Gỡ khỏi chỉ mục git (giữ nguyên tệp trên đĩa): `git rm -r --cached backend-legacy-fastapi/venv frontend/.next --quiet` |
+| Repo có ~4000 tệp thừa (`.next/`)             | Chúng được commit từ trước khi có `.gitignore` đầy đủ. Gỡ khỏi chỉ mục git (giữ nguyên tệp trên đĩa): `git rm -r --cached frontend/.next --quiet` |
 
 Xem log chi tiết:
 
@@ -389,8 +389,7 @@ NovaThesis/
 │     ├─ components/           design system tự viết (ui/, layout/)
 │     └─ app/(dashboard)/      14 trang chức năng
 │
-├─ Tài liệu dự án/             92 use case, ERD, yêu cầu
-└─ backend-legacy-fastapi/     backend Python cũ, giữ lại để đối chiếu
+└─ Tài liệu dự án/             92 use case, ERD, yêu cầu
 ```
 
 ---

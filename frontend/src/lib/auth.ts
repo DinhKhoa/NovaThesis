@@ -25,13 +25,9 @@ export interface User {
   last_login_at?: string | null;
   // Student-specific
   student_id?: number;
-  student_code?: string | null;
   thesis_id?: number | null;
   // Lecturer-specific
   lecturer_id?: number;
-  lecturer_code?: string;
-  department?: string;
-  max_students?: number;
 }
 
 interface LoginPayload {

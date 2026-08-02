@@ -214,7 +214,6 @@ model Student {
 
   /// Nullable có chủ đích: form đăng ký (`auth-sheet.tsx`) chỉ hỏi họ tên,
   /// email và mật khẩu. MSSV do sinh viên hoặc Admin bổ sung sau ở trang Hồ sơ.
-  student_code String? @unique @db.VarChar(50)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -228,10 +227,6 @@ model Student {
 model Lecturer {
   id            Int     @id @default(autoincrement())
   user_id       Int     @unique
-  lecturer_code String  @unique @db.VarChar(50)
-  department    String  @db.VarChar(100)
-  /// UC 3.9 — chặn duyệt thêm đề tài khi giảng viên đã đủ quota.
-  max_students  Int     @default(5)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

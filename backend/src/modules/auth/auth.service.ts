@@ -65,7 +65,6 @@ export const PROFILE_INCLUDE = {
   student: {
     select: {
       id: true,
-      student_code: true,
       members: {
         where: { left_at: null },
         orderBy: { joined_at: "desc" },
@@ -75,7 +74,7 @@ export const PROFILE_INCLUDE = {
     },
   },
   lecturer: {
-    select: { id: true, lecturer_code: true, department: true, max_students: true },
+    select: { id: true },
   },
 } satisfies Prisma.UserInclude;
 
@@ -484,9 +483,6 @@ export async function logout(
 
 export interface ProfileInput {
   full_name?: string;
-  student_code?: string;
-  lecturer_code?: string;
-  department?: string;
 }
 
 export interface ProfileUpdateResult {
@@ -519,46 +515,6 @@ export async function updateProfile(
     changed.push("full_name");
   }
 
-  if (input.student_code !== undefined) {
-    if (!current.student) {
-      throw badRequest("Chỉ tài khoản sinh viên mới có mã số sinh viên.");
-    }
-    if (current.student.student_code === null) {
-      data.student = { update: { student_code: input.student_code } };
-      changed.push("student_code");
-    } else if (current.student.student_code !== input.student_code) {
-      throw conflict(
-        "Mã số sinh viên đã được thiết lập và không thể tự thay đổi. Vui lòng liên hệ quản trị viên."
-      );
-    }
-  }
-
-  const lecturerUpdate: Prisma.LecturerUpdateWithoutUserInput = {};
-
-  if (input.lecturer_code !== undefined) {
-    if (!current.lecturer) {
-      throw badRequest("Chỉ tài khoản giảng viên mới có mã số giảng viên.");
-    }
-    if (input.lecturer_code !== current.lecturer.lecturer_code) {
-      throw conflict(
-        "Mã số giảng viên đã được thiết lập và không thể tự thay đổi. Vui lòng liên hệ quản trị viên."
-      );
-    }
-  }
-
-  if (input.department !== undefined) {
-    if (!current.lecturer) {
-      throw badRequest("Chỉ tài khoản giảng viên mới có thông tin khoa/bộ môn.");
-    }
-    if (input.department !== current.lecturer.department) {
-      lecturerUpdate.department = input.department;
-      changed.push("department");
-    }
-  }
-
-  if (Object.keys(lecturerUpdate).length > 0) {
-    data.lecturer = { update: lecturerUpdate };
-  }
 
   // Không có gì đổi thì không ghi: một `update` rỗng vẫn đẩy `updated_at` lên
   // và tạo ra dòng nhật ký vô nghĩa.

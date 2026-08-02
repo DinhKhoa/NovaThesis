@@ -626,27 +626,27 @@ export default function FeedbacksPage() {
         </span>
 
         <div className="flex items-center gap-3">
-          <select
-            className="input-base text-[12px] py-1.5 w-36"
+          <Select
+            className="w-36"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as typeof filterType)}
-            aria-label="Lọc theo loại đối tượng"
-          >
-            <option value="ALL">Tất cả loại</option>
-            <option value="MILESTONE">Milestone</option>
-            <option value="DOCUMENT">Tài liệu</option>
-          </select>
+            options={[
+              { value: "ALL", label: "Tất cả loại" },
+              { value: "MILESTONE", label: "Milestone" },
+              { value: "DOCUMENT", label: "Tài liệu" },
+            ]}
+          />
 
-          <select
-            className="input-base text-[12px] py-1.5 w-36"
+          <Select
+            className="w-36"
             value={filterResolved}
             onChange={(e) => setFilterResolved(e.target.value as typeof filterResolved)}
-            aria-label="Lọc theo trạng thái giải quyết"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="OPEN">Chưa Resolve</option>
-            <option value="RESOLVED">Đã Resolve</option>
-          </select>
+            options={[
+              { value: "ALL", label: "Tất cả trạng thái" },
+              { value: "OPEN", label: "Chưa Resolve" },
+              { value: "RESOLVED", label: "Đã Resolve" },
+            ]}
+          />
         </div>
       </div>
 

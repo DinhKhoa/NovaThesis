@@ -1402,20 +1402,15 @@ function AIChatWorkspace() {
                   </button>
                 )}
               </div>
-              <p className="text-[11px] text-muted mt-1.5 px-1">
-                <kbd className="kbd">Enter</kbd> để gửi ·{" "}
-                <kbd className="kbd">Shift</kbd>+<kbd className="kbd">Enter</kbd> để
-                xuống dòng.{" "}
-                {sources.length > 0 && (
-                  <>
-                    Đang dùng{" "}
-                    <span className="tnum">
-                      {selectedSourceIds.size}/{sources.length}
-                    </span>{" "}
-                    nguồn.
-                  </>
-                )}
-              </p>
+              {sources.length > 0 && (
+                <p className="text-[11px] text-muted mt-1.5 px-1">
+                  Đang dùng{" "}
+                  <span className="tnum">
+                    {selectedSourceIds.size}/{sources.length}
+                  </span>{" "}
+                  nguồn.
+                </p>
+              )}
             </div>
           </Card>
         </div>
