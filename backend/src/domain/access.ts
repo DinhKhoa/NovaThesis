@@ -50,7 +50,7 @@ export interface ThesisAccess {
  * vài nghìn đề tài, danh sách id nhồi vào SQL sẽ chậm hơn nhiều so với không lọc.
  */
 export async function visibleThesisIds(user: AuthUser): Promise<number[] | null> {
-  if (user.role === "ADMIN") return null;
+  if (user.role === "ADMIN") return [];
 
   if (user.role === "LECTURER" && user.lecturer_id !== null) {
     const rows = await prisma.thesis.findMany({

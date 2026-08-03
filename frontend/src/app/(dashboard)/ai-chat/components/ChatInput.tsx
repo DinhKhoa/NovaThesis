@@ -109,19 +109,15 @@ export function ChatInput({
           </button>
         )}
       </div>
-      <p className="text-[11px] text-muted mt-1.5 px-1">
-        <kbd className="kbd">Enter</kbd> để gửi · <kbd className="kbd">Shift</kbd>+
-        <kbd className="kbd">Enter</kbd> để xuống dòng.{" "}
-        {totalCount > 0 && (
-          <>
-            Đang dùng{" "}
-            <span className="tnum">
-              {selectedCount}/{totalCount}
-            </span>{" "}
-            nguồn.
-          </>
-        )}
-      </p>
+      {totalCount > 0 && (
+        <p className="text-[11px] text-muted mt-1.5 px-1">
+          Đang dùng{" "}
+          <span className="tnum">
+            {selectedCount}/{totalCount}
+          </span>{" "}
+          nguồn.
+        </p>
+      )}
     </div>
   );
 }

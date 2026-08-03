@@ -591,8 +591,6 @@ export function Select({
     return [...map.entries()];
   }, [visible]);
 
-  let flatIndex = -1;
-
   return (
     <Field
       label={label}
@@ -647,7 +645,7 @@ export function Select({
         />
       </button>
 
-      {open && rect && (
+      {open && rect && createPortal(
         <div
           ref={popupRef}
           role="listbox"
@@ -691,8 +689,8 @@ export function Select({
                 <div key={group || "_"}>
                   {group && <div className="eyebrow px-2 pt-1.5 pb-1">{group}</div>}
                   {list.map((o) => {
-                    flatIndex += 1;
-                    const active = flatIndex === cursor;
+                    const currentIndex = visible.indexOf(o);
+                    const active = currentIndex === cursor;
                     const selected = o.value === String(value ?? "");
                     return (
                       <button
@@ -701,7 +699,7 @@ export function Select({
                         role="option"
                         aria-selected={selected}
                         disabled={o.disabled}
-                        onMouseEnter={() => setCursor(flatIndex)}
+                        onMouseEnter={() => setCursor(currentIndex)}
                         onClick={() => pick(o)}
                         className="menu-item w-full flex items-start gap-2 py-1.5 rounded-md text-left text-[12.5px] disabled:opacity-40 disabled:cursor-not-allowed"
                         style={{
@@ -733,7 +731,8 @@ export function Select({
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </Field>
   );
@@ -1003,11 +1002,17 @@ function useDialogChrome(
   ref: React.RefObject<HTMLElement | null>
 ) {
   const restoreFocusTo = React.useRef<HTMLElement | null>(null);
+  const hasFocused = React.useRef(false);
 
   React.useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      hasFocused.current = false;
+      return;
+    }
 
-    restoreFocusTo.current = document.activeElement as HTMLElement | null;
+    if (!restoreFocusTo.current) {
+      restoreFocusTo.current = document.activeElement as HTMLElement | null;
+    }
 
     // Compensating for the scrollbar keeps the page from jumping sideways
     // when the body locks.
@@ -1032,7 +1037,11 @@ function useDialogChrome(
     const firstField = items.find((el) =>
       /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)
     );
-    (firstField ?? items[0] ?? ref.current)?.focus();
+    // Grab focus ONLY when the modal just opened, not on every re-render (which steals focus from inputs)
+    if (!hasFocused.current) {
+      (firstField ?? items[0] ?? ref.current)?.focus();
+      hasFocused.current = true;
+    }
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

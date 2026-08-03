@@ -32,14 +32,14 @@ import { toThesisDTO } from "../serializers";
  */
 export const thesisInclude = {
   lecturer: {
-    select: { id: true, department: true, user: { select: { full_name: true } } },
+    select: { id: true, user: { select: { full_name: true } } },
   },
   members: {
     where: { left_at: null },
     orderBy: { joined_at: "asc" },
     select: {
       student: {
-        select: { id: true, student_code: true, user: { select: { full_name: true } } },
+        select: { id: true, user: { select: { full_name: true } } },
       },
     },
   },
@@ -100,7 +100,6 @@ export function searchCondition(term: string): Prisma.ThesisWhereInput {
       { field: contains },
       { lecturer: { user: { full_name: contains } } },
       { members: { some: { student: { user: { full_name: contains } } } } },
-      { members: { some: { student: { student_code: contains } } } },
     ],
   };
 }
@@ -164,30 +163,12 @@ export async function assertLecturerCapacity(
   const lecturer = await prisma.lecturer.findUnique({
     where: { id: lecturerId },
     select: {
-      max_students: true,
       user: { select: { id: true, full_name: true, status: true, deleted_at: true } },
     },
   });
 
   if (!lecturer || lecturer.user.deleted_at || lecturer.user.status !== "ACTIVE") {
     throw badRequest("Giảng viên hướng dẫn không tồn tại hoặc không còn hoạt động.");
-  }
-
-  const current = await prisma.thesis.count({
-    where: {
-      lecturer_id: lecturerId,
-      status: "ONGOING",
-      deleted_at: null,
-      ...(opts.excludeThesisId !== undefined ? { id: { not: opts.excludeThesisId } } : {}),
-    },
-  });
-
-  if (current >= lecturer.max_students) {
-    throw conflict(
-      opts.self
-        ? `Bạn đang hướng dẫn ${current}/${lecturer.max_students} đề tài — đã đạt giới hạn cho phép.`
-        : `Giảng viên ${lecturer.user.full_name} đã nhận đủ ${lecturer.max_students} đề tài hướng dẫn. Vui lòng chọn giảng viên khác.`
-    );
   }
 
   return { user_id: lecturer.user.id, full_name: lecturer.user.full_name };

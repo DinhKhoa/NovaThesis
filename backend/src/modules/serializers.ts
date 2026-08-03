@@ -32,8 +32,8 @@ import type {
    ========================================================================== */
 
 type UserWithProfiles = User & {
-  student?: { id: number; student_code: string | null; members?: { thesis_id: number }[] } | null;
-  lecturer?: { id: number; lecturer_code: string; department: string; max_students: number } | null;
+  student?: { id: number; members?: { thesis_id: number }[] } | null;
+  lecturer?: { id: number; } | null;
 };
 
 /**
@@ -59,7 +59,6 @@ export function toUserDTO(user: UserWithProfiles) {
     ...(user.student
       ? {
           student_id: user.student.id,
-          student_code: user.student.student_code,
           thesis_id: user.student.members?.[0]?.thesis_id ?? null,
         }
       : {}),
@@ -67,9 +66,6 @@ export function toUserDTO(user: UserWithProfiles) {
     ...(user.lecturer
       ? {
           lecturer_id: user.lecturer.id,
-          lecturer_code: user.lecturer.lecturer_code,
-          department: user.lecturer.department,
-          max_students: user.lecturer.max_students,
         }
       : {}),
   };
@@ -84,10 +80,6 @@ export function toAccountDTO(user: UserWithProfiles) {
     role: user.role,
     status: user.status,
     avatar_url: user.avatar_url,
-    // Giao diện hiển thị một cột "Mã số" duy nhất cho cả hai vai trò.
-    code: user.lecturer?.lecturer_code ?? user.student?.student_code ?? null,
-    department: user.lecturer?.department ?? null,
-    max_students: user.lecturer?.max_students ?? null,
     email_verified: user.email_verified_at !== null,
     last_login_at: iso(user.last_login_at),
     created_at: iso(user.created_at),
@@ -97,9 +89,6 @@ export function toAccountDTO(user: UserWithProfiles) {
 /** Mục chọn giảng viên hướng dẫn trong form tạo đề tài. */
 export function toLecturerOptionDTO(row: {
   id: number;
-  lecturer_code: string;
-  department: string;
-  max_students: number;
   user: { full_name: string; email: string };
   _count?: { theses: number };
 }) {
@@ -108,13 +97,8 @@ export function toLecturerOptionDTO(row: {
     id: row.id,
     name: row.user.full_name,
     email: row.user.email,
-    lecturer_code: row.lecturer_code,
-    department: row.department,
-    max_students: row.max_students,
     current_students: current,
-    // Giao diện dùng cờ này để làm mờ lựa chọn thay vì để sinh viên chọn xong
-    // mới bị server từ chối.
-    available: current < row.max_students,
+    available: true,
   };
 }
 
@@ -123,8 +107,8 @@ export function toLecturerOptionDTO(row: {
    ========================================================================== */
 
 type ThesisWithRelations = Thesis & {
-  lecturer?: { id: number; department: string; user: { full_name: string } } | null;
-  members?: { student: { id: number; student_code: string | null; user: { full_name: string } } }[];
+  lecturer?: { id: number; user: { full_name: string } } | null;
+  members?: { student: { id: number; user: { full_name: string } } }[];
   _count?: { milestones?: number; documents?: number };
 };
 
@@ -139,7 +123,6 @@ export function toThesisDTO(thesis: ThesisWithRelations) {
     status: thesis.status,
     lecturer_id: thesis.lecturer?.id ?? thesis.lecturer_id,
     lecturer_name: thesis.lecturer?.user.full_name ?? "Chưa phân công",
-    lecturer_department: thesis.lecturer?.department ?? null,
     student_names: students.map((s) => s.user.full_name),
     student_ids: students.map((s) => s.id),
     /* KỲ NGHIÊN CỨU. Cột `@db.Date` nên trả "YYYY-MM-DD": thêm phần giờ vào

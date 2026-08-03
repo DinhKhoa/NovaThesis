@@ -8,7 +8,7 @@ import {
   Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Badge, Button, Card, EmptyState, Input, Modal, Table } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, Modal, Table, Select } from "@/components/ui";
 import { useAsync, useDebounced } from "@/lib/use-async";
 import { adminApi, type LogLevel, type SystemLogEntry } from "@/lib/services";
 import { formatDateTime } from "@/lib/format";
@@ -104,31 +104,27 @@ export default function AdminLogsPage() {
         </div>
 
         <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-2">
-          <select
-            className="input-base text-[13px] py-2 w-full md:w-40"
+          <Select
+            className="w-full md:w-40"
             value={levelFilter}
             onChange={(e) => setLevelFilter(e.target.value)}
-            aria-label="Lọc theo cấp độ"
-          >
-            <option value="ALL">Tất cả cấp độ</option>
-            <option value="INFO">INFO</option>
-            <option value="WARN">WARN</option>
-            <option value="ERROR">ERROR</option>
-          </select>
+            options={[
+              { value: "ALL", label: "Tất cả cấp độ" },
+              { value: "INFO", label: "INFO" },
+              { value: "WARN", label: "WARN" },
+              { value: "ERROR", label: "ERROR" },
+            ]}
+          />
 
-          <select
-            className="input-base text-[13px] py-2 w-full md:w-52"
+          <Select
+            className="w-full md:w-52"
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            aria-label="Lọc theo hành động"
-          >
-            <option value="ALL">Tất cả hành động</option>
-            {(actions ?? []).map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "ALL", label: "Tất cả hành động" },
+              ...(actions ?? []).map((a) => ({ value: a, label: a }))
+            ]}
+          />
 
           {/* `max`/`min` bắt chéo nhau để bộ chọn ngày không đưa ra được khoảng
               ngược; server vẫn là chốt chặn cuối vì ô ngày cho phép gõ tay. */}

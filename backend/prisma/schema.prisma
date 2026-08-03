@@ -212,8 +212,9 @@ model Student {
   id      Int @id @default(autoincrement())
   user_id Int @unique
 
-  /// Nullable có chủ đích: form đăng ký (`auth-sheet.tsx`) chỉ hỏi họ tên,
-  /// email và mật khẩu. MSSV do sinh viên hoặc Admin bổ sung sau ở trang Hồ sơ.
+  /// Cột vẫn tồn tại trong CSDL và còn dữ liệu cũ, nhưng không còn luồng nghiệp vụ
+  /// nào đọc/ghi nó: form đăng ký chỉ hỏi họ tên, email, mật khẩu. Giữ khai báo ở
+  /// đây để schema khớp CSDL, tránh `migrate dev` tự sinh lệnh DROP COLUMN.
   student_code String? @unique @db.VarChar(50)
 
   created_at DateTime @default(now())
@@ -226,11 +227,15 @@ model Student {
 }
 
 model Lecturer {
-  id            Int     @id @default(autoincrement())
-  user_id       Int     @unique
-  lecturer_code String  @unique @db.VarChar(50)
-  department    String  @db.VarChar(100)
-  /// UC 3.9 — chặn duyệt thêm đề tài khi giảng viên đã đủ quota.
+  id      Int @id @default(autoincrement())
+  user_id Int @unique
+
+  /// Ba cột dưới đây không còn luồng nghiệp vụ nào đọc/ghi (xem `admin.service.ts`
+  /// tạo giảng viên chỉ với `user_id`). Cột vẫn còn trong CSDL kèm dữ liệu cũ nên
+  /// giữ khai báo cho khớp, nhưng đã nới thành nullable để lệnh INSERT bỏ trống
+  /// vẫn chạy được.
+  lecturer_code String? @unique @db.VarChar(50)
+  department    String? @db.VarChar(100)
   max_students  Int     @default(5)
 
   created_at DateTime @default(now())

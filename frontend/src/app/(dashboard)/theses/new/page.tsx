@@ -164,16 +164,11 @@ function NewThesisForm() {
                 value={lecturerId ?? ""}
                 onChange={(e) => setLecturerId(Number(e.target.value))}
                 disabled={loadingLecturers}
-                helperText={
-                  selected
-                    ? `Đang hướng dẫn ${selected.current_students}/${selected.max_students} sinh viên`
-                    : "Đang tải danh sách giảng viên…"
-                }
+                helperText="Đang tải danh sách giảng viên…"
               >
                 {(lecturers ?? []).map((gv) => (
-                  <option key={gv.id} value={gv.id} disabled={!gv.available}>
-                    {gv.name} — {gv.department}
-                    {gv.available ? "" : " (đã đủ sinh viên)"}
+                  <option key={gv.id} value={gv.id}>
+                    {gv.name}
                   </option>
                 ))}
               </Select>
@@ -206,22 +201,7 @@ function NewThesisForm() {
             />
           </div>
 
-          {selected && !selected.available && (
-            <div
-              className="flex items-start gap-2 px-3 py-2.5 rounded-[8px] text-[12.5px]"
-              style={{
-                background: "var(--warning-bg)",
-                border: "1px solid var(--warning-border)",
-                color: "var(--warning)",
-              }}
-            >
-              <Warning size={15} weight="fill" className="flex-shrink-0 mt-px" />
-              <span>
-                Giảng viên này đã nhận đủ số sinh viên hướng dẫn. Đề tài vẫn lưu được ở dạng nháp,
-                nhưng sẽ không được duyệt cho đến khi có chỗ trống.
-              </span>
-            </div>
-          )}
+
 
           <Textarea
             label="Mô tả / Đề cương tóm tắt *"

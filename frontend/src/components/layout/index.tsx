@@ -145,46 +145,6 @@ const navSections: NavSection[] = [
 			},
 		],
 	},
-	/* Quản trị viên vào được các trang nghiệp vụ ở chế độ chỉ đọc.
-	   Trước đây các trang này chạy được với tài khoản Admin nhưng không có liên
-	   kết nào dẫn tới — tức là "vào được nếu biết đường dẫn", đúng kiểu không
-	   nhất quán mà đợt rà soát này dọn. Đưa hẳn vào nav và ghi rõ "Chỉ đọc" thì
-	   thanh điều hướng nói đúng những gì hệ thống thực sự cho phép. */
-	{
-		label: "Giám sát",
-		hint: "Chỉ đọc",
-		roles: ["ADMIN"],
-		items: [
-			{
-				label: "Đề tài",
-				href: "/theses",
-				icon: <GraduationCap size={16} />,
-				roles: ["ADMIN"],
-				readOnly: true,
-			},
-			{
-				label: "Tiến độ",
-				href: "/milestones",
-				icon: <Kanban size={16} />,
-				roles: ["ADMIN"],
-				readOnly: true,
-			},
-			{
-				label: "Tài liệu",
-				href: "/documents",
-				icon: <Files size={16} />,
-				roles: ["ADMIN"],
-				readOnly: true,
-			},
-			{
-				label: "Phản hồi",
-				href: "/feedbacks",
-				icon: <ChatCircleDots size={16} />,
-				roles: ["ADMIN"],
-				readOnly: true,
-			},
-		],
-	},
 ];
 
 /* Route → breadcrumb label. Detail routes fall back to the parent segment. */
@@ -584,7 +544,6 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 						className="flex-1 bg-transparent border-0 outline-none text-[13.5px] placeholder:text-[var(--fg-muted)]"
 						aria-label="Tìm trang"
 					/>
-					<kbd className="kbd">Esc</kbd>
 				</div>
 
 				<div className="max-h-72 overflow-y-auto p-1.5">
@@ -751,7 +710,7 @@ function NotificationDropdown({
 				<Bell size={16} />
 				{unreadCount > 0 && (
 					<span
-						className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center tnum"
+						className="absolute top-0.5 right-0.5 min-w-[12px] h-[12px] px-0.5 rounded-full text-[8.5px] font-semibold flex items-center justify-center tnum"
 						style={{ background: "var(--danger)", color: "#fff" }}>
 						{unreadCount > 9 ? "9+" : unreadCount}
 					</span>
@@ -761,7 +720,7 @@ function NotificationDropdown({
 			{open && (
 				<div
 					role="menu"
-					className="absolute top-full right-0 mt-1.5 z-50 w-[340px] card p-0 pop-in overflow-hidden"
+					className="absolute top-full right-0 mt-1.5 z-50 w-[260px] card p-0 pop-in overflow-hidden"
 					style={{ boxShadow: "var(--shadow-lg)" }}>
 					{/* Header */}
 					<div className="flex items-center justify-between px-3.5 py-2.5 border-b border-[var(--border-secondary)]">
@@ -998,7 +957,6 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 					}}>
 					<MagnifyingGlass size={14} className="flex-shrink-0" />
 					<span className="flex-1 text-left">Tìm nhanh…</span>
-					<kbd className="kbd">{shortcutKey}</kbd>
 				</button>
 				<IconButton
 					label="Tìm nhanh"

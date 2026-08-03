@@ -76,9 +76,6 @@ export interface LecturerOption {
   id: number;
   name: string;
   email: string;
-  lecturer_code: string;
-  department: string;
-  max_students: number;
   current_students: number;
   available: boolean;
 }
@@ -800,9 +797,6 @@ export interface AccountUser {
   role: UserRole;
   status: UserStatus;
   avatar_url: string | null;
-  code: string | null;
-  department: string | null;
-  max_students: number | null;
   email_verified: boolean;
   last_login_at: string | null;
   created_at: string;
@@ -860,19 +854,15 @@ export const adminApi = {
     email: string;
     full_name: string;
     role: UserRole;
-    student_code?: string;
-    lecturer_code?: string;
-    department?: string;
-    max_students?: number;
   }) => api.post<AccountUser>("/admin/users", data),
   updateUser: (
     id: number,
-    data: Partial<{ full_name: string; department: string; max_students: number }>
+    data: Partial<{ full_name: string }>
   ) => api.patch<AccountUser>(`/admin/users/${id}`, data),
   setUserStatus: (id: number, status: UserStatus) =>
     api.patch<AccountUser>(`/admin/users/${id}/status`, { status }),
-  setUserRole: (id: number, role: UserRole, extra?: { lecturer_code?: string; department?: string }) =>
-    api.patch<AccountUser>(`/admin/users/${id}/role`, { role, ...extra }),
+  setUserRole: (id: number, role: UserRole) =>
+    api.patch<AccountUser>(`/admin/users/${id}/role`, { role }),
   removeUser: (id: number) => api.delete<void>(`/admin/users/${id}`),
   statistics: () => api.get<AdminStatistics>("/admin/statistics"),
   logs: (params?: Record<string, string | number>) =>

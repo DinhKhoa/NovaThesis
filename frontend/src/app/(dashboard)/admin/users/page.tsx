@@ -67,10 +67,6 @@ const EMPTY_DRAFT = {
   role: "LECTURER" as UserRole,
   full_name: "",
   email: "",
-  student_code: "",
-  lecturer_code: "",
-  department: "Khoa Công Nghệ Thông Tin",
-  max_students: 5,
 };
 
 export default function AdminUsersPage() {
@@ -139,27 +135,21 @@ export default function AdminUsersPage() {
   const [roleModalOpen, setRoleModalOpen] = React.useState(false);
   const [roleDraft, setRoleDraft] = React.useState({
     role: "STUDENT" as UserRole,
-    lecturer_code: "",
-    department: "",
   });
   const [busy, setBusy] = React.useState(false);
 
-  const closeCreateModal = () => {
+  const closeCreateModal = React.useCallback(() => {
     setCreateModalOpen(false);
     setDraft(EMPTY_DRAFT);
     setFieldErrors({});
-  };
+  }, []);
 
   /* UC 2.2 — tạo tài khoản. Mật khẩu do backend sinh ngẫu nhiên và chỉ đi một
      đường duy nhất là hộp thư người dùng; phản hồi không chứa nó nên ở đây không
      có gì để lỡ tay hiển thị. */
   const handleCreate = async () => {
     const isLecturerDraft = draft.role === "LECTURER";
-    if (
-      !draft.full_name.trim() ||
-      !draft.email.trim() ||
-      (isLecturerDraft && (!draft.lecturer_code.trim() || !draft.department.trim()))
-    ) {
+    if (!draft.full_name.trim() || !draft.email.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
     }
@@ -174,16 +164,8 @@ export default function AdminUsersPage() {
         email: draft.email.trim(),
         full_name: draft.full_name.trim(),
         role: draft.role,
-        ...(draft.role === "STUDENT" && draft.student_code.trim()
-          ? { student_code: draft.student_code.trim() }
-          : {}),
-        ...(isLecturerDraft
-          ? {
-              lecturer_code: draft.lecturer_code.trim(),
-              department: draft.department.trim(),
-              max_students: draft.max_students,
-            }
-          : {}),
+        ...(draft.role === "STUDENT" ? {} : {}),
+        ...(isLecturerDraft ? {} : {}),
       });
 
       toast.success(
@@ -233,33 +215,18 @@ export default function AdminUsersPage() {
       // Chọn sẵn một vai trò KHÁC vai trò hiện tại: backend từ chối khi trùng,
       // nên để mặc định trùng là bày sẵn một thao tác chắc chắn thất bại.
       role: ASSIGNABLE_ROLES.find((r) => r !== u.role) ?? "STUDENT",
-      lecturer_code: "",
-      department: u.department ?? "",
     });
     setRoleModalOpen(true);
   };
 
   const handleChangeRole = async () => {
     if (!selectedUser) return;
-    if (
-      roleDraft.role === "LECTURER" &&
-      (!roleDraft.lecturer_code.trim() || !roleDraft.department.trim())
-    ) {
-      toast.error("Cần mã số giảng viên và khoa/bộ môn khi chuyển sang vai trò Giảng viên.");
-      return;
-    }
 
     setBusy(true);
     try {
       const updated = await adminApi.setUserRole(
         selectedUser.id,
-        roleDraft.role,
-        roleDraft.role === "LECTURER"
-          ? {
-              lecturer_code: roleDraft.lecturer_code.trim(),
-              department: roleDraft.department.trim(),
-            }
-          : undefined
+        roleDraft.role
       );
       toast.success(
         `Đã chuyển ${updated.full_name} sang vai trò ${ROLE_LABELS[updated.role]}.`
@@ -400,18 +367,7 @@ export default function AdminUsersPage() {
                   </div>
                 ),
               },
-              {
-                key: "code",
-                header: "Mã số",
-                width: "1%",
-                hideOnMobile: true,
-                sortValue: (u) => u.code ?? "",
-                render: (u) => (
-                  <span className="font-mono text-[12.5px] text-secondary">
-                    {u.code || "—"}
-                  </span>
-                ),
-              },
+
               {
                 key: "role",
                 header: "Vai trò",
@@ -620,48 +576,6 @@ export default function AdminUsersPage() {
             onChange={(e) => setDraft((p) => ({ ...p, email: e.target.value }))}
           />
 
-          {draft.role === "LECTURER" ? (
-            <>
-              <Input
-                label="Mã số giảng viên (MSGV) *"
-                placeholder="GV003"
-                value={draft.lecturer_code}
-                error={fieldErrors.lecturer_code?.[0]}
-                onChange={(e) => setDraft((p) => ({ ...p, lecturer_code: e.target.value }))}
-              />
-
-              <Input
-                label="Bộ môn / Khoa *"
-                value={draft.department}
-                error={fieldErrors.department?.[0]}
-                onChange={(e) => setDraft((p) => ({ ...p, department: e.target.value }))}
-              />
-
-              <Input
-                label="Số sinh viên hướng dẫn tối đa"
-                type="number"
-                min={0}
-                max={100}
-                value={draft.max_students}
-                error={fieldErrors.max_students?.[0]}
-                onChange={(e) => {
-                  // 0 là giá trị có nghĩa — "giảng viên tạm không nhận sinh viên"
-                  // khác hẳn với bỏ trống, nên không được gộp về giá trị mặc định.
-                  const n = Number.parseInt(e.target.value, 10);
-                  setDraft((p) => ({ ...p, max_students: Number.isNaN(n) ? 0 : n }));
-                }}
-              />
-            </>
-          ) : (
-            <Input
-              label="Mã số sinh viên (MSSV)"
-              placeholder="20110001"
-              value={draft.student_code}
-              error={fieldErrors.student_code?.[0]}
-              helperText="Có thể bỏ trống. Mã số không sửa được sau khi tạo tài khoản."
-              onChange={(e) => setDraft((p) => ({ ...p, student_code: e.target.value }))}
-            />
-          )}
         </form>
       </Modal>
 
@@ -732,26 +646,7 @@ export default function AdminUsersPage() {
             ))}
           </Select>
 
-          {/* Hồ sơ giảng viên được tạo mới ngay trong lúc đổi vai trò, mà bảng
-              `lecturers` bắt buộc có mã số và bộ môn — không suy ra được, phải hỏi. */}
-          {roleDraft.role === "LECTURER" && (
-            <>
-              <Input
-                label="Mã số giảng viên (MSGV) *"
-                placeholder="GV003"
-                value={roleDraft.lecturer_code}
-                onChange={(e) =>
-                  setRoleDraft((p) => ({ ...p, lecturer_code: e.target.value }))
-                }
-              />
-              <Input
-                label="Bộ môn / Khoa *"
-                placeholder="Khoa Công Nghệ Thông Tin"
-                value={roleDraft.department}
-                onChange={(e) => setRoleDraft((p) => ({ ...p, department: e.target.value }))}
-              />
-            </>
-          )}
+
 
           <p className="text-[13px] text-tertiary leading-relaxed">
             Vai trò quyết định người dùng thấy và làm được những gì. Hồ sơ{" "}

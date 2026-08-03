@@ -275,7 +275,9 @@ test("route đặc quyền ngoài nhóm /admin vẫn giới hạn đúng vai tr�
   const expected: Array<[string, string[]]> = [
     ["GET /ai/stats", ["ADMIN"]],
     ["GET /reports/theses/export", ["ADMIN", "LECTURER"]],
-    ["GET /theses/pending", ["ADMIN", "LECTURER"]],
+    // Chỉ còn LECTURER: duyệt đề tài là việc của giảng viên hướng dẫn, Admin đã bị
+    // gỡ khỏi luồng này (xem thêm `visibleThesisIds` trả về [] cho ADMIN).
+    ["GET /theses/pending", ["LECTURER"]],
     ["PATCH /theses/:id/lecturer", ["ADMIN"]],
   ];
 

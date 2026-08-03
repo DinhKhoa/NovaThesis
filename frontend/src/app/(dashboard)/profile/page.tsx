@@ -67,9 +67,7 @@ export default function ProfilePage() {
 
   // Profile Edit State
   const [fullName, setFullName] = React.useState(user?.full_name || "");
-  const [studentCode, setStudentCode] = React.useState(user?.student_code || "");
-  const [lecturerCode, setLecturerCode] = React.useState(user?.lecturer_code || "");
-  const [department, setDepartment] = React.useState(user?.department || "");
+
   const [saving, setSaving] = React.useState(false);
 
   // Avatar Upload State
@@ -94,17 +92,10 @@ export default function ProfilePage() {
   if (user && seededFor !== user.id) {
     setSeededFor(user.id);
     setFullName(user.full_name || "");
-    setStudentCode(user.student_code || "");
-    setLecturerCode(user.lecturer_code || "");
-    setDepartment(user.department || "");
+
   }
 
-  /* Khoá theo dữ liệu SERVER chứ không theo ô nhập: backend chỉ cho điền mã số
-     khi nó còn trống (UC 2.3 BR), gửi lại một mã đã đặt sẽ nhận 409. `students.
-     student_code` nullable nên sinh viên đăng ký qua form vẫn còn trống —
-     `lecturers.lecturer_code` thì luôn có sẵn từ lúc admin tạo tài khoản. */
-  const studentCodeLocked = Boolean(user?.student_code);
-  const lecturerCodeLocked = Boolean(user?.lecturer_code);
+
 
   // Handle Profile Update (UC 1.9)
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -116,18 +107,8 @@ export default function ProfilePage() {
 
     setSaving(true);
     try {
-      /* Chỉ đính kèm mã số khi nó thực sự còn trống. Bản cũ gửi `lecturer_code`
-         trong mọi lần lưu, nên giảng viên chỉ sửa Khoa/Bộ môn cũng ăn 409
-         "Mã số giảng viên đã được thiết lập". */
       await updateProfile({
         full_name: fullName,
-        ...(isStudent(user) && !studentCodeLocked && studentCode.trim()
-          ? { student_code: studentCode.trim() }
-          : {}),
-        ...(isLecturer(user) && !lecturerCodeLocked && lecturerCode.trim()
-          ? { lecturer_code: lecturerCode.trim() }
-          : {}),
-        ...(isLecturer(user) ? { department } : {}),
       });
       toast.success("Cập nhật hồ sơ thành công!");
     } catch (err) {
@@ -397,43 +378,6 @@ export default function ProfilePage() {
                 helperText="Email không thể thay đổi"
               />
 
-              {isStudent(user) && (
-                <Input
-                  label="Mã số sinh viên (MSSV)"
-                  value={studentCode}
-                  onChange={(e) => setStudentCode(e.target.value)}
-                  disabled={studentCodeLocked}
-                  icon={<IdentificationCard size={15} />}
-                  helperText={
-                    studentCodeLocked
-                      ? "Mã số không thể thay đổi sau khi đã lưu"
-                      : "Form đăng ký không hỏi mã số này. Điền một lần tại đây — sau khi lưu sẽ không tự sửa được."
-                  }
-                />
-              )}
-
-              {isLecturer(user) && (
-                <>
-                  <Input
-                    label="Mã số giảng viên (MSGV)"
-                    value={lecturerCode}
-                    onChange={(e) => setLecturerCode(e.target.value)}
-                    disabled={lecturerCodeLocked}
-                    icon={<IdentificationCard size={15} />}
-                    helperText={
-                      lecturerCodeLocked
-                        ? "Mã số không thể thay đổi sau khi đã lưu"
-                        : "Điền một lần — sau khi lưu sẽ không tự sửa được."
-                    }
-                  />
-                  <Input
-                    label="Khoa / Bộ môn"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    icon={<Building size={15} />}
-                  />
-                </>
-              )}
 
               <div className="flex justify-end mt-2">
                 <Button
