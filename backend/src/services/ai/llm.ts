@@ -256,7 +256,15 @@ export async function* streamCompletion(
   } catch (err) {
     if (opts.signal?.aborted) return;
     logger.error({ err, provider: env.LLM_PROVIDER }, "Gọi mô hình sinh thất bại");
-    yield* pseudoStream(opts.fallback);
+    // Không được tái dùng opts.fallback ở đây: fallback là thông báo "không tìm
+    // thấy tài liệu liên quan" của tầng RAG. Nếu model đã cấu hình đúng nhưng
+    // lời gọi API lỗi (401, 429, timeout...), trả về fallback đó sẽ khiến người
+    // dùng tưởng nhầm là hệ thống truy hồi tài liệu bị hỏng, trong khi lỗi thật
+    // sự nằm ở việc gọi mô hình sinh.
+    yield* pseudoStream(
+      "⚠ Trợ lý AI đang gặp sự cố kết nối hoặc cấu hình API Key không hợp lệ. " +
+        "Vui lòng kiểm tra lại hệ thống (Lỗi gọi mô hình sinh thất bại)."
+    );
   }
 }
 
