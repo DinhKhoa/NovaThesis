@@ -34,7 +34,12 @@ import type {
 
 type UserWithProfiles = User & {
   student?: { id: number; members?: { thesis_id: number }[] } | null;
-  lecturer?: { id: number; } | null;
+  lecturer?: {
+    id: number;
+    department?: string | null;
+    institution?: string | null;
+    phone?: string | null;
+  } | null;
 };
 
 /**
@@ -67,6 +72,9 @@ export function toUserDTO(user: UserWithProfiles) {
     ...(user.lecturer
       ? {
           lecturer_id: user.lecturer.id,
+          department: user.lecturer.department ?? null,
+          institution: user.lecturer.institution ?? null,
+          phone: user.lecturer.phone ?? null,
         }
       : {}),
   };
@@ -98,7 +106,6 @@ export function toAccountDTO(user: UserWithProfiles) {
 export function toLecturerApplicationDTO(
   user: User & {
     lecturer: {
-      lecturer_code: string | null;
       department: string | null;
       institution: string | null;
       phone: string | null;
@@ -113,7 +120,6 @@ export function toLecturerApplicationDTO(
     email: user.email,
     full_name: user.full_name,
     status: user.status,
-    staff_id: user.lecturer?.lecturer_code ?? null,
     department: user.lecturer?.department ?? null,
     institution: user.lecturer?.institution ?? null,
     phone: user.lecturer?.phone ?? null,

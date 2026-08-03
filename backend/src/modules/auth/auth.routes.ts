@@ -88,7 +88,6 @@ const lecturerApplicationSchema = z.object({
   full_name: text(2, 255, "Họ và tên"),
   email: emailField,
   phone: phoneField,
-  staff_id: text(2, 50, "Mã số giảng viên"),
   institution: text(2, 255, "Trường công tác"),
   department: text(2, 100, "Khoa/Bộ môn"),
   // `password` cố ý vắng mặt: người nộp đơn không đặt mật khẩu, hệ thống sinh
@@ -124,8 +123,9 @@ const tokenField = z
 const profileSchema = z.object({
   full_name: text(2, 255, "Họ và tên").optional(),
   student_code: optionalText(50, "Mã số sinh viên"),
-  lecturer_code: optionalText(50, "Mã số giảng viên"),
   department: optionalText(100, "Khoa/Bộ môn"),
+  institution: optionalText(255, "Trường công tác"),
+  phone: optionalText(30, "Số điện thoại"),
   // `email` cố ý vắng mặt: zod loại bỏ khoá lạ, nên client có gửi kèm cũng
   // không đổi được email đăng nhập (business rule UC 1.9).
 });

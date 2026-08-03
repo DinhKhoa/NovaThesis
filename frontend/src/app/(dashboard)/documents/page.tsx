@@ -441,6 +441,18 @@ export default function DocumentsPage() {
       ),
     },
     {
+      key: "thesis",
+      header: "Đề tài",
+      width: "1%",
+      hideOnMobile: true,
+      sortValue: (d) => d.thesis_title ?? "",
+      render: (d) => (
+        <span className="text-[12.5px] truncate max-w-[12rem] block" title={d.thesis_title ?? `#${d.thesis_id}`}>
+          {d.thesis_title ?? `#${d.thesis_id}`}
+        </span>
+      ),
+    },
+    {
       key: "tags",
       header: "Thẻ",
       width: "1%",

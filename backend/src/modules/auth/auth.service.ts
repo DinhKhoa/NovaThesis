@@ -80,7 +80,12 @@ export const PROFILE_INCLUDE = {
     },
   },
   lecturer: {
-    select: { id: true },
+    select: {
+      id: true,
+      department: true,
+      institution: true,
+      phone: true,
+    },
   },
 } satisfies Prisma.UserInclude;
 
@@ -243,7 +248,6 @@ export interface LecturerApplicationInput {
   full_name: string;
   email: string;
   phone: string;
-  staff_id: string;
   institution: string;
   department: string;
 }
@@ -281,17 +285,12 @@ export async function registerLecturerApplication(
     "Ảnh thẻ giảng viên không đúng định dạng."
   );
 
-  const [existingEmail, existingCode] = await Promise.all([
-    prisma.user.findUnique({ where: { email: input.email }, select: { id: true } }),
-    prisma.lecturer.findUnique({ where: { lecturer_code: input.staff_id }, select: { id: true } }),
-  ]);
+  const existingEmail = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { id: true },
+  });
 
   if (existingEmail) throw conflict("Email này đã được sử dụng.");
-  // `lecturers.lecturer_code` là UNIQUE. Nói rõ trùng ở đâu, nếu không người
-  // nộp đơn sẽ sửa email — thứ vốn không sai — rồi thất bại lần nữa.
-  if (existingCode) {
-    throw conflict("Mã số giảng viên này đã tồn tại trong hệ thống.");
-  }
 
   const stored = await saveBuffer("credentials", file.originalname, file.buffer);
 
@@ -306,7 +305,6 @@ export async function registerLecturerApplication(
         status: "PENDING_VERIFICATION",
         lecturer: {
           create: {
-            lecturer_code: input.staff_id,
             department: input.department,
             institution: input.institution,
             phone: input.phone,
@@ -340,7 +338,6 @@ export async function registerLecturerApplication(
       email: user.email,
       institution: input.institution,
       department: input.department,
-      staff_id: input.staff_id,
     },
   });
 
@@ -633,6 +630,9 @@ export async function logout(
 
 export interface ProfileInput {
   full_name?: string;
+  department?: string | null;
+  institution?: string | null;
+  phone?: string | null;
 }
 
 export interface ProfileUpdateResult {
@@ -646,7 +646,7 @@ export interface ProfileUpdateResult {
  * Hai ràng buộc nghiệp vụ được cưỡng chế ở đây:
  *   • Email không nằm trong danh sách trường cho phép sửa (business rule UC 1.9)
  *     — nó là định danh đăng nhập, đổi được nghĩa là chiếm được tài khoản khác.
- *   • Mã SV/GV chỉ điền được khi đang trống (business rule UC 2.3: "không cho
+ *   • Mã SV chỉ điền được khi đang trống (business rule UC 2.3: "không cho
  *     phép thay đổi mã số sau khi đã tạo"). Gửi lại đúng giá trị cũ vẫn hợp lệ
  *     vì form hồ sơ luôn submit cả trường này.
  */
@@ -663,6 +663,26 @@ export async function updateProfile(
   if (input.full_name !== undefined && input.full_name !== current.full_name) {
     data.full_name = input.full_name;
     changed.push("full_name");
+  }
+
+  if (current.role === "LECTURER" && current.lecturer) {
+    const lecturerData: Prisma.LecturerUpdateInput = {};
+    if (input.department !== undefined && input.department !== current.lecturer.department) {
+      lecturerData.department = input.department;
+      changed.push("department");
+    }
+    if (input.institution !== undefined && input.institution !== current.lecturer.institution) {
+      lecturerData.institution = input.institution;
+      changed.push("institution");
+    }
+    if (input.phone !== undefined && input.phone !== current.lecturer.phone) {
+      lecturerData.phone = input.phone;
+      changed.push("phone");
+    }
+
+    if (Object.keys(lecturerData).length > 0) {
+      data.lecturer = { update: lecturerData };
+    }
   }
 
 

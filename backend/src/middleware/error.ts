@@ -166,7 +166,6 @@ function mapPrisma(err: Prisma.PrismaClientKnownRequestError): Mapped {
 function friendlyUnique(field: string): string {
   if (field.includes("email")) return "Email này đã được sử dụng.";
   if (field.includes("student_code")) return "Mã số sinh viên này đã tồn tại.";
-  if (field.includes("lecturer_code")) return "Mã số giảng viên này đã tồn tại.";
   if (field.includes("config_key")) return "Khóa cấu hình này đã tồn tại.";
   if (field.includes("name")) return "Tên này đã tồn tại.";
   return "Dữ liệu đã tồn tại trong hệ thống.";

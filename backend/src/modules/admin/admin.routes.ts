@@ -122,19 +122,11 @@ const createUserSchema = z
     full_name: text(2, 255, "Họ và tên"),
     role: z.enum(USER_ROLES, { errorMap: () => ({ message: "Vai trò không hợp lệ." }) }),
     student_code: optionalText(50, "Mã số sinh viên"),
-    lecturer_code: optionalText(50, "Mã số giảng viên"),
     department: optionalText(100, "Khoa/Bộ môn"),
     max_students: maxStudentsField.optional(),
   })
   .superRefine((value, ctx) => {
     if (value.role === "LECTURER") {
-      if (!value.lecturer_code) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["lecturer_code"],
-          message: "Mã số giảng viên là bắt buộc khi tạo tài khoản giảng viên.",
-        });
-      }
       if (!value.department) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -143,8 +135,6 @@ const createUserSchema = z
         });
       }
     }
-    // Từ chối thay vì âm thầm bỏ qua: gửi MSSV kèm vai trò Giảng viên gần như
-    // luôn là chọn nhầm vai trò, và mã số đó sẽ biến mất không dấu vết.
     if (value.role !== "STUDENT" && value.student_code) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -152,23 +142,15 @@ const createUserSchema = z
         message: "Chỉ tài khoản sinh viên mới có mã số sinh viên.",
       });
     }
-    if (value.role !== "LECTURER" && (value.lecturer_code || value.department)) {
+    if (value.role !== "LECTURER" && value.department) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["lecturer_code"],
-        message: "Chỉ tài khoản giảng viên mới có mã số giảng viên và khoa/bộ môn.",
+        path: ["department"],
+        message: "Chỉ tài khoản giảng viên mới có khoa/bộ môn.",
       });
     }
   });
 
-/**
- * Trường bị khoá vĩnh viễn sau khi tạo (business rule UC 2.3 với mã số; UC 1.9
- * với email — nó là định danh đăng nhập).
- *
- * Khai báo tường minh thay vì để `z.object` lặng lẽ loại bỏ khoá lạ: im lặng bỏ
- * qua nghĩa là giao diện báo "lưu thành công" trong khi giá trị người dùng vừa
- * gõ không đi tới đâu cả.
- */
 const lockedField = (message: string) => z.undefined({ invalid_type_error: message });
 
 const updateUserSchema = z.object({
@@ -178,7 +160,6 @@ const updateUserSchema = z.object({
 
   email: lockedField("Email đăng nhập không thể thay đổi."),
   student_code: lockedField("Mã số sinh viên không thể thay đổi sau khi tạo tài khoản."),
-  lecturer_code: lockedField("Mã số giảng viên không thể thay đổi sau khi tạo tài khoản."),
 });
 
 const changeStatusSchema = z.object({
@@ -189,21 +170,11 @@ const changeRoleSchema = z
   .object({
     role: z.enum(USER_ROLES, { errorMap: () => ({ message: "Vai trò không hợp lệ." }) }),
     student_code: optionalText(50, "Mã số sinh viên"),
-    lecturer_code: optionalText(50, "Mã số giảng viên"),
     department: optionalText(100, "Khoa/Bộ môn"),
     max_students: maxStudentsField.optional(),
   })
   .superRefine((value, ctx) => {
-    // Hồ sơ giảng viên được tạo mới trong lúc đổi vai trò, mà `lecturers` bắt
-    // buộc có mã số và bộ môn — phải hỏi ngay ở đây, không thể suy ra được.
     if (value.role !== "LECTURER") return;
-    if (!value.lecturer_code) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["lecturer_code"],
-        message: "Cần mã số giảng viên khi chuyển tài khoản sang vai trò Giảng viên.",
-      });
-    }
     if (!value.department) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -527,7 +498,6 @@ adminRouter.post(
         target_user_id: account.id,
         target_email: account.email,
         institution: account.lecturer?.institution ?? null,
-        staff_id: account.lecturer?.lecturer_code ?? null,
       },
     });
 

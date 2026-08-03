@@ -1,6 +1,17 @@
 {
-  "workbench.colorCustomizations": {
-    "minimap.background": "#00000000",
-    "scrollbar.shadow": "#00000000"
-  }
+	"workbench.colorCustomizations": {
+		"minimap.background": "#00000000",
+		"scrollbar.shadow": "#00000000"
+	},
+	"terminal.integrated.profiles.windows": {
+		"PowerShell UTF-8": {
+			"source": "PowerShell",
+			"args": [
+				"-NoExit",
+				"-Command",
+				"$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding"
+			]
+		}
+	},
+	"terminal.integrated.defaultProfile.windows": "PowerShell UTF-8"
 }

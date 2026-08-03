@@ -538,6 +538,14 @@ aiRouter.post(
          thoại không ghi nhận gì — câu trả lời thứ ba dựa trên nguồn khác hẳn hai
          câu đầu, và không ai nhìn ra được điều đó khi đọc lại. */
       session = await ownedSession(user, body.session_id);
+      
+      if (body.answer_mode && session.answer_mode !== body.answer_mode) {
+        await prisma.aIChatSession.update({
+          where: { id: session.id },
+          data: { answer_mode: body.answer_mode },
+        });
+        session.answer_mode = body.answer_mode;
+      }
     } else {
       if (body.thesis_id !== undefined) await assertThesisAccess(user, body.thesis_id, "view");
 

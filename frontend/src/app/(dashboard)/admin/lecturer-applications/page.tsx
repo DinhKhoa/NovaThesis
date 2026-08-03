@@ -126,7 +126,7 @@ export default function LecturerApplicationsPage() {
     <div>
       <PageHeader
         title="Yêu cầu giảng viên"
-        description="Đơn xin mở tài khoản giảng viên gửi từ trang chủ, kèm ảnh thẻ để đối chiếu."
+        description="Đơn xin phê duyệt tài khoản giảng viên."
       />
 
       <Card hoverable={false} className="overflow-hidden">
@@ -209,18 +209,6 @@ export default function LecturerApplicationsPage() {
                       {a.department ?? "—"}
                     </p>
                   </div>
-                ),
-              },
-              {
-                key: "staff_id",
-                header: "Mã số",
-                width: "1%",
-                hideOnMobile: true,
-                sortValue: (a) => a.staff_id ?? "",
-                render: (a) => (
-                  <span className="text-[12.5px] tnum whitespace-nowrap">
-                    {a.staff_id ?? "—"}
-                  </span>
                 ),
               },
               {
@@ -360,8 +348,6 @@ export default function LecturerApplicationsPage() {
               }}
             />
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12.5px]">
-              <dt className="text-tertiary">Mã số</dt>
-              <dd className="tnum">{selected.staff_id ?? "—"}</dd>
               <dt className="text-tertiary">Trường công tác</dt>
               <dd>{selected.institution ?? "—"}</dd>
               <dt className="text-tertiary">Khoa / Bộ môn</dt>

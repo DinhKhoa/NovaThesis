@@ -285,7 +285,6 @@ async function main(): Promise<void> {
     full_name: string;
     role: "ADMIN" | "LECTURER" | "STUDENT";
     student_code?: string;
-    lecturer_code?: string;
     department?: string;
     max_students?: number;
   }) {
@@ -316,7 +315,6 @@ async function main(): Promise<void> {
         update: { department: input.department ?? "Khoa Công nghệ Thông tin" },
         create: {
           user_id: user.id,
-          lecturer_code: input.lecturer_code ?? `GV${user.id}`,
           department: input.department ?? "Khoa Công nghệ Thông tin",
           max_students: input.max_students ?? 5,
         },
@@ -342,7 +340,6 @@ async function main(): Promise<void> {
     email: "nguyen.vana@novathesis.edu.vn",
     full_name: "TS. Nguyễn Văn A",
     role: "LECTURER",
-    lecturer_code: "GV001",
     department: "Khoa Công nghệ Thông tin",
     max_students: 6,
   });
@@ -351,7 +348,6 @@ async function main(): Promise<void> {
     email: "tran.thib@novathesis.edu.vn",
     full_name: "PGS.TS. Trần Thị B",
     role: "LECTURER",
-    lecturer_code: "GV002",
     department: "Khoa Hệ thống Thông tin Quản lý",
     max_students: 5,
   });

@@ -230,11 +230,6 @@ model Lecturer {
   id      Int @id @default(autoincrement())
   user_id Int @unique
 
-  /// Vẫn nullable: `admin.service.ts` tạo giảng viên chỉ với `user_id`, và dữ
-  /// liệu cũ trong CSDL có nhiều dòng bỏ trống. Luồng tự đăng ký ở
-  /// `registerLecturerApplication()` thì ghi đủ cả hai — nhưng nới lỏng ở đây là
-  /// điều kiện để hai đường tạo hồ sơ cùng tồn tại mà không phải backfill.
-  lecturer_code String? @unique @db.VarChar(50)
   department    String? @db.VarChar(100)
   max_students  Int     @default(5)
 

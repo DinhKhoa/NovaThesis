@@ -111,12 +111,13 @@ export function Button({
 export function Spinner({ size = 14 }: { size?: number }) {
   return (
     <svg
-      className="animate-spin flex-shrink-0"
+      className="animate-spin flex-shrink-0 inline-block"
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
+      style={{ transformOrigin: "center" }}
     >
       <circle
         cx="12"

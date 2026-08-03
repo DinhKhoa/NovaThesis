@@ -1042,6 +1042,23 @@
   100% { transform: translateX(400%); }
 }
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin,
+svg.animate-spin {
+  animation: spin 0.75s linear infinite !important;
+  transform-origin: center !important;
+  transform-box: fill-box !important;
+  display: inline-block;
+}
+
 /* Opacity only, deliberately. `fade-rise` animates `transform`, and an
    element with a transform animation in effect becomes the containing block
    for every `position: fixed` descendant — which re-anchors modal and toast

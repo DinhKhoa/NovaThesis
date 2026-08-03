@@ -512,7 +512,6 @@ export async function softDeleteAccount(
 const APPLICATION_INCLUDE = {
   lecturer: {
     select: {
-      lecturer_code: true,
       department: true,
       institution: true,
       phone: true,

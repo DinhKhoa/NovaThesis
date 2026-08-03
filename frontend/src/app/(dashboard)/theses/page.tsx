@@ -84,15 +84,14 @@ export default function ThesesListPage() {
     <div>
       <PageHeader
         title="Đề tài"
-        description="Trạng thái duyệt, giảng viên hướng dẫn và tiến độ của từng đề tài."
+        description="Danh sách và thông tin chi tiết của từng đề tài."
         meta={
           data ? <Badge variant="neutral">{data.total} đề tài</Badge> : undefined
         }
         actions={
-          /* Sinh viên đã có đề tài đang chạy thì không tạo thêm được (UC 3.1 BR),
-             nên nút chỉ hiện khi thao tác thật sự khả thi. Quản trị viên xem ở
-             chế độ chỉ đọc nên cũng không thấy nút này. */
-          isReadOnlyViewer(user) || (isStudent(user) && user?.thesis_id) ? null : (
+          /* Quản trị viên xem ở chế độ chỉ đọc nên không thấy nút này.
+             Sinh viên có thể tham gia nhiều đề tài nên luôn thấy nút Đề xuất. */
+          isReadOnlyViewer(user) ? null : (
             <Link href="/theses/new">
               <Button variant="primary" icon={<Plus size={15} />}>
                 {isLecturer(user) ? "Tạo đề tài mới" : "Đề xuất đề tài"}

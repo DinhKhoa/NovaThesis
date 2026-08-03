@@ -128,38 +128,38 @@ function LandingContent() {
 				{/* ---------- Hero ---------- */}
 				<section className="hero-dots min-h-[80dvh] flex items-center">
 					<div className="mx-auto max-w-5xl px-5 py-16 w-full relative z-[1]">
-					<p className="eyebrow mb-3">Tích hợp AI hỗ trợ học thuật</p>
-					<h1 className="text-[32px] sm:text-[40px] font-semibold tracking-[-0.025em] leading-[1.15] max-w-2xl">
-						HỆ THỐNG QUẢN LÝ LUẬN VĂN VÀ ĐỀ TÀI NGHIÊN CỨU
-					</h1>
+						<p className="eyebrow mb-3">Tích hợp AI hỗ trợ học thuật</p>
+						<h1 className="text-[32px] sm:text-[40px] font-semibold tracking-[-0.025em] leading-[1.15] max-w-2xl">
+							HỆ THỐNG QUẢN LÝ LUẬN VĂN VÀ ĐỀ TÀI NGHIÊN CỨU
+						</h1>
 
-					<div className="flex flex-wrap items-center gap-2.5 mt-7">
-						<button
-							onClick={() => openAuth("login")}
-							className="btn btn-primary btn-lg">
-							Đăng nhập
-							<span className="btn-trail">
-								<ArrowRight size={15} />
-							</span>
-						</button>
-						<button
-							onClick={() => openAuth("register")}
-							className="btn btn-secondary btn-lg">
-							Đăng ký tài khoản
-						</button>
-					</div>
+						<div className="flex flex-wrap items-center gap-2.5 mt-7">
+							<button
+								onClick={() => openAuth("login")}
+								className="btn btn-primary btn-lg">
+								Đăng nhập
+								<span className="btn-trail">
+									<ArrowRight size={15} />
+								</span>
+							</button>
+							<button
+								onClick={() => openAuth("register")}
+								className="btn btn-secondary btn-lg">
+								Đăng ký tài khoản
+							</button>
+						</div>
 
-					{/* Giảng viên không tự mở được tài khoản như sinh viên — đơn của họ
+						{/* Giảng viên không tự mở được tài khoản như sinh viên — đơn của họ
 					    phải qua tay quản trị viên. Đặt lối vào riêng ở đây, nhỏ hơn hai
 					    nút chính, vì đó là con đường của thiểu số người dùng. */}
-					<p className="text-[12.5px] text-tertiary mt-4">
-						Bạn là giảng viên?{" "}
-						<button
-							onClick={openLecturerApply}
-							className="text-accent hover:underline font-medium">
-							Gửi yêu cầu đăng ký tại đây →
-						</button>
-					</p>
+						<p className="text-[12.5px] text-tertiary mt-4">
+							Nếu bạn là giảng viên hãy{" "}
+							<button
+								onClick={openLecturerApply}
+								className="text-accent hover:underline font-medium cursor-pointer">
+								Gửi yêu cầu đăng ký tại đây.
+							</button>
+						</p>
 					</div>
 				</section>
 
@@ -216,8 +216,7 @@ function LandingContent() {
 							<p className="text-[13px] text-tertiary leading-relaxed">
 								Tài liệu luận văn được lưu ở vùng riêng tư và chỉ truy cập được
 								bằng liên kết có chữ ký, có thời hạn. Trợ lý AI chỉ tìm trong
-								phạm vi tài liệu mà tài khoản của bạn có quyền đọc — nội dung đề
-								tài của sinh viên khác không nằm trong phạm vi đó.
+								phạm vi tài liệu mà tài khoản của bạn có quyền đọc.
 							</p>
 						</div>
 					</div>
@@ -226,20 +225,9 @@ function LandingContent() {
 
 			<footer style={{ borderTop: "1px solid var(--border-primary)" }}>
 				<div className="mx-auto max-w-5xl px-5 py-5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-					<span className="text-[12px] text-muted italic">
-						© {new Date().getFullYear()} Nova Thesis
+					<span className="text-[12px] text-muted">
+						© {new Date().getFullYear()} Copyright by Dinh Khoa - Nova Thesis
 					</span>
-					<span className="flex-1" />
-					<button
-						onClick={() => openAuth("login")}
-						className="text-[12px] text-tertiary hover:text-primary">
-						Đăng nhập
-					</button>
-					<Link
-						href="/forgot-password"
-						className="text-[12px] text-tertiary hover:text-primary">
-						Quên mật khẩu
-					</Link>
 				</div>
 			</footer>
 

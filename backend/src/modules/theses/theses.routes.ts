@@ -41,7 +41,6 @@ import { notify, notifyMany, thesisAudience } from "../../services/notifications
 import { toLecturerOptionDTO, toThesisDTO } from "../serializers";
 import {
   assertLecturerCapacity,
-  assertNoActiveThesis,
   findThesisDTO,
   scopedThesisWhere,
   searchCondition,
@@ -102,6 +101,7 @@ const createSchema = z.object({
   description: text(10, 10_000, "Mô tả đề tài"),
   field: text(2, 100, "Lĩnh vực nghiên cứu"),
   lecturer_id: z.coerce.number().int().positive("Giảng viên không hợp lệ.").optional(),
+  lecturer_email: emailField.optional(),
   /* Kỳ nghiên cứu, tuỳ chọn. Đặt được ngay lúc tạo hoặc bổ sung sau ở trang chi
      tiết — một bản nháp chưa cần biết mình chạy trong khoảng thời gian nào. */
   start_date: optionalDateField("Ngày bắt đầu kỳ nghiên cứu"),
@@ -117,6 +117,7 @@ const updateSchema = z
     description: text(10, 10_000, "Mô tả đề tài").optional(),
     field: text(2, 100, "Lĩnh vực nghiên cứu").optional(),
     lecturer_id: z.coerce.number().int().positive("Giảng viên không hợp lệ.").optional(),
+    lecturer_email: emailField.optional(),
     /* Kỳ nghiên cứu sửa được sau khi tạo: một bản nháp thường chưa biết mình
        chạy trong khoảng nào, và khoảng đó có thể lùi khi đề tài được duyệt muộn. */
     start_date: optionalDateField("Ngày bắt đầu kỳ nghiên cứu"),
@@ -323,13 +324,35 @@ thesesRouter.post(
       if (user.student_id === null) {
         throw badRequest("Tài khoản của bạn chưa có hồ sơ sinh viên. Vui lòng liên hệ quản trị viên.");
       }
-      await assertNoActiveThesis(user.student_id);
+      // Sinh viên được phép tham gia nhiều đề tài — không giới hạn số lượng.
     }
 
     // Giảng viên đề xuất đề tài thì chính họ là người hướng dẫn — để họ tự chọn
     // đồng nghiệp khác sẽ biến ô "GVHD" thành cách gán việc cho người vắng mặt.
-    const lecturerId =
-      user.role === "LECTURER" ? user.lecturer_id : (body.lecturer_id ?? null);
+    let lecturerId: number | null = null;
+
+    if (user.role === "LECTURER") {
+      lecturerId = user.lecturer_id;
+    } else if (body.lecturer_email) {
+      const account = await prisma.user.findUnique({
+        where: { email: body.lecturer_email },
+        select: { role: true, status: true, deleted_at: true, lecturer: { select: { id: true } } },
+      });
+      if (
+        !account ||
+        account.deleted_at ||
+        account.role !== "LECTURER" ||
+        !account.lecturer ||
+        account.status !== "ACTIVE"
+      ) {
+        throw badRequest(
+          "Không tìm thấy giảng viên đang hoạt động với email này. Hãy kiểm tra lại địa chỉ."
+        );
+      }
+      lecturerId = account.lecturer.id;
+    } else {
+      lecturerId = body.lecturer_id ?? null;
+    }
 
     // UC 3.1 ngoại lệ 5b. Bỏ qua khi giảng viên tự nhận đề tài của mình: quota
     // đếm số đề tài ĐANG thực hiện, còn đây mới chỉ là bản nháp chưa ràng buộc
@@ -781,7 +804,7 @@ thesesRouter.patch(
  * Thêm người vào một đề tài đã nghiệm thu là ghi tên họ vào một kết quả họ không
  * tham gia làm ra; gỡ người khỏi nó là xoá tên khỏi công việc họ đã làm.
  */
-function assertMembershipEditable(status: ThesisStatus, action: "add" | "remove"): void {
+function assertMembershipEditable(status: ThesisStatus, action: "add" | "remove" | "update"): void {
   if (status === "COMPLETED") {
     throw conflict("Đề tài đã hoàn thành nên không thay đổi được danh sách thành viên.");
   }
@@ -866,11 +889,7 @@ thesesRouter.post(
       throw conflict("Sinh viên này đã là thành viên của đề tài.");
     }
 
-    /* BR UC 3.1 áp dụng cho cả đường "được thêm vào": một sinh viên không thể
-       đồng thời nằm trong hai đề tài đang chạy. Đây KHÔNG phải giới hạn số thành
-       viên của một đề tài — đề tài nhận bao nhiêu người cũng được — mà là giới
-       hạn số đề tài trên mỗi sinh viên. */
-    await assertNoActiveThesis(student_id, "other");
+    // Sinh viên được phép tham gia nhiều đề tài — không giới hạn số lượng.
 
     // Đề tài do giảng viên đề xuất chưa có ai; người đầu tiên vào là chủ nhiệm.
     const activeMembers = await prisma.thesisMember.count({
@@ -960,6 +979,59 @@ thesesRouter.delete(
     });
 
     noContent(res);
+  })
+);
+
+/** Chuyển vai trò Leader cho thành viên khác trong đề tài. */
+thesesRouter.patch(
+  "/:id/members/:user_id/transfer-leader",
+  validateParams(memberParams),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id, user_id } = req.params as unknown as z.infer<typeof memberParams>;
+
+    const thesis = await loadThesis(id);
+    await assertCanManageMembers(user, id, thesis);
+    assertMembershipEditable(thesis.status, "update");
+
+    const targetMember = await prisma.thesisMember.findFirst({
+      where: { thesis_id: id, left_at: null, student: { user_id } },
+      select: { id: true, role: true, student: { select: { id: true, user_id: true } } },
+    });
+
+    if (!targetMember) {
+      throw notFound("Sinh viên không phải thành viên đang tham gia của đề tài này.");
+    }
+    if (targetMember.role === "OWNER") {
+      throw conflict("Sinh viên này đã là Leader của đề tài.");
+    }
+
+    await prisma.$transaction([
+      prisma.thesisMember.updateMany({
+        where: { thesis_id: id, left_at: null, role: "OWNER" },
+        data: { role: "MEMBER" },
+      }),
+      prisma.thesisMember.update({
+        where: { id: targetMember.id },
+        data: { role: "OWNER" },
+      }),
+    ]);
+
+    await notify({
+      userId: targetMember.student.user_id,
+      type: "THESIS",
+      title: "Bạn đã trở thành Leader đề tài",
+      content: `Bạn vừa được chỉ định làm Leader của đề tài “${thesis.title}”.`,
+      link: thesisLink(id),
+    });
+
+    audit({
+      action: AuditAction.THESIS_UPDATE,
+      req,
+      details: { thesis_id: id, change: "transfer_leader", new_leader_user_id: user_id },
+    });
+
+    res.json(await findThesisDTO(id));
   })
 );
 

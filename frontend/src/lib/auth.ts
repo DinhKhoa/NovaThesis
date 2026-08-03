@@ -28,6 +28,9 @@ export interface User {
   thesis_id?: number | null;
   // Lecturer-specific
   lecturer_id?: number;
+  department?: string | null;
+  institution?: string | null;
+  phone?: string | null;
 }
 
 interface LoginPayload {

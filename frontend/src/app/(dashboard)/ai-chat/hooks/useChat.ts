@@ -114,7 +114,7 @@ export function useChat({
 
     // Chưa có phiên: mượn danh sách tài liệu của đề tài, mặc định chọn hết.
     if (thesisId === null) return { uses_all: true, data: [] };
-    const page = await documentsApi.list({ thesis_id: thesisId, per_page: 200 });
+    const page = await documentsApi.list({ thesis_id: thesisId, per_page: 100 });
     return {
       uses_all: true,
       data: page.data.map((d) => ({
@@ -292,7 +292,7 @@ export function useChat({
         // phạm vi đề tài của nó, gửi thêm chỉ tạo cơ hội cho hai giá trị lệch nhau.
         thesis_id: sessionId === null ? (thesisId ?? undefined) : undefined,
         prompt: text,
-        ...(sessionId === null ? { answer_mode: answerMode } : {}),
+        answer_mode: answerMode,
         ...(sourcesForNewSession ? { document_ids: sourcesForNewSession } : {}),
         // Cùng lý do: ngữ cảnh mốc tiến độ chỉ có nghĩa ở câu hỏi mở đầu phiên.
         ...(sessionId === null && milestoneId ? { milestone_id: milestoneId } : {}),

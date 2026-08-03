@@ -117,6 +117,7 @@ export const thesesApi = {
     description: string;
     field: string;
     lecturer_id?: number;
+    lecturer_email?: string;
     /** Kỳ nghiên cứu, "YYYY-MM-DD". Tuỳ chọn — bản nháp chưa cần biết. */
     start_date?: string;
     end_date?: string;
@@ -124,6 +125,8 @@ export const thesesApi = {
   update: (
     id: number,
     data: Partial<Pick<Thesis, "title" | "description" | "field">> & {
+      lecturer_id?: number;
+      lecturer_email?: string;
       /** Kỳ nghiên cứu, "YYYY-MM-DD". Sửa được sau khi tạo. */
       start_date?: string;
       end_date?: string;
@@ -145,6 +148,8 @@ export const thesesApi = {
     api.post<Thesis>(`/theses/${thesisId}/members`, { email }),
   removeMember: (thesisId: number, studentUserId: number) =>
     api.delete<void>(`/theses/${thesisId}/members/${studentUserId}`),
+  transferLeader: (thesisId: number, studentUserId: number) =>
+    api.patch<Thesis>(`/theses/${thesisId}/members/${studentUserId}/transfer-leader`),
   assignLecturer: (id: number, lecturer_id: number) =>
     api.patch<Thesis>(`/theses/${id}/lecturer`, { lecturer_id }),
   history: (id: number) => api.get<ThesisHistoryEntry[]>(`/theses/${id}/history`),
@@ -879,7 +884,6 @@ export interface LecturerApplication {
   email: string;
   full_name: string;
   status: UserStatus;
-  staff_id: string | null;
   department: string | null;
   institution: string | null;
   phone: string | null;
@@ -893,7 +897,6 @@ export interface LecturerApplicationInput {
   full_name: string;
   email: string;
   phone: string;
-  staff_id: string;
   institution: string;
   department: string;
   credential_image: File;
@@ -911,7 +914,6 @@ export const lecturerApplicationApi = {
     form.append("full_name", input.full_name);
     form.append("email", input.email);
     form.append("phone", input.phone);
-    form.append("staff_id", input.staff_id);
     form.append("institution", input.institution);
     form.append("department", input.department);
     form.append("credential_image", input.credential_image);

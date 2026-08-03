@@ -48,7 +48,6 @@ interface FieldErrors {
 	full_name?: string;
 	email?: string;
 	phone?: string;
-	staff_id?: string;
 	institution?: string;
 	department?: string;
 	credential_image?: string;
@@ -59,7 +58,6 @@ type Form = {
 	full_name: string;
 	email: string;
 	phone: string;
-	staff_id: string;
 	institution: string;
 	department: string;
 };
@@ -68,7 +66,6 @@ const EMPTY_FORM: Form = {
 	full_name: "",
 	email: "",
 	phone: "",
-	staff_id: "",
 	institution: "",
 	department: "",
 };
@@ -90,7 +87,6 @@ function validateStep1(d: Form): FieldErrors {
 
 function validateStep2(d: Form, file: File | null): FieldErrors {
 	const e: FieldErrors = {};
-	if (!d.staff_id.trim()) e.staff_id = "Vui lòng nhập mã số giảng viên";
 	if (!d.institution.trim()) e.institution = "Vui lòng nhập trường công tác";
 	if (!d.department.trim()) e.department = "Vui lòng nhập khoa hoặc bộ môn";
 	if (!file) e.credential_image = "Vui lòng tải lên ảnh thẻ giảng viên";
@@ -391,7 +387,6 @@ export function LecturerApplySheet({
 				full_name: form.full_name.trim(),
 				email: form.email.trim(),
 				phone: normalizePhone(form.phone),
-				staff_id: form.staff_id.trim(),
 				institution: form.institution.trim(),
 				department: form.department.trim(),
 				credential_image: file,
@@ -403,9 +398,6 @@ export function LecturerApplySheet({
 				return;
 			}
 
-			/* Lỗi theo từng trường (422) được đưa về đúng ô. Trường của bước 1 thì
-			   phải kéo người dùng quay lại bước 1 — hiện một lỗi đỏ ở màn hình
-			   không chứa ô nào bị lỗi là bày ra một ngõ cụt. */
 			if (err.errors) {
 				const mapped: FieldErrors = {};
 				for (const [key, messages] of Object.entries(err.errors)) {
@@ -418,11 +410,8 @@ export function LecturerApplySheet({
 			}
 
 			if (err.status === 409) {
-				// Email trùng thuộc bước 1, mã số giảng viên thuộc bước 2 — backend
-				// phân biệt hai câu này nên ở đây bám theo nội dung để nhảy đúng bước.
-				const isEmailClash = err.message.toLowerCase().includes("email");
-				setErrors(isEmailClash ? { email: err.message } : { staff_id: err.message });
-				setStep(isEmailClash ? 1 : 2);
+				setErrors({ email: err.message });
+				setStep(1);
 				return;
 			}
 
@@ -552,16 +541,6 @@ export function LecturerApplySheet({
 						</>
 					) : (
 						<>
-							<Input
-								label="Mã số giảng viên"
-								placeholder="GV0123"
-								value={form.staff_id}
-								onChange={set("staff_id")}
-								error={errors.staff_id}
-								icon={<IdentificationCard size={14} />}
-								required
-							/>
-
 							<Input
 								label="Trường công tác"
 								placeholder="Trường Đại học Kinh tế – Đại học Đà Nẵng"
