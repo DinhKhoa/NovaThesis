@@ -16,10 +16,12 @@ import {
   Robot,
   Trash,
   UserPlus,
+  UsersThree,
   Warning,
   XCircle,
 } from "@phosphor-icons/react";
 import {
+  Avatar,
   Badge,
   Button,
   Card,
@@ -35,7 +37,7 @@ import { isReadOnlyViewer } from "@/lib/permissions";
 import { toast } from "@/lib/toast";
 import { isApiError } from "@/lib/api";
 import { useAsync } from "@/lib/use-async";
-import { thesesApi, type Thesis } from "@/lib/services";
+import { thesesApi, type Thesis, type ThesisMember } from "@/lib/services";
 import { formatDateTime, formatDate, formatPeriod } from "@/lib/format";
 import { statusMap } from "../page";
 
@@ -150,6 +152,18 @@ export default function ThesisDetailPage() {
     (thesis.status === "DRAFT" || thesis.status === "REVISION_REQUIRED");
   const canReview = !readOnly && supervisor && thesis.status === "PENDING";
   const canComplete = !readOnly && supervisor && thesis.status === "ONGOING";
+
+  /* Sửa danh sách thành viên KHÔNG dùng chung điều kiện với `canEdit`.
+     `canEdit` khoá sinh viên lại ngay khi đề tài rời khỏi DRAFT — đúng cho nội
+     dung đề cương, nhưng sai cho danh sách nhóm: người ta hay rủ thêm bạn sau
+     khi đề tài đã được duyệt và bắt đầu chạy. Điều kiện ở đây phản chiếu
+     `assertCanManageMembers` của backend: chủ nhiệm hoặc GVHD, và đề tài chưa
+     chốt. */
+  const canManageMembers =
+    !readOnly &&
+    thesis.status !== "COMPLETED" &&
+    thesis.status !== "REJECTED" &&
+    (owner || supervisor);
 
   return (
     <div>
@@ -286,7 +300,7 @@ export default function ThesisDetailPage() {
           </span>
 
           <span className="flex items-center gap-2">
-            <UserPlus size={18} className="text-accent" />
+            <UsersThree size={18} className="text-accent" />
             Sinh viên:{" "}
             <strong className="text-primary font-medium">
               {thesis.student_names.length ? thesis.student_names.join(", ") : "Chưa gán sinh viên"}
@@ -374,6 +388,13 @@ export default function ThesisDetailPage() {
           </Card>
 
           <div className="flex flex-col gap-4">
+            <MemberPanel
+              thesis={thesis}
+              canManage={canManageMembers}
+              onChanged={setData}
+              onRefetch={() => void refetch()}
+            />
+
             <Card className="p-5">
               <h3 className="text-[14px] font-semibold mb-3">Không gian làm việc</h3>
               <div className="flex flex-col gap-2">
@@ -617,5 +638,197 @@ export default function ThesisDetailPage() {
         }
       />
     </div>
+  );
+}
+
+/* ==========================================================================
+   THÀNH VIÊN ĐỀ TÀI
+
+   Lược đồ đã hỗ trợ đề tài nhóm từ đầu (`thesis_members` là quan hệ nhiều-nhiều
+   có vai trò), nhưng trang này trước đó chỉ in `student_names.join(", ")` — một
+   dòng chữ chết. Muốn thêm bạn cùng nhóm phải nhờ giảng viên gọi API, và không
+   có màn hình nào cho việc đó.
+
+   Ràng buộc còn lại nằm ở backend chứ không ở đây: mỗi sinh viên chỉ được tham
+   gia MỘT đề tài đang chạy (BR UC 3.1). Đó là giới hạn trên mỗi sinh viên, không
+   phải giới hạn số thành viên — một đề tài nhận bao nhiêu người cũng được.
+   ========================================================================== */
+
+function MemberPanel({
+  thesis,
+  canManage,
+  onChanged,
+  onRefetch,
+}: {
+  thesis: Thesis;
+  canManage: boolean;
+  onChanged: (next: Thesis) => void;
+  onRefetch: () => void;
+}) {
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  const [emailError, setEmailError] = React.useState<string | null>(null);
+  const [adding, setAdding] = React.useState(false);
+  const [removing, setRemoving] = React.useState<ThesisMember | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const members = thesis.members;
+
+  const closeAdd = () => {
+    setAddOpen(false);
+    setEmail("");
+    setEmailError(null);
+  };
+
+  const handleAdd = async () => {
+    const value = email.trim();
+    if (!value) {
+      setEmailError("Vui lòng nhập email của sinh viên");
+      return;
+    }
+
+    setAdding(true);
+    setEmailError(null);
+    try {
+      // Server trả về bản ghi đề tài mới nên ghi đè thẳng: đoán trước danh sách
+      // sau khi thêm sẽ sai ngay ở trường hợp người đầu tiên vào (họ thành chủ
+      // nhiệm, không phải thành viên thường).
+      onChanged(await thesesApi.addMember(thesis.id, value));
+      toast.success("Đã thêm thành viên vào đề tài.");
+      closeAdd();
+    } catch (err) {
+      // Lỗi ở đây gần như luôn nói về CHÍNH ô email (không tìm thấy, đã là thành
+      // viên, đang bận đề tài khác), nên hiện ngay dưới ô thay vì trong một toast
+      // biến mất sau năm giây.
+      setEmailError(isApiError(err) ? err.message : "Không thêm được thành viên.");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!removing?.user_id) return;
+
+    setBusy(true);
+    try {
+      await thesesApi.removeMember(thesis.id, removing.user_id);
+      toast.success(`Đã gỡ ${removing.full_name} khỏi đề tài.`);
+      setRemoving(null);
+      // `remove` trả 204 nên không có bản ghi mới để ghi đè — phải hỏi lại.
+      onRefetch();
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Không gỡ được thành viên.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Card className="p-5">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="text-[14px] font-semibold">Thành viên đề tài</h3>
+          {canManage && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<UserPlus size={14} />}
+              onClick={() => setAddOpen(true)}
+            >
+              Thêm
+            </Button>
+          )}
+        </div>
+
+        {members.length === 0 ? (
+          <p className="text-[13px] text-tertiary">
+            Chưa có sinh viên nào tham gia đề tài này.
+          </p>
+        ) : (
+          <ul className="flex flex-col">
+            {members.map((m, i) => (
+              <li
+                key={m.student_id}
+                className="flex items-center gap-2.5 py-2"
+                style={{ borderTop: i > 0 ? "1px solid var(--border-secondary)" : undefined }}
+              >
+                <Avatar name={m.full_name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium truncate">{m.full_name}</p>
+                  {m.role === "OWNER" && (
+                    <span className="text-[11.5px] text-tertiary">Chủ nhiệm</span>
+                  )}
+                </div>
+                {/* Chủ nhiệm không có nút gỡ: backend từ chối thao tác đó, và bày
+                    một nút chắc chắn trả về lỗi là bắt người dùng tự dò luật bằng
+                    cách va vào nó. */}
+                {canManage && m.role !== "OWNER" && m.user_id !== null && (
+                  <button
+                    onClick={() => setRemoving(m)}
+                    aria-label={`Gỡ ${m.full_name} khỏi đề tài`}
+                    className="text-muted hover:text-danger transition-colors p-1 flex-shrink-0"
+                  >
+                    <Trash size={14} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Modal
+        open={addOpen}
+        onClose={closeAdd}
+        title="Thêm thành viên"
+        description="Sinh viên phải đã có tài khoản trên hệ thống."
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeAdd}>
+              Hủy
+            </Button>
+            <Button variant="primary" loading={adding} onClick={() => void handleAdd()}>
+              Thêm vào đề tài
+            </Button>
+          </>
+        }
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleAdd();
+          }}
+        >
+          <Input
+            label="Email sinh viên"
+            type="email"
+            placeholder="sinhvien@novathesis.edu.vn"
+            value={email}
+            error={emailError ?? undefined}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (emailError) setEmailError(null);
+            }}
+            helperText="Mỗi sinh viên chỉ tham gia được một đề tài đang thực hiện."
+            autoFocus
+          />
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
+        title="Gỡ thành viên khỏi đề tài?"
+        confirmLabel="Gỡ khỏi đề tài"
+        loading={busy}
+        onConfirm={() => void handleRemove()}
+        message={
+          <>
+            <strong className="text-primary">{removing?.full_name}</strong> sẽ không còn truy cập
+            được đề tài này. Mốc tiến độ, tài liệu và bình luận họ đã tạo vẫn được giữ nguyên.
+          </>
+        }
+      />
+    </>
   );
 }

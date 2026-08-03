@@ -3,21 +3,19 @@
 import React from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
   CalendarBlank,
-  ChartBar,
   FileCsv,
   FilePdf,
   FileXls,
   Robot,
   GraduationCap,
-  Users,
   ChartPie,
   Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import { Badge, Button, Card, EmptyState, Input, Select, Skeleton } from "@/components/ui";
-import { isAdmin, isLecturer, useAuthStore } from "@/lib/auth";
+import { isLecturer, useAuthStore } from "@/lib/auth";
+import { RequireRole } from "@/lib/guards";
 import { useAsync } from "@/lib/use-async";
 import { isApiError } from "@/lib/api";
 import { toast } from "@/lib/toast";
@@ -27,24 +25,11 @@ import {
   thesesApi,
   type MilestoneStatus,
   type ReportOverview,
-  type ThesisStatus,
 } from "@/lib/services";
 
 /* ==========================================================================
    BẢNG MÀU
    ========================================================================== */
-
-/* Cùng bảng màu với trang Đề tài: một trạng thái phải có một màu duy nhất trên
-   toàn ứng dụng, nếu không biểu đồ dạy người dùng một quy ước mà bảng danh sách
-   lại phá vỡ. */
-const THESIS_STATUS_COLOR: Record<ThesisStatus, string> = {
-  DRAFT: "var(--fg-tertiary)",
-  PENDING: "var(--warning)",
-  REVISION_REQUIRED: "var(--danger)",
-  ONGOING: "var(--accent)",
-  COMPLETED: "var(--success)",
-  REJECTED: "var(--danger)",
-};
 
 const MILESTONE_STATUS: Record<MilestoneStatus, { label: string; color: string }> = {
   NOT_STARTED: { label: "Chưa bắt đầu", color: "var(--fg-muted)" },
@@ -74,13 +59,30 @@ const AI_FEATURE_FALLBACK: Record<string, string> = {
    PAGE
    ========================================================================== */
 
+/**
+ * Trang Báo cáo KHÔNG mở cho quản trị viên.
+ *
+ * Mọi con số ở đây được lọc theo phạm vi của người xem, mà phạm vi của Admin là
+ * "không giới hạn" — nên cùng một giao diện lặng lẽ đổi nghĩa thành số liệu toàn
+ * hệ thống, trùng đúng việc `/admin/statistics` đã làm và làm kỹ hơn. Backend
+ * cũng từ chối `/reports/overview` cho vai trò này; `RequireRole` ở đây chỉ để
+ * Admin không phải nhìn thấy một lỗi 403 mới hiểu là mình đi nhầm chỗ.
+ */
 export default function ReportsPage() {
+  return (
+    <RequireRole roles={["STUDENT", "LECTURER"]}>
+      <ReportsContent />
+    </RequireRole>
+  );
+}
+
+function ReportsContent() {
   const { user } = useAuthStore();
 
-  /* UC 9.2 pre-condition: chỉ Giảng viên và Admin được xuất danh sách đề tài.
-     Bày nút cho sinh viên rồi để server trả 403 là bắt họ tự dò luật nghiệp vụ
-     bằng cách va vào nó. */
-  const canExportList = isLecturer(user) || isAdmin(user);
+  /* UC 9.2 pre-condition: chỉ Giảng viên được xuất danh sách đề tài. Bày nút cho
+     sinh viên rồi để server trả 403 là bắt họ tự dò luật nghiệp vụ bằng cách va
+     vào nó. */
+  const canExportList = isLecturer(user);
 
   const [exporting, setExporting] = React.useState<"csv" | "xlsx" | null>(null);
 
@@ -120,26 +122,14 @@ export default function ReportsPage() {
   };
 
   /* `total_theses` được lọc theo vai trò ngay ở server, nên phải nói rõ con số
-     đang đếm phạm vi nào — cùng một trang, ba người thấy ba con số khác nhau. */
-  const scopeLabel = isAdmin(user)
-    ? "Toàn hệ thống"
-    : isLecturer(user)
-      ? "Đề tài bạn hướng dẫn"
-      : "Đề tài của bạn";
+     đang đếm phạm vi nào — cùng một trang, hai người thấy hai con số khác nhau. */
+  const scopeLabel = isLecturer(user) ? "Đề tài bạn hướng dẫn" : "Đề tài của bạn";
 
-  /* Tên panel nói rõ ĐANG ĐẾM PHẠM VI NÀO.
-     Tên cũ — "Thống kê Tần suất Sử dụng AI & Vector Search" — đọc gần như trùng
-     với trang `/admin/statistics`, khiến hai chỗ trông như một chỗ bị làm hai
-     lần. Thực tế chúng khác nhau: chỗ này lọc theo vai trò người xem (SV thấy số
-     của mình, GV thấy nhóm mình hướng dẫn) và chỉ có 5 tính năng kèm tỷ lệ; còn
-     `/admin/statistics` luôn là toàn hệ thống và đi sâu vào xu hướng theo tuần,
-     top tài liệu được trích dẫn, tỷ lệ đánh giá, thống kê theo model.
-     Vì khác nhau nên giữ cả hai — chỉ đổi tên cho khỏi nhầm. */
-  const aiPanelTitle = isAdmin(user)
-    ? "Lượt sử dụng AI toàn hệ thống"
-    : isLecturer(user)
-      ? "Lượt sử dụng AI của nhóm bạn hướng dẫn"
-      : "Lượt sử dụng AI của bạn";
+  /* Tên panel nói rõ ĐANG ĐẾM PHẠM VI NÀO — luôn là phạm vi của chính người
+     xem. Số liệu toàn hệ thống nằm ở `/admin/statistics` và chỉ Admin vào được. */
+  const aiPanelTitle = isLecturer(user)
+    ? "Lượt sử dụng AI của nhóm bạn hướng dẫn"
+    : "Lượt sử dụng AI của bạn";
 
   const completedTheses =
     overview?.theses_by_status.find((s) => s.status === "COMPLETED")?.count ?? 0;
@@ -209,8 +199,11 @@ export default function ReportsPage() {
         />
       ) : overview ? (
         <>
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* KPI Cards — ba thẻ, không phải bốn.
+              "Tổng Sinh viên" đã bị gỡ: sinh viên chỉ thấy chính nhóm mình (đã
+              có ở trang Đề tài), còn giảng viên thấy một con số trùng với danh
+              sách hướng dẫn của mình. Server cũng không trả trường đó nữa. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[12px] text-tertiary uppercase font-medium">Tổng Đề tài</span>
@@ -241,127 +234,53 @@ export default function ReportsPage() {
                   phải nói đúng thứ đang được đếm. */}
               <span className="text-[11px] text-accent">Tổng lượt dùng các tính năng AI</span>
             </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[12px] text-tertiary uppercase font-medium">Tổng Sinh viên</span>
-                <Users size={20} className="text-info" />
-              </div>
-              <p className="text-2xl font-bold font-mono">{formatNumber(overview.total_students)}</p>
-              <span className="text-[11px] text-tertiary">Đang tham gia đề tài</span>
-            </Card>
           </div>
 
-          {/* Status Breakdown & AI Analytics (UC 9.2, 9.3) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Thesis Status Distribution */}
-            <Card className="p-6">
-              <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
-                <ChartBar size={20} style={{ color: "var(--accent)" }} />
-                Thống kê Đề tài theo Trạng thái
-              </h2>
+          {/* Lượt dùng AI trong phạm vi người xem (UC 9.3).
+              Biểu đồ "Đề tài theo trạng thái" đã bị gỡ khỏi đây: nó có sẵn trên
+              trang Tổng quan mà ai cũng đi qua trước khi tới trang này, và bày
+              cùng một biểu đồ ở hai chỗ chỉ khiến người đọc phải đối chiếu xem
+              hai chỗ có khớp nhau không. Trang Báo cáo giữ đúng ba việc: xuất dữ
+              liệu, tiến độ chi tiết, và mức dùng AI của chính mình. */}
+          <Card className="p-6">
+            <h2 className="text-base font-semibold flex items-center gap-2 mb-4">
+              <Robot size={20} style={{ color: "var(--accent)" }} />
+              {aiPanelTitle}
+            </h2>
 
-              {overview.total_theses === 0 ? (
-                <EmptyState
-                  compact
-                  icon={<GraduationCap size={18} />}
-                  title="Chưa có đề tài nào để thống kê"
-                  description={
-                    canExportList
-                      ? "Số liệu sẽ xuất hiện sau khi bạn duyệt đề tài đầu tiên."
-                      : "Hãy đề xuất đề tài để bắt đầu theo dõi số liệu tiến độ."
-                  }
-                />
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {/* Server trả đủ 6 trạng thái kể cả khi bằng 0, có chủ đích: thứ
-                      tự các thanh không đảo chỗ giữa hai lần tải. */}
-                  {overview.theses_by_status.map((item) => (
-                    <div key={item.status} className="flex flex-col gap-1.5">
-                      <div className="flex justify-between text-[13px]">
-                        <span className="text-secondary">
-                          {item.label} ({item.status})
-                        </span>
-                        <span className="font-mono text-primary font-medium">
-                          {formatNumber(item.count)} đề tài ({item.percent}%)
-                        </span>
-                      </div>
-                      <div className="h-2.5 rounded-full overflow-hidden bg-[var(--bg-hover)]">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${item.percent}%`,
-                            background: THESIS_STATUS_COLOR[item.status],
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {/* AI Usage Analytics */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <Robot size={20} style={{ color: "var(--accent)" }} />
-                  {aiPanelTitle}
-                </h2>
-                {/* UC 9.3: dashboard AI đầy đủ là màn hình riêng của Admin. */}
-                {isAdmin(user) && (
-                  <Link
-                    href="/admin/statistics"
-                    className="text-[12.5px] font-medium text-accent hover:underline flex items-center gap-1 whitespace-nowrap flex-shrink-0"
-                  >
-                    Mở bảng giám sát AI
-                    <ArrowRight size={12} />
+            {overview.ai_queries === 0 ? (
+              <EmptyState
+                compact
+                icon={<Robot size={18} />}
+                title="Chưa ghi nhận lượt dùng AI nào"
+                description="Hỏi trợ lý AI hoặc tìm kiếm ngữ nghĩa trong kho tài liệu để bắt đầu có số liệu."
+                action={
+                  <Link href="/ai-chat" className="btn btn-secondary btn-sm">
+                    Mở trợ lý AI
                   </Link>
-                )}
-              </div>
-
-              {overview.ai_queries === 0 ? (
-                <EmptyState
-                  compact
-                  icon={<Robot size={18} />}
-                  title="Chưa ghi nhận lượt dùng AI nào"
-                  description={
-                    isAdmin(user)
-                      ? "Chưa ai trong hệ thống dùng trợ lý AI hoặc tìm kiếm ngữ nghĩa."
-                      : "Hỏi trợ lý AI hoặc tìm kiếm ngữ nghĩa trong kho tài liệu để bắt đầu có số liệu."
-                  }
-                  /* Trợ lý AI là màn hình của sinh viên và giảng viên (xem
-                     `navSections`), nên không mời Admin bấm vào một lối cụt. */
-                  action={
-                    isAdmin(user) ? undefined : (
-                      <Link href="/ai-chat" className="btn btn-secondary btn-sm">
-                        Mở trợ lý AI
-                      </Link>
-                    )
-                  }
-                />
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {features.map((f) => (
-                    <div
-                      key={f.feature}
-                      className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-secondary)] flex items-center justify-between"
-                    >
-                      <div>
-                        <span className="font-medium text-[13px] text-primary block">
-                          {f.label ?? AI_FEATURE_FALLBACK[f.feature] ?? f.feature}
-                        </span>
-                        <span className="text-[11px] text-tertiary font-mono">
-                          {formatNumber(f.count)} lượt truy vấn
-                        </span>
-                      </div>
-                      <Badge variant="info">{f.share}%</Badge>
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {features.map((f) => (
+                  <div
+                    key={f.feature}
+                    className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-secondary)] flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-medium text-[13px] text-primary block">
+                        {f.label ?? AI_FEATURE_FALLBACK[f.feature] ?? f.feature}
+                      </span>
+                      <span className="text-[11px] text-tertiary font-mono">
+                        {formatNumber(f.count)} lượt truy vấn
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
+                    <Badge variant="info">{f.share}%</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </>
       ) : null}
 

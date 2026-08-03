@@ -34,6 +34,7 @@ import { authLimiter, passwordResetLimiter } from "../../middleware/rate-limit";
 import { notify } from "../../services/notifications";
 import { toUserDTO } from "../serializers";
 import {
+  CREDENTIAL_MAX_BYTES,
   avatarEndpoint,
   changePassword,
   currentSessionId,
@@ -41,6 +42,7 @@ import {
   login,
   logout,
   publicAvatarUrl,
+  registerLecturerApplication,
   registerStudent,
   replaceAvatar,
   requestPasswordReset,
@@ -62,6 +64,36 @@ const registerSchema = z.object({
   email: emailField,
   password: passwordField,
   full_name: text(2, 255, "Họ và tên"),
+});
+
+/**
+ * Số điện thoại Việt Nam.
+ *
+ * Nhận cả `0xxxxxxxxx` lẫn `+84xxxxxxxxx` và bỏ qua khoảng trắng, dấu chấm, dấu
+ * gạch mà người ta hay gõ khi chép số từ danh bạ. Chuẩn hoá về dạng `0…` trước
+ * khi lưu, để hai lần nhập cùng một số không thành hai giá trị khác nhau trong
+ * CSDL.
+ */
+const phoneField = z
+  .string({ required_error: "Vui lòng nhập số điện thoại." })
+  .transform((v) => v.replace(/[\s.\-()]/g, ""))
+  .transform((v) => (v.startsWith("+84") ? `0${v.slice(3)}` : v))
+  .pipe(
+    z
+      .string()
+      .regex(/^0\d{9}$/, "Số điện thoại không hợp lệ. Ví dụ: 0912345678.")
+  );
+
+const lecturerApplicationSchema = z.object({
+  full_name: text(2, 255, "Họ và tên"),
+  email: emailField,
+  phone: phoneField,
+  staff_id: text(2, 50, "Mã số giảng viên"),
+  institution: text(2, 255, "Trường công tác"),
+  department: text(2, 100, "Khoa/Bộ môn"),
+  // `password` cố ý vắng mặt: người nộp đơn không đặt mật khẩu, hệ thống sinh
+  // mật khẩu tạm ở bước Admin duyệt. Zod loại bỏ khoá lạ nên client có gửi kèm
+  // cũng không đi tới đâu.
 });
 
 /**
@@ -149,6 +181,55 @@ authRouter.post(
     res.status(201).json({
       message: "Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản.",
     });
+  })
+);
+
+/* ==========================================================================
+   ĐƠN ĐĂNG KÝ TÀI KHOẢN GIẢNG VIÊN
+   ========================================================================== */
+
+const credentialUpload = multer({
+  // Cùng lý do như ảnh đại diện: 5MB nằm gọn trong RAM, và `registerLecturer
+  // Application` kiểm tra định dạng trước khi gọi `saveBuffer`, nên tệp bị từ
+  // chối không bao giờ chạm hệ thống tệp.
+  storage: multer.memoryStorage(),
+  limits: { fileSize: CREDENTIAL_MAX_BYTES, files: 1 },
+});
+
+/** Bọc multer để thông điệp vượt dung lượng nói đúng giới hạn của ảnh thẻ. */
+const receiveCredential: RequestHandler = (req, res, next) => {
+  credentialUpload.single("credential_image")(req, res, (err: unknown) => {
+    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+      return next(tooLarge("Ảnh thẻ vượt quá 5MB. Vui lòng chọn ảnh khác nhỏ hơn."));
+    }
+    next(err);
+  });
+};
+
+/**
+ * Endpoint CÔNG KHAI: người chưa có tài khoản tự nộp đơn xin làm giảng viên.
+ *
+ * Dùng `passwordResetLimiter` chứ không phải `authLimiter`. `authLimiter` bỏ qua
+ * request thành công, mà ở đây chính request THÀNH CÔNG mới là thứ tốn kém: mỗi
+ * lần là một tệp 5MB ghi xuống đĩa cộng một loạt email gửi cho toàn bộ Admin.
+ * Ba lần / 5 phút / một IP là quá đủ cho việc điền một lá đơn.
+ *
+ * Multer chạy TRƯỚC `validateBody`: với `multipart/form-data` thì `req.body`
+ * chưa tồn tại cho tới khi multer phân tích xong phần thân request.
+ */
+authRouter.post(
+  "/register-lecturer",
+  passwordResetLimiter,
+  receiveCredential,
+  validateBody(lecturerApplicationSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof lecturerApplicationSchema>;
+    const file = req.file;
+    if (!file) throw badRequest("Vui lòng tải lên ảnh thẻ giảng viên.");
+
+    await registerLecturerApplication(body, file, req);
+
+    res.status(201).json({ message: "Yêu cầu đã được gửi thành công." });
   })
 );
 

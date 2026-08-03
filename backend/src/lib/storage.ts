@@ -20,7 +20,14 @@ import { env } from "../config/env";
 import { badRequest, notFound } from "./errors";
 import { logger } from "./logger";
 
-export type StorageArea = "documents" | "evidence" | "feedback" | "avatars" | "exports";
+export type StorageArea =
+  | "documents"
+  | "evidence"
+  | "feedback"
+  | "avatars"
+  | "exports"
+  /** Ảnh thẻ giảng viên kèm đơn đăng ký — chỉ Admin xét duyệt được xem. */
+  | "credentials";
 
 export interface StoredFile {
   /** Đường dẫn tương đối lưu vào CSDL, ví dụ `documents/2026/07/ab12….pdf`. */
@@ -50,7 +57,14 @@ export function resolveInsideStorage(relativePath: string): string {
 }
 
 export async function ensureStorage(): Promise<void> {
-  const areas: StorageArea[] = ["documents", "evidence", "feedback", "avatars", "exports"];
+  const areas: StorageArea[] = [
+    "documents",
+    "evidence",
+    "feedback",
+    "avatars",
+    "exports",
+    "credentials",
+  ];
   await Promise.all(areas.map((a) => fsp.mkdir(areaRoot(a), { recursive: true })));
 }
 
@@ -189,6 +203,19 @@ export const ATTACHMENT_MIME: Record<string, string[]> = {
 export const AVATAR_MIME: Record<string, string[]> = {
   "image/png": [".png"],
   "image/jpeg": [".jpg", ".jpeg"],
+};
+
+/**
+ * Ảnh thẻ giảng viên trong đơn đăng ký.
+ *
+ * Cùng tập với ảnh đại diện chứ không dùng chung hằng số: đây là ảnh chụp giấy
+ * tờ do người CHƯA có tài khoản gửi lên, nên tập định dạng của nó cần nới hay
+ * siết được độc lập với ảnh đại diện.
+ */
+export const CREDENTIAL_MIME: Record<string, string[]> = {
+  "image/png": [".png"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/webp": [".webp"],
 };
 
 /**

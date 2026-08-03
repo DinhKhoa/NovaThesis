@@ -24,6 +24,7 @@ import type {
   SystemConfig,
   SystemLog,
   Thesis,
+  ThesisMemberRole,
   User,
 } from "@prisma/client";
 
@@ -86,6 +87,42 @@ export function toAccountDTO(user: UserWithProfiles) {
   };
 }
 
+/**
+ * Một lá đơn xin mở tài khoản giảng viên (`admin/lecturer-applications/page.tsx`).
+ *
+ * `credential_image_url` trả ra là URL ĐÃ KÝ trỏ tới endpoint tải tệp, không
+ * phải đường dẫn trong CSDL: trang quản trị gán thẳng giá trị này vào `<img src>`
+ * mà thẻ `<img>` thì không gửi kèm header `Authorization`. Chữ ký có hạn nên
+ * đường link bị chuyển tiếp ra ngoài sẽ chết sau vài phút.
+ */
+export function toLecturerApplicationDTO(
+  user: User & {
+    lecturer: {
+      lecturer_code: string | null;
+      department: string | null;
+      institution: string | null;
+      phone: string | null;
+      credential_image_url: string | null;
+      application_note: string | null;
+    } | null;
+  },
+  credentialUrl: string | null
+) {
+  return {
+    user_id: user.id,
+    email: user.email,
+    full_name: user.full_name,
+    status: user.status,
+    staff_id: user.lecturer?.lecturer_code ?? null,
+    department: user.lecturer?.department ?? null,
+    institution: user.lecturer?.institution ?? null,
+    phone: user.lecturer?.phone ?? null,
+    credential_image_url: credentialUrl,
+    application_note: user.lecturer?.application_note ?? null,
+    applied_at: iso(user.created_at),
+  };
+}
+
 /** Mục chọn giảng viên hướng dẫn trong form tạo đề tài. */
 export function toLecturerOptionDTO(row: {
   id: number;
@@ -108,7 +145,10 @@ export function toLecturerOptionDTO(row: {
 
 type ThesisWithRelations = Thesis & {
   lecturer?: { id: number; user: { full_name: string } } | null;
-  members?: { student: { id: number; user: { full_name: string } } }[];
+  members?: {
+    role?: ThesisMemberRole;
+    student: { id: number; user: { id?: number; full_name: string } };
+  }[];
   _count?: { milestones?: number; documents?: number };
 };
 
@@ -123,8 +163,18 @@ export function toThesisDTO(thesis: ThesisWithRelations) {
     status: thesis.status,
     lecturer_id: thesis.lecturer?.id ?? thesis.lecturer_id,
     lecturer_name: thesis.lecturer?.user.full_name ?? "Chưa phân công",
+    /* `student_names` và `student_ids` giữ nguyên: danh sách đề tài, bảng biểu
+       và tệp xuất ra đều đang đọc chúng. `members` là phần THÊM VÀO, mang đủ
+       thông tin để trang chi tiết dựng được bảng quản lý thành viên — vai trò để
+       biết ai là chủ nhiệm (không gỡ được), và `user_id` để gọi endpoint gỡ. */
     student_names: students.map((s) => s.user.full_name),
     student_ids: students.map((s) => s.id),
+    members: (thesis.members ?? []).map((m) => ({
+      student_id: m.student.id,
+      user_id: m.student.user.id ?? null,
+      full_name: m.student.user.full_name,
+      role: m.role ?? "MEMBER",
+    })),
     /* KỲ NGHIÊN CỨU. Cột `@db.Date` nên trả "YYYY-MM-DD": thêm phần giờ vào
        sẽ khiến `<input type="date">` của trình duyệt bỏ trắng. */
     start_date: thesis.start_date ? thesis.start_date.toISOString().slice(0, 10) : null,

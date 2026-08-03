@@ -21,6 +21,7 @@ import {
 	List,
 	MagnifyingGlass,
 	Moon,
+	IdentificationCard,
 	Notebook,
 	Robot,
 	SignOut,
@@ -102,19 +103,11 @@ const navSections: NavSection[] = [
 			},
 		],
 	},
-	{
-		label: "Trao đổi",
-		items: [
-			{
-				label: "Phản hồi",
-				href: "/feedbacks",
-				icon: <ChatCircleDots size={16} />,
-				roles: ["STUDENT", "LECTURER"],
-			},
-			{ label: "Thông báo", href: "/notifications", icon: <Bell size={16} /> },
-			{ label: "Báo cáo", href: "/reports", icon: <BookOpen size={16} /> },
-		],
-	},
+	/* Quản trị đứng TRÊN Trao đổi.
+	   Với Admin, thứ tự đọc thành: tổng quan → công cụ quản trị → thông báo. Đặt
+	   Trao đổi ở giữa như trước đây thì bốn mục quản trị — thứ duy nhất Admin vào
+	   đây để làm — bị đẩy xuống dưới hai mục mà họ hiếm khi mở. Với sinh viên và
+	   giảng viên, cả nhóm này ẩn nên thứ tự họ thấy không đổi. */
 	{
 		label: "Quản trị",
 		roles: ["ADMIN"],
@@ -123,6 +116,12 @@ const navSections: NavSection[] = [
 				label: "Người dùng",
 				href: "/admin/users",
 				icon: <Users size={16} />,
+				roles: ["ADMIN"],
+			},
+			{
+				label: "Yêu cầu giảng viên",
+				href: "/admin/lecturer-applications",
+				icon: <IdentificationCard size={16} />,
 				roles: ["ADMIN"],
 			},
 			{
@@ -145,6 +144,28 @@ const navSections: NavSection[] = [
 			},
 		],
 	},
+	{
+		label: "Trao đổi",
+		items: [
+			{
+				label: "Phản hồi",
+				href: "/feedbacks",
+				icon: <ChatCircleDots size={16} />,
+				roles: ["STUDENT", "LECTURER"],
+			},
+			{ label: "Thông báo", href: "/notifications", icon: <Bell size={16} /> },
+			/* Báo cáo lọc mọi con số theo phạm vi người xem, mà phạm vi của Admin
+			   là không giới hạn — nên với họ trang này lặng lẽ đổi nghĩa thành số
+			   liệu toàn hệ thống, trùng việc của Giám sát AI. Backend cũng từ chối
+			   `/reports/overview` cho vai trò này. */
+			{
+				label: "Báo cáo",
+				href: "/reports",
+				icon: <BookOpen size={16} />,
+				roles: ["STUDENT", "LECTURER"],
+			},
+		],
+	},
 ];
 
 /* Route → breadcrumb label. Detail routes fall back to the parent segment. */
@@ -160,6 +181,7 @@ const ROUTE_TITLES: Record<string, string> = {
 	"/reports": "Báo cáo",
 	"/profile": "Hồ sơ",
 	"/admin/users": "Người dùng",
+	"/admin/lecturer-applications": "Yêu cầu giảng viên",
 	"/admin/logs": "Nhật ký hệ thống",
 	"/admin/statistics": "Vận hành hệ thống AI",
 	"/admin/settings": "Cấu hình",

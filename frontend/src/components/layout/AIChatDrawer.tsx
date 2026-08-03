@@ -232,7 +232,11 @@ function DrawerBody({
               loading={chat.sourcesLoading}
               error={chat.sourcesError}
               onRetry={() => void chat.refetchSources()}
-              onUpload={() => window.open("/documents", "_self")}
+              // Tab mới, không `_self`: ngăn kéo này mở ĐÈ LÊN trang người dùng
+              // đang làm việc (Tài liệu, Mốc tiến độ), nên điều hướng đi là vứt
+              // luôn cả trang đó chứ không riêng khung chat.
+              onUpload={() => window.open("/documents", "_blank", "noopener")}
+              indexing={chat.sourcesIndexing}
               disabled={chat.streaming}
               maxHeightClassName="max-h-[12rem]"
             />

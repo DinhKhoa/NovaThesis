@@ -197,8 +197,12 @@ test("mọi route /admin chỉ cho ADMIN, không ai khác", () => {
 /** Route ghi cố ý KHÔNG dùng `requireContributor`, kèm lý do. */
 const ADMIN_WRITE_ALLOWLIST = new Map<string, string>([
   ["PATCH /theses/:id/lecturer", "UC 3.12 — Admin gán/đổi giảng viên hướng dẫn"],
-  ["POST /theses/:id/members", "Admin hoặc GVHD thêm sinh viên vào đề tài"],
-  ["DELETE /theses/:id/members/:student_id", "Admin hoặc GVHD gỡ sinh viên khỏi đề tài"],
+  /* Hai route thành viên là thao tác PHÂN CÔNG, không phải ghi nội dung nghiệp
+     vụ: chúng không đụng tới đề cương, mốc tiến độ hay tài liệu nào. Quyền thật
+     nằm ở `assertCanManageMembers` — chủ nhiệm hoặc GVHD của chính đề tài đó,
+     nên một giảng viên khác vẫn không chạm được vào đề tài không phải của mình. */
+  ["POST /theses/:id/members", "Chủ nhiệm, GVHD hoặc Admin thêm sinh viên vào đề tài"],
+  ["DELETE /theses/:id/members/:user_id", "Chủ nhiệm, GVHD hoặc Admin gỡ sinh viên khỏi đề tài"],
 ]);
 
 const WRITE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);

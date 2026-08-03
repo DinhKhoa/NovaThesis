@@ -28,7 +28,13 @@ import {
   verifyPassword,
 } from "../../lib/crypto";
 import { enqueueMail, mailTemplates } from "../../lib/mailer";
-import { AVATAR_MIME, assertAllowedType, deleteFile, saveBuffer } from "../../lib/storage";
+import {
+  AVATAR_MIME,
+  CREDENTIAL_MIME,
+  assertAllowedType,
+  deleteFile,
+  saveBuffer,
+} from "../../lib/storage";
 import { seedNotificationPreferences } from "../../services/notifications";
 
 /* ==========================================================================
@@ -186,9 +192,12 @@ export interface RegisterInput {
 }
 
 /**
- * Chỉ tạo được tài khoản SINH VIÊN (business rule UC 1.2: tài khoản giảng viên
- * do Admin tạo thủ công). Vai trò cố định trong mã nguồn thay vì nhận từ body —
- * một trường `role` mở ra ngoài là con đường tự phong quyền quản trị.
+ * Chỉ tạo được tài khoản SINH VIÊN. Vai trò cố định trong mã nguồn thay vì nhận
+ * từ body — một trường `role` mở ra ngoài là con đường tự phong quyền quản trị.
+ *
+ * Giảng viên đi đường khác: hoặc Admin tạo thẳng (`admin.service.ts`), hoặc tự
+ * nộp đơn qua `registerLecturerApplication()` bên dưới rồi chờ duyệt. Không
+ * đường nào cho phép người dùng tự chọn vai trò cho mình.
  */
 export async function registerStudent(input: RegisterInput, req: Request): Promise<number> {
   const existing = await prisma.user.findUnique({ where: { email: input.email }, select: { id: true } });
@@ -224,6 +233,147 @@ export async function registerStudent(input: RegisterInput, req: Request): Promi
   });
 
   return user.id;
+}
+
+/* ==========================================================================
+   ĐƠN ĐĂNG KÝ TÀI KHOẢN GIẢNG VIÊN
+   ========================================================================== */
+
+export interface LecturerApplicationInput {
+  full_name: string;
+  email: string;
+  phone: string;
+  staff_id: string;
+  institution: string;
+  department: string;
+}
+
+/** Ảnh thẻ giảng viên: 5MB là đủ cho một ảnh chụp giấy tờ đọc được. */
+export const CREDENTIAL_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Người ngoài hệ thống xin mở tài khoản giảng viên.
+ *
+ * Khác `registerStudent` ở một điểm quyết định: tài khoản sinh ra KHÔNG tự kích
+ * hoạt được. Sinh viên bấm link trong email là dùng được ngay vì email do nhà
+ * trường cấp đã tự nó là bằng chứng. Còn ở đây người nộp đơn tự khai mình là
+ * giảng viên của một cơ sở bất kỳ, nên bằng chứng phải do người thật nhìn: tài
+ * khoản nằm ở `PENDING_VERIFICATION` cho tới khi Admin duyệt.
+ *
+ * Vì vậy người nộp KHÔNG đặt mật khẩu. `password_hash` là băm của 32 byte ngẫu
+ * nhiên không ai từng thấy — nó tồn tại chỉ để thoả cột NOT NULL, và không có
+ * chuỗi nào trên đời khớp được với nó. Mật khẩu thật chỉ ra đời ở bước duyệt.
+ * Cách này an toàn hơn hẳn việc để trống hay dùng một giá trị canh chừng: nếu
+ * mai kia có ai lỡ tay bỏ điều kiện kiểm tra trạng thái ở luồng đăng nhập, tài
+ * khoản chờ duyệt vẫn không đăng nhập được.
+ */
+export async function registerLecturerApplication(
+  input: LecturerApplicationInput,
+  file: Express.Multer.File,
+  req: Request
+): Promise<number> {
+  // Kiểm tra định dạng TRƯỚC khi chạm đĩa: tệp bị từ chối không bao giờ được
+  // ghi ra, kể cả trong khoảnh khắc.
+  assertAllowedType(
+    CREDENTIAL_MIME,
+    file.mimetype,
+    file.originalname,
+    "Ảnh thẻ giảng viên không đúng định dạng."
+  );
+
+  const [existingEmail, existingCode] = await Promise.all([
+    prisma.user.findUnique({ where: { email: input.email }, select: { id: true } }),
+    prisma.lecturer.findUnique({ where: { lecturer_code: input.staff_id }, select: { id: true } }),
+  ]);
+
+  if (existingEmail) throw conflict("Email này đã được sử dụng.");
+  // `lecturers.lecturer_code` là UNIQUE. Nói rõ trùng ở đâu, nếu không người
+  // nộp đơn sẽ sửa email — thứ vốn không sai — rồi thất bại lần nữa.
+  if (existingCode) {
+    throw conflict("Mã số giảng viên này đã tồn tại trong hệ thống.");
+  }
+
+  const stored = await saveBuffer("credentials", file.originalname, file.buffer);
+
+  let user: { id: number; email: string; full_name: string };
+  try {
+    user = await prisma.user.create({
+      data: {
+        email: input.email,
+        password_hash: await hashPassword(crypto.randomBytes(32).toString("hex")),
+        full_name: input.full_name,
+        role: "LECTURER",
+        status: "PENDING_VERIFICATION",
+        lecturer: {
+          create: {
+            lecturer_code: input.staff_id,
+            department: input.department,
+            institution: input.institution,
+            phone: input.phone,
+            credential_image_url: stored.relativePath,
+          },
+        },
+      },
+      select: { id: true, email: true, full_name: true },
+    });
+  } catch (err) {
+    // Hai lần kiểm tra trùng ở trên có một khe thời gian, và ràng buộc UNIQUE
+    // mới là trọng tài cuối. Thua ở khe đó thì ảnh vừa ghi là rác — dọn ngay,
+    // nếu không mỗi lần thua để lại một tệp 5MB không ai tham chiếu tới.
+    await deleteFile(stored.relativePath);
+    throw err;
+  }
+
+  await seedNotificationPreferences(user.id);
+
+  enqueueMail({
+    to: user.email,
+    ...mailTemplates.lecturerApplicationSubmitted(user.full_name),
+  });
+  void notifyAdminsOfApplication(user.full_name, user.email, input.institution);
+
+  audit({
+    action: AuditAction.LECTURER_APPLY,
+    userId: user.id,
+    req,
+    details: {
+      email: user.email,
+      institution: input.institution,
+      department: input.department,
+      staff_id: input.staff_id,
+    },
+  });
+
+  return user.id;
+}
+
+/**
+ * Báo cho Admin có đơn mới.
+ *
+ * Việc phụ, giống ghi nhật ký: đơn đã nằm trong CSDL rồi, và trang duyệt vẫn
+ * hiện nó dù email có đi được hay không. Nuốt lỗi ở đây để một máy chủ SMTP hỏng
+ * không biến một lá đơn hợp lệ thành 500 gửi về cho người nộp.
+ */
+async function notifyAdminsOfApplication(
+  applicantName: string,
+  email: string,
+  institution: string
+): Promise<void> {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: "ADMIN", status: "ACTIVE", deleted_at: null },
+      select: { email: true },
+    });
+
+    for (const admin of admins) {
+      enqueueMail({
+        to: admin.email,
+        ...mailTemplates.lecturerApplicationReceived(applicantName, email, institution),
+      });
+    }
+  } catch {
+    // Không log ồn ào: `enqueueMail` đã tự ghi lại mọi lần gửi hỏng.
+  }
 }
 
 /* ==========================================================================
@@ -629,13 +779,21 @@ export async function changePassword(
 export async function verifyEmail(token: string): Promise<number> {
   const user = await prisma.user.findFirst({
     where: { verification_token_hash: sha256(token), deleted_at: null },
-    select: { id: true, status: true, verification_expires_at: true },
+    select: { id: true, role: true, status: true, verification_expires_at: true },
   });
 
   if (!user) {
     throw gone(
       "Liên kết xác minh không hợp lệ hoặc đã được sử dụng. Vui lòng yêu cầu gửi lại email xác minh."
     );
+  }
+
+  /* Chốt chặn cuối của đường leo thang mô tả ở `awaitingLecturerApproval`.
+     Trên lý thuyết không tới được: không luồng nào còn cấp token xác minh cho
+     đơn chờ duyệt. Nhưng đây đúng là dòng biến PENDING_VERIFICATION thành
+     ACTIVE, nên nó là chỗ mà một sơ suất ở nơi khác sẽ trổ ra. */
+  if (awaitingLecturerApproval(user)) {
+    throw gone("Yêu cầu đăng ký giảng viên đang chờ quản trị viên xét duyệt.");
   }
 
   if (!user.verification_expires_at || user.verification_expires_at <= new Date()) {
@@ -657,16 +815,48 @@ export async function verifyEmail(token: string): Promise<number> {
   return user.id;
 }
 
+/**
+ * Tài khoản đang chờ Admin duyệt đơn giảng viên?
+ *
+ * Cần vì `PENDING_VERIFICATION` giờ mang HAI nghĩa khác hẳn nhau. Với sinh viên
+ * nó là "chưa bấm link trong hộp thư" — tự gỡ được. Với giảng viên nộp đơn nó là
+ * "chưa có người thật xét giấy tờ" — và cái đó thì dứt khoát không được phép tự
+ * gỡ.
+ *
+ * Bỏ qua khác biệt này mở ra một đường leo thang trọn vẹn: nộp đơn → gọi
+ * `/resend-verification` để hệ thống tự cấp cho mình một token xác minh →
+ * `/verify-email` đặt trạng thái thành ACTIVE → `/forgot-password` để tự đặt mật
+ * khẩu. Kết quả là một tài khoản giảng viên đầy đủ quyền mà không Admin nào từng
+ * nhìn thấy ảnh thẻ.
+ *
+ * Nhận diện bằng vai trò: giảng viên do Admin tạo luôn ở trạng thái ACTIVE ngay
+ * từ đầu, nên cặp (LECTURER, PENDING_VERIFICATION) chỉ có thể sinh ra từ luồng
+ * nộp đơn.
+ */
+function awaitingLecturerApproval(user: { role: UserRole; status: string }): boolean {
+  return user.role === "LECTURER" && user.status === "PENDING_VERIFICATION";
+}
+
 /** Trả về id tài khoản nếu đã gửi lại email; `null` khi không có gì để gửi. */
 export async function resendVerification(email: string): Promise<number | null> {
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, email: true, full_name: true, status: true, deleted_at: true },
+    select: {
+      id: true,
+      email: true,
+      full_name: true,
+      role: true,
+      status: true,
+      deleted_at: true,
+    },
   });
 
   // Không phàn nàn khi email lạ hoặc tài khoản đã kích hoạt: phản hồi phải
   // giống hệt nhau ở mọi trường hợp (xem thông điệp chung ở tầng route).
   if (!user || user.deleted_at || user.status !== "PENDING_VERIFICATION") return null;
+  // Đơn chờ duyệt không có gì để "xác minh lại": cấp token ở đây là tự tay mở
+  // đường vòng qua bước duyệt.
+  if (awaitingLecturerApproval(user)) return null;
 
   const { token, hash } = generateToken();
   await prisma.user.update({
@@ -693,6 +883,7 @@ export async function requestPasswordReset(email: string): Promise<number | null
       id: true,
       email: true,
       full_name: true,
+      role: true,
       status: true,
       deleted_at: true,
       reset_requested_at: true,
@@ -702,6 +893,10 @@ export async function requestPasswordReset(email: string): Promise<number | null
   if (!user || user.deleted_at) return null;
   // Tài khoản bị đình chỉ không được tự mở lại đường vào bằng liên kết reset.
   if (user.status === "SUSPENDED") return null;
+  // Đơn giảng viên chưa duyệt cũng vậy: `password_hash` của nó là 32 byte ngẫu
+  // nhiên cố ý không dùng được, và đặt lại mật khẩu chính là thao tác biến nó
+  // thành dùng được. Mật khẩu đầu tiên phải do bước duyệt sinh ra.
+  if (awaitingLecturerApproval(user)) return null;
 
   // Giới hạn tần suất theo IP đã có ở middleware, nhưng nó không bảo vệ được
   // nạn nhân bị nhiều IP cùng dội email. Chốt chặn thứ hai đặt theo tài khoản,

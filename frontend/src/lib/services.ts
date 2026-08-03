@@ -59,6 +59,13 @@ export interface Thesis {
   lecturer_department: string | null;
   student_names: string[];
   student_ids: number[];
+  /**
+   * Thành viên kèm vai trò — dùng cho bảng quản lý ở trang chi tiết đề tài.
+   *
+   * `student_names` / `student_ids` ở trên vẫn giữ nguyên cho danh sách và tệp
+   * xuất ra; mảng này là phần thêm vào, không thay thế.
+   */
+  members: ThesisMember[];
   /** Kỳ nghiên cứu, dạng "YYYY-MM-DD". Cả hai đều tuỳ chọn. */
   start_date: string | null;
   end_date: string | null;
@@ -70,6 +77,15 @@ export interface Thesis {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ThesisMember {
+  student_id: number;
+  /** Định danh NGƯỜI DÙNG — khoá mà endpoint gỡ thành viên nhận. */
+  user_id: number | null;
+  full_name: string;
+  /** `OWNER` là người lập đề tài; không gỡ được. */
+  role: "OWNER" | "MEMBER";
 }
 
 export interface LecturerOption {
@@ -120,6 +136,15 @@ export const thesesApi = {
     api.post<Thesis>(`/theses/${id}/request-revision`, { note }),
   reject: (id: number, reason: string) => api.post<Thesis>(`/theses/${id}/reject`, { reason }),
   complete: (id: number, force = false) => api.post<Thesis>(`/theses/${id}/complete`, { force }),
+
+  /* Thành viên đề tài. Cả hai trả về bản ghi đề tài MỚI (hoặc 204 với `remove`),
+     nên trang gọi xong chỉ cần ghi đè state thay vì tự đoán danh sách sau thao
+     tác. Thêm bằng EMAIL: người bấm nút biết email bạn cùng nhóm, không ai biết
+     `students.id`. */
+  addMember: (thesisId: number, email: string) =>
+    api.post<Thesis>(`/theses/${thesisId}/members`, { email }),
+  removeMember: (thesisId: number, studentUserId: number) =>
+    api.delete<void>(`/theses/${thesisId}/members/${studentUserId}`),
   assignLecturer: (id: number, lecturer_id: number) =>
     api.patch<Thesis>(`/theses/${id}/lecturer`, { lecturer_id }),
   history: (id: number) => api.get<ThesisHistoryEntry[]>(`/theses/${id}/history`),
@@ -845,6 +870,56 @@ export interface AdminStatistics {
   ai_usage_weekly: { week: string; count: number }[];
 }
 
+/* ==========================================================================
+   ĐƠN ĐĂNG KÝ GIẢNG VIÊN
+   ========================================================================== */
+
+export interface LecturerApplication {
+  user_id: number;
+  email: string;
+  full_name: string;
+  status: UserStatus;
+  staff_id: string | null;
+  department: string | null;
+  institution: string | null;
+  phone: string | null;
+  /** URL đã ký, có hạn — gán thẳng vào `<img src>` được. `null` nếu ảnh đã mất. */
+  credential_image_url: string | null;
+  application_note: string | null;
+  applied_at: string;
+}
+
+export interface LecturerApplicationInput {
+  full_name: string;
+  email: string;
+  phone: string;
+  staff_id: string;
+  institution: string;
+  department: string;
+  credential_image: File;
+}
+
+/**
+ * Nộp đơn xin mở tài khoản giảng viên. Endpoint CÔNG KHAI, không cần đăng nhập.
+ *
+ * Gửi `FormData` chứ không phải JSON vì có tệp đính kèm; `api.post` tự bỏ header
+ * `Content-Type` khi thân request là FormData để trình duyệt tự đặt boundary.
+ */
+export const lecturerApplicationApi = {
+  submit(input: LecturerApplicationInput): Promise<{ message: string }> {
+    const form = new FormData();
+    form.append("full_name", input.full_name);
+    form.append("email", input.email);
+    form.append("phone", input.phone);
+    form.append("staff_id", input.staff_id);
+    form.append("institution", input.institution);
+    form.append("department", input.department);
+    form.append("credential_image", input.credential_image);
+
+    return api.post<{ message: string }>("/auth/register-lecturer", form);
+  },
+};
+
 export const adminApi = {
   /** Trang tổng quan: số liệu + việc cần xử lý. Khác `/statistics` ở mục đích. */
   overview: () => api.get<AdminOverview>("/admin/overview"),
@@ -864,6 +939,20 @@ export const adminApi = {
   setUserRole: (id: number, role: UserRole) =>
     api.patch<AccountUser>(`/admin/users/${id}/role`, { role }),
   removeUser: (id: number) => api.delete<void>(`/admin/users/${id}`),
+
+  /* Duyệt đơn giảng viên. `status: "all"` kéo theo cả đơn đã duyệt và đã từ
+     chối — đơn bị từ chối là tài khoản đã xoá mềm nên chỉ nhánh này thấy được. */
+  lecturerApplications: (params?: Record<string, string | number>) =>
+    api.get<Paginated<LecturerApplication>>("/admin/lecturer-applications", params),
+  approveLecturerApplication: (userId: number) =>
+    api.post<{ message: string; application: LecturerApplication }>(
+      `/admin/lecturer-applications/${userId}/approve`
+    ),
+  rejectLecturerApplication: (userId: number, reason?: string) =>
+    api.post<{ message: string; application: LecturerApplication }>(
+      `/admin/lecturer-applications/${userId}/reject`,
+      { reason: reason ?? "" }
+    ),
   statistics: () => api.get<AdminStatistics>("/admin/statistics"),
   logs: (params?: Record<string, string | number>) =>
     api.get<Paginated<SystemLogEntry>>("/admin/logs", params),
@@ -881,7 +970,8 @@ export interface ReportOverview {
   total_theses: number;
   completion_rate: number;
   ai_queries: number;
-  total_students: number;
+  /* `theses_by_status` vẫn được trả về dù biểu đồ phân bố đã bị gỡ khỏi trang:
+     thẻ "Tỷ lệ hoàn thành" đọc số đề tài COMPLETED từ mảng này. */
   theses_by_status: { status: ThesisStatus; label: string; count: number; percent: number }[];
   ai_by_feature: { feature: string; count: number; share: number }[];
 }

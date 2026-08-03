@@ -55,7 +55,11 @@ function formatBytes(bytes: number): string {
    có giá trị chứ không phải khoảng trống cần dọn. */
 function tone(action: AdminAction): "danger" | "warning" | "neutral" {
   if (action.count === 0) return "neutral";
-  if (action.key === "documents_ai_error" || action.key === "unassigned_theses") return "danger";
+  // Chỉ lỗi lập chỉ mục mới là đỏ: đó là thứ đã HỎNG và sẽ không tự sửa. Đơn
+  // chờ duyệt và tài khoản chưa xác minh là việc đang xếp hàng đúng quy trình —
+  // tô đỏ cả ba thì màu đỏ thôi mang nghĩa "có việc", và cái thật sự hỏng chìm
+  // vào giữa hai thứ bình thường.
+  if (action.key === "documents_ai_error") return "danger";
   return "warning";
 }
 
@@ -119,7 +123,7 @@ export function AdminDashboard() {
             compact
             icon={<CheckCircle size={16} />}
             title="Không có việc nào đang chờ"
-            description="Tài khoản đã xác minh hết, đề tài không bị bỏ quên trong hàng đợi duyệt, tài liệu lập chỉ mục sạch."
+            description="Không còn đơn giảng viên nào chờ duyệt, tài khoản sinh viên đã xác minh hết, tài liệu lập chỉ mục sạch."
           />
         ) : (
           <ul>

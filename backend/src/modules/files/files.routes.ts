@@ -27,7 +27,7 @@ import { audit, AuditAction } from "../../lib/audit";
 export const filesRouter = Router();
 
 const paramsSchema = z.object({
-  kind: z.enum(["document", "version", "evidence", "feedback", "avatar"]),
+  kind: z.enum(["document", "version", "evidence", "feedback", "avatar", "credential"]),
   id: z.coerce.number().int().positive(),
 });
 
@@ -162,6 +162,23 @@ async function resolveFile(kind: string, id: number): Promise<ResolvedFile | nul
         mimeType: guessMime(u.avatar_url),
       };
     }
+    /* `id` ở đây là user_id chứ không phải `lecturers.id` — cùng khoá mà các
+       endpoint duyệt đơn đang dùng (`/admin/lecturer-applications/:userId/...`),
+       nên trang quản trị không phải mang theo hai loại định danh cho cùng một
+       hàng. Cố ý KHÔNG lọc `deleted_at`: đơn bị từ chối thì tài khoản bị xoá
+       mềm, mà Admin vẫn cần mở lại ảnh thẻ để giải trình quyết định đó. */
+    case "credential": {
+      const l = await prisma.lecturer.findUnique({
+        where: { user_id: id },
+        select: { credential_image_url: true },
+      });
+      if (!l?.credential_image_url) return null;
+      return {
+        relativePath: l.credential_image_url,
+        filename: `the-giang-vien-${id}${path.extname(l.credential_image_url)}`,
+        mimeType: guessMime(l.credential_image_url),
+      };
+    }
     default:
       return null;
   }
@@ -216,6 +233,14 @@ async function authorize(kind: string, id: number, req: Request): Promise<void> 
       // Ảnh đại diện hiển thị khắp nơi (bình luận, bảng người dùng, sidebar).
       // Mọi tài khoản đã đăng nhập đều xem được — đó là mục đích của nó.
       return;
+    case "credential":
+      // Ảnh giấy tờ tuỳ thân của người ngoài hệ thống. Chỉ Admin — người phải
+      // nhìn nó để ra quyết định duyệt — được xem, kể cả khi đã đăng nhập bằng
+      // tài khoản giảng viên.
+      if (user.role !== "ADMIN") {
+        throw forbidden("Chỉ quản trị viên mới xem được ảnh thẻ giảng viên.");
+      }
+      return;
     default:
       throw forbidden("Không xác định được loại tệp.");
   }
@@ -235,6 +260,7 @@ const MIME_BY_EXT: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
   ".csv": "text/csv; charset=utf-8",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 };

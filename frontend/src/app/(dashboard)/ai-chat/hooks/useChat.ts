@@ -132,6 +132,48 @@ export function useChat({
 
   const sources: ChatSource[] = React.useMemo(() => sourceList?.data ?? [], [sourceList]);
 
+  /* ---- Tài liệu đang được xử lý -----------------------------------------
+
+     Lập chỉ mục chạy ở worker nền, mất từ vài giây tới vài phút tuỳ kích thước
+     tệp. Trước đây bảng nguồn chụp lấy trạng thái đúng một lần lúc mở trang,
+     nên người vừa tải tài liệu lên rồi mở trợ lý sẽ thấy MỌI tệp ở trạng thái
+     "đang chờ lập chỉ mục", ô tick bị khoá, và không có gì cho biết phải chờ
+     bao lâu hay khi nào nên tải lại trang. Hầu hết người dùng kết luận là hỏng.
+
+     Ba tín hiệu, cùng một hàm `refetchSources`:
+       • Hỏi lại mỗi 5 giây trong lúc CÒN tệp chưa xử lý xong — và chỉ trong lúc
+         đó. Mọi tệp đã DONE hoặc ERROR thì dừng hẳn, không có vòng lặp nền nào
+         chạy suốt buổi.
+       • Chỉ hỏi khi tab đang hiển thị. Polling trong ba mươi tab bỏ quên là cách
+         chắc chắn nhất để tự tạo tải cho chính máy chủ mình đang chờ.
+       • Hỏi lại ngay khi quay lại tab. Người dùng mở trang Tài liệu ở tab khác,
+         tải tệp lên rồi quay về — đúng khoảnh khắc danh sách cần mới lại. */
+  const indexing = React.useMemo(
+    () => sources.some((s) => s.status_ai === "PENDING" || s.status_ai === "PROCESSING"),
+    [sources]
+  );
+
+  React.useEffect(() => {
+    const poll = () => {
+      if (document.visibilityState !== "visible") return;
+      void refetchSources();
+    };
+
+    // Quay lại tab luôn kích hoạt một lần đọc, kể cả khi không còn tệp nào đang
+    // xử lý: trong lúc đi vắng người dùng có thể vừa tải thêm tài liệu mới.
+    document.addEventListener("visibilitychange", poll);
+
+    if (!indexing) {
+      return () => document.removeEventListener("visibilitychange", poll);
+    }
+
+    const timer = setInterval(poll, 5_000);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", poll);
+    };
+  }, [indexing, refetchSources]);
+
   /**
    * Nguồn đang tick.
    *
@@ -527,6 +569,8 @@ export function useChat({
     sourcesLoading,
     sourcesError,
     refetchSources,
+    /** Còn tệp đang lập chỉ mục — bảng nguồn hiện chỉ báo "đang xử lý". */
+    sourcesIndexing: indexing,
     selectedSourceIds,
     toggleSource,
     selectAllSources,

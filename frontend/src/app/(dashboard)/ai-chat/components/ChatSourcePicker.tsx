@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { FileText, Plus, Warning } from "@phosphor-icons/react";
-import { Button, Card, EmptyState, Skeleton } from "@/components/ui";
+import { FileText, FolderOpen, Plus, Warning } from "@phosphor-icons/react";
+import { Button, Card, EmptyState, Skeleton, Spinner } from "@/components/ui";
 import type { ChatSource } from "@/lib/services";
 import { SOURCE_STATUS } from "../lib/source-status";
 
@@ -26,6 +26,18 @@ export interface ChatSourcePickerProps {
   onUpload: () => void;
   /** Khoá thao tác trong lúc trợ lý đang trả lời — đổi nguồn giữa chừng là vô nghĩa. */
   disabled: boolean;
+  /** Còn tệp đang lập chỉ mục; danh sách đang được hỏi lại mỗi 5 giây. */
+  indexing?: boolean;
+  /**
+   * Đã chọn được đề tài nào chưa.
+   *
+   * Phân biệt "đề tài này chưa có tài liệu" với "chưa chọn đề tài nào" — hai
+   * trạng thái cùng cho ra danh sách rỗng nhưng cần hai hành động khác hẳn nhau.
+   * Trước đây cả hai đều hiện "Chưa có tài liệu nào", nên người mở `/ai-chat` mà
+   * không kèm `?thesis=` được mời đi tải tệp lên trong khi thứ họ thiếu chỉ là
+   * một lần chọn ở ô ngay phía trên.
+   */
+  hasThesis?: boolean;
   /** Chiều cao tối đa của danh sách; ngăn kéo bên phải chật hơn trang đầy đủ. */
   maxHeightClassName?: string;
 }
@@ -41,6 +53,8 @@ export function ChatSourcePicker({
   onRetry,
   onUpload,
   disabled,
+  indexing = false,
+  hasThesis = true,
   maxHeightClassName = "max-h-[18rem]",
 }: ChatSourcePickerProps) {
   const usable = sources.filter((s) => SOURCE_STATUS[s.status_ai].usable);
@@ -80,6 +94,13 @@ export function ChatSourcePicker({
                 Thử lại
               </Button>
             }
+          />
+        ) : !hasThesis ? (
+          <EmptyState
+            compact
+            icon={<FolderOpen size={15} />}
+            title="Chưa chọn đề tài"
+            description="Chọn một đề tài ở ô phía trên để nạp kho tài liệu của nó."
           />
         ) : sources.length === 0 ? (
           <EmptyState
@@ -132,6 +153,16 @@ export function ChatSourcePicker({
           })
         )}
       </div>
+
+      {/* Chỉ báo "đang xử lý" nằm ngay dưới danh sách, cạnh những ô tick đang bị
+          khoá mà nó giải thích. Không có nó, tệp vừa tải lên trông như bị hỏng
+          vĩnh viễn thay vì đang xếp hàng. */}
+      {indexing && (
+        <span className="flex items-center gap-1.5 px-1 text-[11px] text-tertiary">
+          <Spinner size={11} />
+          Đang xử lý tài liệu… danh sách tự cập nhật.
+        </span>
+      )}
 
       <Button
         variant="ghost"

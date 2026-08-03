@@ -36,10 +36,16 @@ export const thesisInclude = {
   },
   members: {
     where: { left_at: null },
+    // Chủ nhiệm vào trước nên `joined_at` tăng dần cũng là thứ tự "chủ nhiệm
+    // trước, thành viên sau" mà giao diện đang dựa vào.
     orderBy: { joined_at: "asc" },
     select: {
+      // `role` để phân biệt chủ nhiệm với thành viên, `user.id` để nút gỡ thành
+      // viên gọi được `DELETE /theses/:id/members/:userId` — giao diện chỉ cầm
+      // định danh NGƯỜI DÙNG, không cầm `students.id`.
+      role: true,
       student: {
-        select: { id: true, user: { select: { full_name: true } } },
+        select: { id: true, user: { select: { id: true, full_name: true } } },
       },
     },
   },

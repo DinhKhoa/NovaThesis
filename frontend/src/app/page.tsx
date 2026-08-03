@@ -17,6 +17,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMounted } from "@/components/ui";
 import { AuthSheet, type AuthMode } from "@/components/auth-sheet";
+import { LecturerApplySheet } from "@/components/lecturer-apply-sheet";
 
 /* ==========================================================================
    PUBLIC ENTRY PAGE
@@ -85,6 +86,20 @@ function LandingContent() {
 	// the back button would reopen it from.
 	const closeAuth = () => router.replace("/", { scroll: false });
 
+	/* Đơn đăng ký giảng viên giữ trạng thái trong React chứ không đi qua URL như
+	   `?auth=`. Lý do của `?auth=` là những liên kết /login và /register cũ đang
+	   nằm trong email và dấu trang của người dùng; lá đơn này không có liên kết
+	   ngoài nào trỏ tới, nên một tham số truy vấn chỉ thêm việc mà không mua được
+	   gì. */
+	const [lecturerApplyOpen, setLecturerApplyOpen] = React.useState(false);
+
+	const openLecturerApply = () => {
+		// Hai bảng trượt cùng bật là hai hộp thoại chồng nhau, và cái bị che vẫn
+		// giữ bẫy focus của nó. Đóng bảng đăng nhập trước.
+		if (open) closeAuth();
+		setLecturerApplyOpen(true);
+	};
+
 	return (
 		<div className="min-h-dvh flex flex-col surface-canvas">
 			{/* ---------- Header ---------- */}
@@ -133,6 +148,18 @@ function LandingContent() {
 							Đăng ký tài khoản
 						</button>
 					</div>
+
+					{/* Giảng viên không tự mở được tài khoản như sinh viên — đơn của họ
+					    phải qua tay quản trị viên. Đặt lối vào riêng ở đây, nhỏ hơn hai
+					    nút chính, vì đó là con đường của thiểu số người dùng. */}
+					<p className="text-[12.5px] text-tertiary mt-4">
+						Bạn là giảng viên?{" "}
+						<button
+							onClick={openLecturerApply}
+							className="text-accent hover:underline font-medium">
+							Gửi yêu cầu đăng ký tại đây →
+						</button>
+					</p>
 					</div>
 				</section>
 
@@ -221,6 +248,11 @@ function LandingContent() {
 				mode={mode}
 				onModeChange={openAuth}
 				onClose={closeAuth}
+			/>
+
+			<LecturerApplySheet
+				open={lecturerApplyOpen}
+				onClose={() => setLecturerApplyOpen(false)}
 			/>
 		</div>
 	);

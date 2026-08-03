@@ -199,6 +199,92 @@ export const mailTemplates = {
     };
   },
 
+  /* ------------------------------------------------------------------------
+     ĐƠN ĐĂNG KÝ GIẢNG VIÊN
+     ------------------------------------------------------------------------ */
+
+  /** Báo cho Admin có đơn mới. Gửi vào hộp thư, vì trang duyệt không ai ngồi canh. */
+  lecturerApplicationReceived(
+    applicantName: string,
+    email: string,
+    institution: string
+  ): Omit<MailMessage, "to"> {
+    return {
+      subject: "Có đơn đăng ký tài khoản giảng viên mới",
+      html: layout(
+        "Đơn đăng ký giảng viên",
+        `<p><strong>${escapeHtml(applicantName)}</strong> vừa gửi yêu cầu mở tài khoản giảng viên.</p>
+         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0;font-size:14px;">
+           <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Email</td><td style="font-weight:500;">${escapeHtml(email)}</td></tr>
+           <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Trường công tác</td><td style="font-weight:500;">${escapeHtml(institution)}</td></tr>
+         </table>
+         <p>Tài khoản đang bị khóa cho tới khi được duyệt. Mở trang quản trị để xem ảnh thẻ và xử lý.</p>`,
+        { label: "Xem đơn đăng ký", url: `${env.APP_PUBLIC_URL}/admin/lecturer-applications` }
+      ),
+    };
+  },
+
+  /**
+   * Báo cho người nộp đơn là đã nhận được.
+   *
+   * Không có bước xác minh email trong luồng này — địa chỉ được kiểm chứng gián
+   * tiếp ở bước duyệt, vì mật khẩu tạm chỉ đi tới đúng hộp thư đó. Lá thư này vì
+   * vậy kiêm luôn việc cho người gõ nhầm email biết ngay là họ sẽ không nhận
+   * được gì thêm.
+   */
+  lecturerApplicationSubmitted(applicantName: string): Omit<MailMessage, "to"> {
+    return {
+      subject: "Đã nhận yêu cầu đăng ký giảng viên",
+      html: layout(
+        "Đã nhận yêu cầu của bạn",
+        `<p>Chào ${escapeHtml(applicantName)},</p>
+         <p>Chúng tôi đã nhận được yêu cầu mở tài khoản giảng viên của bạn và đang chuyển tới quản trị viên xét duyệt.</p>
+         <p>Bạn sẽ nhận được một email nữa kèm thông tin đăng nhập ngay khi đơn được duyệt. Chưa cần làm gì thêm ở bước này.</p>`
+      ),
+    };
+  },
+
+  lecturerApproved(
+    fullName: string,
+    email: string,
+    tempPassword: string
+  ): Omit<MailMessage, "to"> {
+    return {
+      subject: "Tài khoản giảng viên NovaThesis đã được duyệt",
+      html: layout(
+        "Đơn đăng ký đã được duyệt",
+        `<p>Chào ${escapeHtml(fullName)},</p>
+         <p>Yêu cầu mở tài khoản giảng viên của bạn đã được quản trị viên phê duyệt. Dưới đây là thông tin đăng nhập:</p>
+         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0;font-size:14px;">
+           <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Email</td><td style="font-weight:500;">${escapeHtml(email)}</td></tr>
+           <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Mật khẩu tạm</td><td style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;">${escapeHtml(tempPassword)}</td></tr>
+         </table>
+         <p><strong>Hãy đổi mật khẩu ngay sau lần đăng nhập đầu tiên.</strong></p>`,
+        { label: "Đăng nhập", url: `${env.APP_PUBLIC_URL}/?auth=login` }
+      ),
+    };
+  },
+
+  lecturerRejected(fullName: string, reason?: string | null): Omit<MailMessage, "to"> {
+    return {
+      subject: "Về yêu cầu đăng ký giảng viên NovaThesis",
+      html: layout(
+        "Yêu cầu chưa được duyệt",
+        `<p>Chào ${escapeHtml(fullName)},</p>
+         <p>Rất tiếc, yêu cầu mở tài khoản giảng viên của bạn chưa được phê duyệt.</p>
+         ${
+           reason
+             ? `<p style="margin:14px 0;padding:10px 14px;background:#f9fafb;border-left:3px solid #d1d5db;color:#374151;">
+                  <span style="color:#6b7280;font-size:12.5px;display:block;margin-bottom:4px;">Lý do từ quản trị viên</span>
+                  ${escapeHtml(reason)}
+                </p>`
+             : ""
+         }
+         <p style="color:#6b7280;">Nếu bạn cho rằng đây là nhầm lẫn, hãy liên hệ quản trị viên để được hướng dẫn nộp lại.</p>`
+      ),
+    };
+  },
+
   notification(title: string, content: string, link?: string | null): Omit<MailMessage, "to"> {
     return {
       subject: `[NovaThesis] ${title}`,

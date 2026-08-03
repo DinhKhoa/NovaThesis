@@ -230,13 +230,29 @@ model Lecturer {
   id      Int @id @default(autoincrement())
   user_id Int @unique
 
-  /// Ba cột dưới đây không còn luồng nghiệp vụ nào đọc/ghi (xem `admin.service.ts`
-  /// tạo giảng viên chỉ với `user_id`). Cột vẫn còn trong CSDL kèm dữ liệu cũ nên
-  /// giữ khai báo cho khớp, nhưng đã nới thành nullable để lệnh INSERT bỏ trống
-  /// vẫn chạy được.
+  /// Vẫn nullable: `admin.service.ts` tạo giảng viên chỉ với `user_id`, và dữ
+  /// liệu cũ trong CSDL có nhiều dòng bỏ trống. Luồng tự đăng ký ở
+  /// `registerLecturerApplication()` thì ghi đủ cả hai — nhưng nới lỏng ở đây là
+  /// điều kiện để hai đường tạo hồ sơ cùng tồn tại mà không phải backfill.
   lecturer_code String? @unique @db.VarChar(50)
   department    String? @db.VarChar(100)
   max_students  Int     @default(5)
+
+  /// ĐƠN ĐĂNG KÝ GIẢNG VIÊN (tự nộp từ trang chủ).
+  ///
+  /// Bốn cột này chỉ có giá trị với hồ sơ đi qua luồng tự đăng ký; tài khoản do
+  /// Admin tạo tay bỏ trống toàn bộ. `credential_image_url` vì vậy kiêm luôn vai
+  /// trò cờ phân biệt: nó khác NULL đúng khi và chỉ khi hồ sơ đến từ một lá đơn,
+  /// và đó là điều kiện lọc của danh sách chờ duyệt.
+  institution          String? @db.VarChar(255)
+  phone                String? @db.VarChar(30)
+  /// Đường dẫn tương đối trong private bucket (`credentials/yyyy/mm/<hex>.jpg`),
+  /// KHÔNG phải URL. Ảnh đi ra ngoài qua `/api/v1/files/credential/:id` như mọi
+  /// tệp khác — xem `lib/storage.ts`.
+  credential_image_url String? @db.VarChar(512)
+  /// Lý do Admin từ chối. Giữ lại sau khi tài khoản bị xoá mềm để còn trả lời
+  /// được câu "vì sao đơn của tôi bị loại".
+  application_note String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

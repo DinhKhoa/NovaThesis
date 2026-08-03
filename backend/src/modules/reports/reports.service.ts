@@ -17,7 +17,7 @@ import PDFDocument from "pdfkit";
 import { Workbook } from "exceljs";
 import { Prisma, type MilestoneStatus, type ThesisStatus } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
-import { HttpError, notFound, unprocessable } from "../../lib/errors";
+import { HttpError, forbidden, notFound, unprocessable } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { STATUS_LABELS, THESIS_STATUS_LABELS } from "../../domain/milestone-fsm";
 import { thesisScopeFilter, visibleThesisIds } from "../../domain/access";
@@ -126,7 +126,25 @@ const AI_FEATURE_LABELS: Record<AiFeatureKey, string> = {
   plagiarism: "Kiểm tra trùng lặp & đạo văn",
 };
 
+/**
+ * KPI của trang Báo cáo — CHỈ cho Sinh viên và Giảng viên.
+ *
+ * Admin bị chặn thẳng ở đây. Trang `/reports` trả lời câu hỏi "đề tài CỦA TÔI
+ * đang thế nào", và với Admin thì `thesisScopeFilter` không giới hạn gì cả nên
+ * cùng một giao diện lặng lẽ đổi nghĩa thành số liệu toàn hệ thống — trùng đúng
+ * việc mà `/admin/statistics` đã làm, chỉ khác là không nói ra điều đó.
+ *
+ * Chặn ở server chứ không chỉ chuyển hướng ở giao diện: giao diện quyết định
+ * người ta THẤY gì, còn số liệu toàn hệ thống có rời khỏi máy chủ hay không thì
+ * phải do máy chủ quyết.
+ */
 export async function buildOverview(user: AuthUser) {
+  if (user.role === "ADMIN") {
+    throw forbidden(
+      "Trang Báo cáo dành cho sinh viên và giảng viên. Số liệu toàn hệ thống nằm ở mục Giám sát AI."
+    );
+  }
+
   // Hai lời gọi vào `domain/access` thay vì tự suy ra một cái từ cái kia: đó là
   // API công khai của tầng kiểm soát truy cập, và giá phải trả chỉ là một truy
   // vấn id rất rẻ. Đổi lại, module này không giữ bản sao nào của luật phạm vi.
@@ -137,14 +155,8 @@ export async function buildOverview(user: AuthUser) {
 
   const thesisWhere: Prisma.ThesisWhereInput = { deleted_at: null, ...scope };
 
-  const [byStatus, studentRows, features] = await Promise.all([
+  const [byStatus, features] = await Promise.all([
     prisma.thesis.groupBy({ by: ["status"], where: thesisWhere, _count: { _all: true } }),
-    // `distinct` để một sinh viên tham gia hai đề tài không bị đếm hai lần.
-    prisma.thesisMember.findMany({
-      where: { left_at: null, thesis: thesisWhere },
-      select: { student_id: true },
-      distinct: ["student_id"],
-    }),
     countAiFeatures(user, thesisIds),
   ]);
 
@@ -161,8 +173,13 @@ export async function buildOverview(user: AuthUser) {
     // Một chữ số thập phân: giao diện in "78.5%", làm tròn về số nguyên sẽ nuốt
     // mất chênh lệch giữa hai kỳ báo cáo liền nhau.
     completion_rate: total === 0 ? 0 : Math.round((completed / total) * 1000) / 10,
+    /* `total_students` đã bị bỏ. Nó đếm số sinh viên đang tham gia đề tài trong
+       phạm vi người xem, và không vai trò nào dùng được con số đó: sinh viên chỉ
+       thấy chính nhóm mình (đã có ở trang đề tài), giảng viên thấy một con số
+       trùng với danh sách hướng dẫn của mình, còn Admin thì không vào trang này
+       nữa. Nó cũng là truy vấn đắt nhất của cả hàm — một `findMany` distinct
+       trên `thesis_members` chỉ để lấy `.length`. */
     ai_queries: featureTotal,
-    total_students: studentRows.length,
 
     // Trả đủ cả 6 trạng thái kể cả khi bằng 0, theo đúng thứ tự khai báo trong
     // `THESIS_STATUS_LABELS`: biểu đồ cột giữ nguyên vị trí giữa các lần tải

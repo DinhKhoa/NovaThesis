@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Users,
   UserPlus,
@@ -63,18 +64,58 @@ const STATUS_BADGES: Record<
 const CREATABLE_ROLES: UserRole[] = ["STUDENT", "LECTURER"];
 const ASSIGNABLE_ROLES: UserRole[] = ["STUDENT", "LECTURER", "ADMIN"];
 
+/* Ba trạng thái, không phải hai. `PENDING_VERIFICATION` từng vắng mặt ở ô lọc
+   dù bảng vẫn hiện nhãn "Chờ xác minh", nên không có cách nào lọc ra đúng nhóm
+   mà trang tổng quan đang đếm. */
+const FILTERABLE_STATUSES: UserStatus[] = ["ACTIVE", "SUSPENDED", "PENDING_VERIFICATION"];
+
 const EMPTY_DRAFT = {
   role: "LECTURER" as UserRole,
   full_name: "",
   email: "",
 };
 
+/**
+ * Bộ lọc khởi tạo từ URL.
+ *
+ * Trang tổng quan của Admin dẫn tới đây kèm `?status=…&role=…` (xem
+ * `actions_required` trong `admin.service.ts`). Trước đây trang bỏ qua hoàn toàn
+ * tham số truy vấn nên mọi liên kết đó đổ về danh sách KHÔNG lọc: Admin bấm vào
+ * dòng "3 tài khoản chờ xác minh" rồi phải tự đi tìm ba tài khoản đó giữa cả
+ * bảng. Con số và danh sách phải nói cùng một điều.
+ *
+ * Chỉ đọc MỘT LẦN lúc khởi tạo, không đồng bộ hai chiều: sau khi vào trang thì
+ * ô chọn là nguồn sự thật: viết ngược lại lên URL sẽ đẻ ra một mục lịch sử duyệt
+ * web cho mỗi lần đổi bộ lọc.
+ */
+function useInitialFilter(key: string, allowed: readonly string[]): string {
+  const params = useSearchParams();
+  const [initial] = React.useState(() => {
+    const value = params.get(key);
+    return value && allowed.includes(value) ? value : "ALL";
+  });
+  return initial;
+}
+
 export default function AdminUsersPage() {
+  /* `useSearchParams` bắt buộc có ranh giới Suspense, nếu không cả tuyến đường
+     bị loại khỏi kết xuất tĩnh. */
+  return (
+    <React.Suspense fallback={null}>
+      <AdminUsersContent />
+    </React.Suspense>
+  );
+}
+
+function AdminUsersContent() {
   const { user } = useAuthStore();
 
+  const initialRole = useInitialFilter("role", ASSIGNABLE_ROLES);
+  const initialStatus = useInitialFilter("status", FILTERABLE_STATUSES);
+
   const [search, setSearch] = React.useState("");
-  const [roleFilter, setRoleFilter] = React.useState("ALL");
-  const [statusFilter, setStatusFilter] = React.useState("ALL");
+  const [roleFilter, setRoleFilter] = React.useState(initialRole);
+  const [statusFilter, setStatusFilter] = React.useState(initialStatus);
   const [page, setPage] = React.useState(1);
 
   // UC 5.8 NFR: 300ms cho mọi ô tìm kiếm. Lọc và phân trang đều nằm ở server nên
@@ -316,6 +357,7 @@ export default function AdminUsersPage() {
               <option value="ALL">Mọi trạng thái</option>
               <option value="ACTIVE">Hoạt động</option>
               <option value="SUSPENDED">Bị khóa</option>
+              <option value="PENDING_VERIFICATION">Chờ xác minh</option>
             </Select>
           </div>
         </Toolbar>

@@ -23,8 +23,10 @@ import {
   requireAuth,
   requireContributor,
   requireRole,
+  type AuthUser,
 } from "../../middleware/auth";
 import {
+  emailField,
   idParam,
   optionalText,
   text,
@@ -141,12 +143,20 @@ const assignLecturerSchema = z.object({
   reason: optionalText(500, "Lý do thay đổi"),
 });
 
-const memberSchema = z.object({
-  student_id: z.coerce.number().int().positive("Sinh viên không hợp lệ."),
-});
+/**
+ * Thêm thành viên bằng EMAIL, không bằng `students.id`.
+ *
+ * Người bấm nút là sinh viên chủ nhiệm hoặc giảng viên hướng dẫn; cả hai đều
+ * biết email của bạn cùng nhóm và không ai trong họ biết `students.id` — đó là
+ * khoá nội bộ, không xuất hiện ở bất kỳ màn hình nào. Bắt giao diện phải có sẵn
+ * một ô tra cứu id trước khi mời được một người là dựng một bước thừa quanh một
+ * chi tiết cài đặt.
+ */
+const memberSchema = z.object({ email: emailField });
 
+/** Tham số đường dẫn là `user_id`, cùng thứ mà DTO `members[]` trả ra. */
 const memberParams = idParam.extend({
-  student_id: z.coerce.number().int().positive("Sinh viên không hợp lệ."),
+  user_id: z.coerce.number().int().positive("Sinh viên không hợp lệ."),
 });
 
 /* ==========================================================================
@@ -764,31 +774,89 @@ thesesRouter.patch(
   })
 );
 
+/**
+ * Đề tài đã chốt thì danh sách thành viên cũng chốt.
+ *
+ * `COMPLETED` và `REJECTED` là hai trạng thái cuối của máy trạng thái đề tài.
+ * Thêm người vào một đề tài đã nghiệm thu là ghi tên họ vào một kết quả họ không
+ * tham gia làm ra; gỡ người khỏi nó là xoá tên khỏi công việc họ đã làm.
+ */
+function assertMembershipEditable(status: ThesisStatus, action: "add" | "remove"): void {
+  if (status === "COMPLETED") {
+    throw conflict("Đề tài đã hoàn thành nên không thay đổi được danh sách thành viên.");
+  }
+  if (action === "add" && status === "REJECTED") {
+    throw conflict("Đề tài đã bị từ chối nên không thêm được thành viên mới.");
+  }
+}
+
+/**
+ * Ai được sửa danh sách thành viên: SINH VIÊN CHỦ NHIỆM hoặc GIẢNG VIÊN HƯỚNG DẪN.
+ *
+ * Trước đây route gắn `requireRole("ADMIN", "LECTURER")`, nghĩa là chính người
+ * lập đề tài nhóm không tự mời được bạn cùng nhóm — họ phải nhắn giảng viên làm
+ * hộ. Đó là việc của người tạo đề tài, không phải của người duyệt nó.
+ *
+ * `assertThesisAccess(…, "review")` vẫn là hàng rào cho nhánh giảng viên, nên
+ * giảng viên KHÁC không đụng được vào đề tài không phải mình hướng dẫn.
+ */
+async function assertCanManageMembers(
+  user: AuthUser,
+  thesisId: number,
+  thesis: { created_by: number }
+): Promise<void> {
+  const isOwner = user.role === "STUDENT" && thesis.created_by === user.id;
+  if (isOwner) {
+    // Chủ nhiệm vẫn phải nằm trong phạm vi xem được đề tài này — `view` chặn
+    // trường hợp `created_by` trỏ tới một đề tài đã bị chuyển đi nơi khác.
+    await assertThesisAccess(user, thesisId, "view");
+    return;
+  }
+  await assertThesisAccess(user, thesisId, "review");
+}
+
 /** Thêm sinh viên vào đề tài (đề tài nhóm, hoặc gán SV vào đề tài GV đề xuất). */
 thesesRouter.post(
   "/:id/members",
-  requireRole("ADMIN", "LECTURER"),
   validateParams(idParam),
   validateBody(memberSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
     const { id } = req.params as unknown as z.infer<typeof idParam>;
-    const { student_id } = req.body as z.infer<typeof memberSchema>;
+    const { email } = req.body as z.infer<typeof memberSchema>;
 
-    // `review` = giảng viên hướng dẫn của chính đề tài này (Admin luôn qua).
-    await assertThesisAccess(user, id, "review");
     const thesis = await loadThesis(id);
+    await assertCanManageMembers(user, id, thesis);
+    assertMembershipEditable(thesis.status, "add");
 
-    const student = await prisma.student.findUnique({
-      where: { id: student_id },
+    const account = await prisma.user.findUnique({
+      where: { email },
       select: {
         id: true,
-        user: { select: { id: true, full_name: true, status: true, deleted_at: true } },
+        full_name: true,
+        role: true,
+        status: true,
+        deleted_at: true,
+        student: { select: { id: true } },
       },
     });
-    if (!student || student.user.deleted_at || student.user.status !== "ACTIVE") {
-      throw badRequest("Sinh viên không tồn tại hoặc tài khoản không còn hoạt động.");
+
+    /* Một thông điệp duy nhất cho "không có email này" và "email này không phải
+       sinh viên": phân biệt hai trường hợp biến ô thêm thành viên thành công cụ
+       dò xem địa chỉ nào đã đăng ký trong hệ thống. */
+    if (
+      !account ||
+      account.deleted_at ||
+      account.role !== "STUDENT" ||
+      !account.student ||
+      account.status !== "ACTIVE"
+    ) {
+      throw badRequest(
+        "Không tìm thấy tài khoản sinh viên đang hoạt động với email này. Hãy kiểm tra lại địa chỉ."
+      );
     }
+
+    const student_id = account.student.id;
 
     const existing = await prisma.thesisMember.findUnique({
       where: { thesis_id_student_id: { thesis_id: id, student_id } },
@@ -798,8 +866,10 @@ thesesRouter.post(
       throw conflict("Sinh viên này đã là thành viên của đề tài.");
     }
 
-    // BR UC 3.1 áp dụng cho cả đường "được thêm vào": một sinh viên không thể
-    // đồng thời nằm trong hai đề tài đang chạy.
+    /* BR UC 3.1 áp dụng cho cả đường "được thêm vào": một sinh viên không thể
+       đồng thời nằm trong hai đề tài đang chạy. Đây KHÔNG phải giới hạn số thành
+       viên của một đề tài — đề tài nhận bao nhiêu người cũng được — mà là giới
+       hạn số đề tài trên mỗi sinh viên. */
     await assertNoActiveThesis(student_id, "other");
 
     // Đề tài do giảng viên đề xuất chưa có ai; người đầu tiên vào là chủ nhiệm.
@@ -820,7 +890,7 @@ thesesRouter.post(
     }
 
     await notify({
-      userId: student.user.id,
+      userId: account.id,
       type: "THESIS",
       title: "Bạn được thêm vào một đề tài",
       content: `Bạn vừa được thêm vào đề tài “${thesis.title}”.`,
@@ -837,24 +907,35 @@ thesesRouter.post(
   })
 );
 
-/** Gỡ sinh viên khỏi đề tài. */
+/** Gỡ sinh viên khỏi đề tài. Định danh trên đường dẫn là `user_id`. */
 thesesRouter.delete(
-  "/:id/members/:student_id",
-  requireRole("ADMIN", "LECTURER"),
+  "/:id/members/:user_id",
   validateParams(memberParams),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
-    const { id, student_id } = req.params as unknown as z.infer<typeof memberParams>;
+    const { id, user_id } = req.params as unknown as z.infer<typeof memberParams>;
 
-    await assertThesisAccess(user, id, "review");
     const thesis = await loadThesis(id);
+    await assertCanManageMembers(user, id, thesis);
+    assertMembershipEditable(thesis.status, "remove");
 
-    const member = await prisma.thesisMember.findUnique({
-      where: { thesis_id_student_id: { thesis_id: id, student_id } },
-      select: { id: true, left_at: true, student: { select: { user_id: true } } },
+    const member = await prisma.thesisMember.findFirst({
+      where: { thesis_id: id, left_at: null, student: { user_id } },
+      select: { id: true, role: true, student: { select: { id: true, user_id: true } } },
     });
-    if (!member || member.left_at !== null) {
+    if (!member) {
       throw notFound("Sinh viên không phải thành viên đang tham gia của đề tài này.");
+    }
+
+    /* Chủ nhiệm không gỡ được — kể cả tự gỡ chính mình.
+       Một đề tài không có chủ nhiệm thì không ai còn quyền sửa danh sách thành
+       viên nữa (xem `assertCanManageMembers`), nên thao tác này sẽ khoá vĩnh
+       viễn chính đề tài đó khỏi mọi thay đổi về sau. Muốn đổi người đứng tên thì
+       lập đề tài mới. */
+    if (member.role === "OWNER") {
+      throw conflict(
+        "Không thể gỡ chủ nhiệm khỏi đề tài. Nếu cần đổi người đứng tên, hãy lập đề tài mới."
+      );
     }
 
     // Đặt `left_at` thay vì xoá dòng: mốc tiến độ và tài liệu do sinh viên này
@@ -875,7 +956,7 @@ thesesRouter.delete(
     audit({
       action: AuditAction.THESIS_UPDATE,
       req,
-      details: { thesis_id: id, change: "member_remove", student_id },
+      details: { thesis_id: id, change: "member_remove", student_id: member.student.id },
     });
 
     noContent(res);

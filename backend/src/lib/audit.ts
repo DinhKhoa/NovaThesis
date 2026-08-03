@@ -30,6 +30,13 @@ export const AuditAction = {
   USER_STATUS_CHANGE: "USER_STATUS_CHANGE",
   USER_DELETE: "USER_DELETE",
 
+  /* Đơn đăng ký giảng viên. Tách khỏi USER_CREATE / USER_DELETE vì người kiểm
+     toán hỏi câu khác hẳn ở đây: ai đã cho một người ngoài vào hệ thống, dựa
+     trên giấy tờ nào. */
+  LECTURER_APPLY: "LECTURER_APPLY",
+  LECTURER_APPLICATION_APPROVE: "LECTURER_APPLICATION_APPROVE",
+  LECTURER_APPLICATION_REJECT: "LECTURER_APPLICATION_REJECT",
+
   THESIS_CREATE: "THESIS_CREATE",
   THESIS_UPDATE: "THESIS_UPDATE",
   THESIS_SUBMIT: "THESIS_SUBMIT",

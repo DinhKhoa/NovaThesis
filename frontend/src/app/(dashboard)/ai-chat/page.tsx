@@ -15,16 +15,16 @@
 
 import React from "react";
 import { useSearchParams } from "next/navigation";
-import { ListChecks, MagnifyingGlass, Robot, Scales } from "@phosphor-icons/react";
+import { ListChecks, MagnifyingGlass, Plus, Robot, Scales } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
-import { Card, ConfirmDialog, Tabs } from "@/components/ui";
+import { Button, Card, ConfirmDialog, Tabs } from "@/components/ui";
 import { RequireRole } from "@/lib/guards";
 import { useAsync } from "@/lib/use-async";
 import { thesesApi } from "@/lib/services";
 
 import { AnswerModeToggle } from "./components/AnswerModeToggle";
 import { ChatInput } from "./components/ChatInput";
-import { ChatSessionList } from "./components/ChatSessionList";
+import { ChatSessionDropdown } from "./components/ChatSessionDropdown";
 import { ChatSourcePicker } from "./components/ChatSourcePicker";
 import { ChatTranscript } from "./components/ChatTranscript";
 import { PlagiarismPanel } from "./components/PlagiarismPanel";
@@ -90,6 +90,23 @@ function AIChatWorkspace() {
     [chat]
   );
 
+  /**
+   * Mở kho tài liệu ở TAB MỚI.
+   *
+   * Trước đây nút "Thêm tài liệu" gọi `window.open(…, "_self")`: người dùng bị
+   * đá khỏi trợ lý, mất phiên đang mở và mọi ô tick vừa chọn, rồi phải tự tìm
+   * đường quay lại. Mà tải tệp lên là việc DIỄN RA Ở NƠI KHÁC — trang này không
+   * có form tải lên nào để chờ nó xong.
+   *
+   * Mở tab mới giữ nguyên trạng thái ở đây, và `useChat` hỏi lại danh sách nguồn
+   * ngay khi tab này hiện lại (xem phần polling trong hook), nên tài liệu vừa
+   * tải lên tự xuất hiện mà không cần bấm gì thêm.
+   */
+  const openDocuments = React.useCallback(() => {
+    const url = thesisId ? `/documents?thesis=${thesisId}` : "/documents";
+    window.open(url, "_blank", "noopener");
+  }, [thesisId]);
+
   return (
     <div className="flex flex-col gap-3">
       <PageHeader
@@ -129,37 +146,63 @@ function AIChatWorkspace() {
       )}
 
       {tool === "chat" && (
-        /* Ba cột: NGUỒN → HỘI THOẠI → KHUNG CHAT.
-           Trên màn hình nhỏ chúng xếp chồng theo đúng thứ tự đó, nên hai cột
-           điều khiển không còn bị ẩn hoàn toàn như trước. */
-        <div className="grid grid-cols-1 lg:grid-cols-[14rem_13rem_1fr] gap-3 items-start">
-          <ChatSourcePicker
-            sources={chat.sources}
-            selectedIds={chat.selectedSourceIds}
-            onToggle={chat.toggleSource}
-            onSelectAll={chat.selectAllSources}
-            onClearAll={chat.clearAllSources}
-            loading={chat.sourcesLoading}
-            error={chat.sourcesError}
-            onRetry={() => void chat.refetchSources()}
-            onUpload={() =>
-              window.open(thesisId ? `/documents?thesis=${thesisId}` : "/documents", "_self")
-            }
-            disabled={chat.streaming}
-          />
-
-          <ChatSessionList
-            sessions={chat.sessions}
-            activeId={chat.sessionId}
-            loading={chat.sessionsLoading}
-            error={chat.sessionsError}
-            onRetry={() => void chat.refetchSessions()}
-            onSelect={chat.selectSession}
-            onDelete={chat.setDeleteTarget}
-            onNew={chat.newSession}
-          />
+        /* HAI cột: NGUỒN → KHUNG CHAT.
+           Lịch sử hội thoại từng là cột thứ ba nằm CHÍNH GIỮA, chắn phần màn
+           hình đáng giá nhất bằng một danh sách mở vài lần mỗi buổi. Nó đã thu
+           về nút thả xuống ngay trên khung chat, trả lại bề ngang cho thứ người
+           ta thực sự nhìn suốt buổi. */
+        <div className="grid grid-cols-1 lg:grid-cols-[16rem_1fr] gap-3 items-start">
+          {/* `sticky` để bảng nguồn còn đó khi cuộn qua một hội thoại dài — bỏ
+              tick một tài liệu không nên bắt người ta cuộn ngược lên đầu trang.
+              Chỉ bật từ `lg` trở lên: ở màn hình hẹp hai khối xếp chồng, và một
+              khối dính ở đó sẽ che mất khung chat bên dưới. */}
+          <div className="lg:sticky lg:top-4">
+            <ChatSourcePicker
+              sources={chat.sources}
+              selectedIds={chat.selectedSourceIds}
+              onToggle={chat.toggleSource}
+              onSelectAll={chat.selectAllSources}
+              onClearAll={chat.clearAllSources}
+              loading={chat.sourcesLoading}
+              error={chat.sourcesError}
+              onRetry={() => void chat.refetchSources()}
+              onUpload={() => openDocuments()}
+              indexing={chat.sourcesIndexing}
+              hasThesis={thesisId !== null}
+              disabled={chat.streaming}
+              maxHeightClassName="max-h-[24rem]"
+            />
+          </div>
 
           <Card hoverable={false} className="flex flex-col overflow-hidden">
+            {/* Thanh chọn phiên nằm TRONG cột chat, ngay trên khung hội thoại:
+                đổi hội thoại là thao tác thuộc về khung chat, không phải một
+                vùng điều hướng riêng. */}
+            <div
+              className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+              style={{ borderBottom: "1px solid var(--border-secondary)" }}
+            >
+              <ChatSessionDropdown
+                sessions={chat.sessions}
+                activeId={chat.sessionId}
+                loading={chat.sessionsLoading}
+                error={chat.sessionsError}
+                onRetry={() => void chat.refetchSessions()}
+                onSelect={chat.selectSession}
+                onDelete={chat.setDeleteTarget}
+                onNew={chat.newSession}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Plus size={13} />}
+                onClick={chat.newSession}
+                className="flex-shrink-0"
+              >
+                Mới
+              </Button>
+            </div>
+
             <ChatTranscript
               messages={chat.messages}
               loading={chat.messagesLoading}
@@ -176,7 +219,9 @@ function AIChatWorkspace() {
               onCopy={chat.copy}
               onRate={chat.rate}
               scrollRef={chat.scrollRef}
-              heightStyle={{ height: "min(calc(100dvh - 17rem), 34rem)" }}
+              // Thanh chọn phiên vừa thêm vào chiếm khoảng 2.5rem phía trên
+              // khung này; không trừ đi thì cả thẻ tràn khỏi khung nhìn.
+              heightStyle={{ height: "min(calc(100dvh - 20rem), 34rem)" }}
             />
 
             <ChatInput

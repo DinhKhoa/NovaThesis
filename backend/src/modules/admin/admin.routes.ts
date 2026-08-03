@@ -27,10 +27,18 @@ import {
   validateParams,
   validateQuery,
 } from "../../middleware/validate";
+import { signFileUrl } from "../../lib/crypto";
 import { notify } from "../../services/notifications";
-import { toAccountDTO, toConfigDTO, toSystemLogDTO } from "../serializers";
+import {
+  toAccountDTO,
+  toConfigDTO,
+  toLecturerApplicationDTO,
+  toSystemLogDTO,
+} from "../serializers";
 import {
   ROLE_LABELS,
+  type ApplicationRecord,
+  approveLecturerApplication,
   buildAdminOverview,
   applyConfigUpdates,
   buildStatistics,
@@ -39,8 +47,10 @@ import {
   createAccount,
   listAccounts,
   listConfigs,
+  listLecturerApplications,
   listLogActions,
   listLogs,
+  rejectLecturerApplication,
   softDeleteAccount,
   updateAccount,
 } from "./admin.service";
@@ -54,7 +64,24 @@ adminRouter.use(requireAuth, requireRole("ADMIN"));
    ========================================================================== */
 
 const USER_ROLES = ["ADMIN", "LECTURER", "STUDENT"] as const;
+
+/**
+ * Trạng thái mà Admin ĐẶT được cho một tài khoản.
+ *
+ * `PENDING_VERIFICATION` cố ý vắng mặt: nó là kết quả của một quy trình (chưa
+ * bấm link xác minh, hoặc đơn giảng viên chưa duyệt) chứ không phải một công tắc
+ * bật tắt được.
+ */
 const USER_STATUSES = ["ACTIVE", "SUSPENDED"] as const;
+
+/**
+ * Trạng thái LỌC được — rộng hơn tập trên.
+ *
+ * Trang tổng quan đếm số tài khoản chờ xác minh rồi dẫn tới
+ * `/admin/users?status=PENDING_VERIFICATION`. Thiếu giá trị này trong lược đồ
+ * lọc thì chính liên kết do server sinh ra lại bị server từ chối bằng 422.
+ */
+const FILTERABLE_STATUSES = [...USER_STATUSES, "PENDING_VERIFICATION"] as const;
 const LOG_LEVELS = ["INFO", "WARN", "ERROR"] as const;
 
 /**
@@ -85,7 +112,7 @@ const listUsersSchema = z
   .object({
     search: optionalText(200, "Từ khóa tìm kiếm"),
     role: enumFilter(USER_ROLES, "Vai trò lọc không hợp lệ."),
-    status: enumFilter(USER_STATUSES, "Trạng thái lọc không hợp lệ."),
+    status: enumFilter(FILTERABLE_STATUSES, "Trạng thái lọc không hợp lệ."),
   })
   .merge(paginationSchema);
 
@@ -222,6 +249,24 @@ const listLogsSchema = z
     to: logDateField("Ngày kết thúc", true),
   })
   .merge(paginationSchema);
+
+const listApplicationsSchema = z
+  .object({
+    status: z.preprocess(
+      anyToUndefined,
+      z
+        .enum(["pending", "all"], { errorMap: () => ({ message: "Bộ lọc đơn không hợp lệ." }) })
+        .optional()
+    ),
+  })
+  .merge(paginationSchema);
+
+const rejectApplicationSchema = z.object({
+  // Tuỳ chọn: có những đơn hỏng rõ ràng tới mức không cần giải thích, và bắt gõ
+  // lý do sẽ chỉ đẻ ra một rừng chữ "không hợp lệ". Khi có thì lý do đi thẳng
+  // vào email gửi người nộp, nên giới hạn độ dài theo cái đọc được.
+  reason: optionalText(500, "Lý do từ chối"),
+});
 
 const updateConfigsSchema = z.object({
   configs: z
@@ -429,6 +474,91 @@ adminRouter.delete(
     });
 
     noContent(res);
+  })
+);
+
+/* ==========================================================================
+   DUYỆT ĐƠN ĐĂNG KÝ GIẢNG VIÊN
+   ========================================================================== */
+
+/**
+ * Gắn URL đã ký cho ảnh thẻ.
+ *
+ * Ký ở tầng route chứ không ở service: chữ ký có hạn dùng, nên nó phải được sinh
+ * ra tại thời điểm phản hồi đi ra. Sinh sớm hơn — chẳng hạn lúc lưu vào CSDL —
+ * là tạo ra một đường link tự hết hạn trong lúc nằm yên.
+ */
+function applicationDTO(row: ApplicationRecord) {
+  const hasImage = Boolean(row.lecturer?.credential_image_url);
+  return toLecturerApplicationDTO(row, hasImage ? signFileUrl("credential", row.id) : null);
+}
+
+adminRouter.get(
+  "/lecturer-applications",
+  validateQuery(listApplicationsSchema),
+  asyncHandler(async (req, res) => {
+    const query = req.query as unknown as z.infer<typeof listApplicationsSchema>;
+    const page = parsePage(req.query);
+
+    const { rows, total } = await listLecturerApplications(query, page);
+
+    res.json(paginated(rows.map(applicationDTO), total, page));
+  })
+);
+
+adminRouter.post(
+  "/lecturer-applications/:id/approve",
+  validateParams(idParam),
+  asyncHandler(async (req, res) => {
+    const actor = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+
+    const account = await approveLecturerApplication(id);
+
+    audit({
+      action: AuditAction.LECTURER_APPLICATION_APPROVE,
+      req,
+      // WARN như mọi thao tác cấp quyền khác: đây là lúc một người ngoài trở
+      // thành giảng viên trong hệ thống. Mật khẩu tạm cố ý vắng mặt — nó chỉ đi
+      // một đường duy nhất là hộp thư người dùng.
+      level: "WARN",
+      details: {
+        actor_email: actor.email,
+        target_user_id: account.id,
+        target_email: account.email,
+        institution: account.lecturer?.institution ?? null,
+        staff_id: account.lecturer?.lecturer_code ?? null,
+      },
+    });
+
+    res.json({ message: "Đã duyệt tài khoản giảng viên.", application: applicationDTO(account) });
+  })
+);
+
+adminRouter.post(
+  "/lecturer-applications/:id/reject",
+  validateParams(idParam),
+  validateBody(rejectApplicationSchema),
+  asyncHandler(async (req, res) => {
+    const actor = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+    const { reason } = req.body as z.infer<typeof rejectApplicationSchema>;
+
+    const account = await rejectLecturerApplication(id, reason);
+
+    audit({
+      action: AuditAction.LECTURER_APPLICATION_REJECT,
+      req,
+      level: "WARN",
+      details: {
+        actor_email: actor.email,
+        target_user_id: account.id,
+        target_email: account.email,
+        reason: reason ?? null,
+      },
+    });
+
+    res.json({ message: "Đã từ chối đơn đăng ký.", application: applicationDTO(account) });
   })
 );
 

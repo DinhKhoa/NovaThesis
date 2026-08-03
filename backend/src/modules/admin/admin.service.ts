@@ -500,6 +500,177 @@ export async function softDeleteAccount(
 }
 
 /* ==========================================================================
+   DUYỆT ĐƠN ĐĂNG KÝ GIẢNG VIÊN
+   ========================================================================== */
+
+/**
+ * Hồ sơ giảng viên kèm đủ trường của lá đơn.
+ *
+ * `ACCOUNT_INCLUDE` chỉ lấy `lecturer.id` vì bảng người dùng không hiển thị gì
+ * hơn; trang duyệt đơn thì cần nhìn thấy toàn bộ những gì người ta đã khai.
+ */
+const APPLICATION_INCLUDE = {
+  lecturer: {
+    select: {
+      lecturer_code: true,
+      department: true,
+      institution: true,
+      phone: true,
+      credential_image_url: true,
+      application_note: true,
+    },
+  },
+} satisfies Prisma.UserInclude;
+
+export type ApplicationRecord = Prisma.UserGetPayload<{ include: typeof APPLICATION_INCLUDE }>;
+
+/**
+ * Điều kiện nhận biết "đây là một lá đơn", dùng chung cho cả liệt kê lẫn duyệt.
+ *
+ * `credential_image_url IS NOT NULL` là thứ phân biệt hồ sơ nộp đơn với hồ sơ do
+ * Admin tạo tay — chỉ luồng nộp đơn mới ghi ảnh thẻ. Nhờ vậy giảng viên do Admin
+ * tạo không bao giờ lọt vào danh sách chờ duyệt.
+ */
+const APPLICATION_FILTER: Prisma.UserWhereInput = {
+  role: "LECTURER",
+  lecturer: { credential_image_url: { not: null } },
+};
+
+export interface ListApplicationsQuery {
+  /** `pending` — còn chờ xử lý; `all` — cả những đơn đã duyệt và đã từ chối. */
+  status?: "pending" | "all" | undefined;
+}
+
+export async function listLecturerApplications(
+  query: ListApplicationsQuery,
+  page: Page
+): Promise<{ rows: ApplicationRecord[]; total: number }> {
+  const where: Prisma.UserWhereInput = { ...APPLICATION_FILTER };
+
+  if (query.status === "all") {
+    // Cố ý KHÔNG lọc `deleted_at`: đơn bị từ chối được xoá mềm, mà "mọi đơn" mà
+    // giấu đi đúng những đơn đã bị loại thì không còn là lịch sử nữa.
+  } else {
+    where.status = "PENDING_VERIFICATION";
+    where.deleted_at = null;
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      include: APPLICATION_INCLUDE,
+      // Đơn cũ nhất lên đầu: hàng đợi xét duyệt là hàng đợi, để người nộp trước
+      // chờ lâu hơn người nộp sau là hỏng đúng thứ danh sách này sinh ra.
+      orderBy: [{ created_at: "asc" }, { id: "asc" }],
+      skip: page.skip,
+      take: page.take,
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return { rows, total };
+}
+
+/**
+ * Nạp một lá đơn CÒN CHỜ XỬ LÝ.
+ *
+ * Cả duyệt lẫn từ chối đều đi qua đây, nên hai thao tác không thể lệch nhau về
+ * điều kiện hợp lệ. Thông điệp lỗi tách bạch từng nguyên nhân: Admin mở hai tab
+ * rồi bấm duyệt hai lần là chuyện thường, và "đơn này đã được xử lý" hữu ích hơn
+ * nhiều so với một câu 404 chung chung.
+ */
+async function loadPendingApplication(userId: number): Promise<ApplicationRecord> {
+  const found = await prisma.user.findFirst({
+    where: { id: userId, ...APPLICATION_FILTER },
+    include: APPLICATION_INCLUDE,
+  });
+
+  if (!found) throw notFound("Không tìm thấy đơn đăng ký giảng viên này.");
+  if (found.deleted_at) throw conflict("Đơn đăng ký này đã bị từ chối trước đó.");
+  if (found.status !== "PENDING_VERIFICATION") {
+    throw conflict("Đơn đăng ký này đã được duyệt trước đó.");
+  }
+
+  return found;
+}
+
+/**
+ * Duyệt đơn: mở khoá tài khoản và cấp mật khẩu tạm.
+ *
+ * Đây là nơi mật khẩu THẬT đầu tiên của tài khoản ra đời — trước bước này
+ * `password_hash` là băm của 32 byte ngẫu nhiên không ai biết (xem
+ * `registerLecturerApplication`). Dùng lại đúng `generateTempPassword` của UC
+ * 2.2 nên hai đường tạo giảng viên cho ra cùng một chất lượng mật khẩu.
+ *
+ * `email_verified_at` được đặt luôn: mật khẩu tạm chỉ đi tới đúng hộp thư đã
+ * khai, nên đăng nhập được lần đầu tự nó đã chứng minh quyền sở hữu email. Bắt
+ * người vừa được duyệt bấm thêm một liên kết xác minh là thêm một bước hỏng vô
+ * ích cho cùng một kết luận.
+ *
+ * Mật khẩu thô không rời khỏi hàm này ngoài đường hàng đợi email; hàm trả về bản
+ * ghi tài khoản để tầng route không có gì để lỡ tay ghi vào phản hồi hay nhật ký.
+ */
+export async function approveLecturerApplication(userId: number): Promise<ApplicationRecord> {
+  const application = await loadPendingApplication(userId);
+
+  const tempPassword = generateTempPassword();
+  const password_hash = await hashPassword(tempPassword);
+
+  const updated = await prisma.user.update({
+    where: { id: application.id },
+    data: {
+      status: "ACTIVE",
+      password_hash,
+      email_verified_at: new Date(),
+      // Đơn từng bị từ chối rồi được duyệt lại thì ghi chú cũ phải mất đi, nếu
+      // không hồ sơ sẽ mang theo một lý do loại không còn đúng nữa.
+      lecturer: { update: { application_note: null } },
+    },
+    include: APPLICATION_INCLUDE,
+  });
+
+  await seedNotificationPreferences(updated.id);
+
+  enqueueMail({
+    to: updated.email,
+    ...mailTemplates.lecturerApproved(updated.full_name, updated.email, tempPassword),
+  });
+
+  return updated;
+}
+
+/**
+ * Từ chối đơn: xoá mềm tài khoản và giữ lại lý do.
+ *
+ * Xoá mềm chứ không xoá hẳn, vì hai lý do đi cùng nhau: ràng buộc UNIQUE trên
+ * `email` vẫn giữ chỗ nên cùng một người không nộp lại được bằng cách bấm gửi
+ * thêm lần nữa, và ảnh thẻ cùng lý do từ chối vẫn còn để Admin giải trình được
+ * quyết định của mình về sau.
+ */
+export async function rejectLecturerApplication(
+  userId: number,
+  reason?: string
+): Promise<ApplicationRecord> {
+  const application = await loadPendingApplication(userId);
+
+  const updated = await prisma.user.update({
+    where: { id: application.id },
+    data: {
+      deleted_at: new Date(),
+      lecturer: { update: { application_note: reason ?? null } },
+    },
+    include: APPLICATION_INCLUDE,
+  });
+
+  enqueueMail({
+    to: updated.email,
+    ...mailTemplates.lecturerRejected(updated.full_name, reason),
+  });
+
+  return updated;
+}
+
+/* ==========================================================================
    UC 2.6 — THỐNG KÊ TỔNG QUAN
    ========================================================================== */
 
@@ -701,23 +872,27 @@ export async function buildStatistics(user: AuthUser) {
    quan chỉ có số liệu tĩnh thì đọc xong vẫn không biết làm gì tiếp.
    ========================================================================== */
 
-/** Ngưỡng coi một đề tài là "để quên trong hàng đợi duyệt". */
-const STALE_PENDING_DAYS = 7;
-
 /** Số dòng nhật ký lỗi gần nhất hiển thị trên trang tổng quan. */
 const RECENT_ERROR_LIMIT = 5;
 
+/**
+ * Trang tổng quan của Admin.
+ *
+ * `actions_required` chỉ chứa việc mà ADMIN mới làm được.
+ *
+ * Trước đây danh sách này còn có "đề tài chờ duyệt quá hạn", "đề tài chưa có
+ * giảng viên hướng dẫn" và "mốc tiến độ quá hạn toàn hệ thống". Cả ba đã bị bỏ
+ * vì cùng một lý do: chúng là việc của GIẢNG VIÊN và SINH VIÊN. Admin bấm vào
+ * chỉ đến được một danh sách chỉ đọc (xem `lib/permissions.ts`) và không có nút
+ * nào để xử lý — một danh sách việc mà người đọc không hành động được thì không
+ * phải danh sách việc, nó chỉ dạy người ta bỏ qua cả khối.
+ */
 export async function buildAdminOverview(user: AuthUser) {
-  const now = new Date();
-  const stalePendingBefore = new Date(now.getTime() - STALE_PENDING_DAYS * 86_400_000);
-
   const [
     statistics,
-    pendingVerification,
-    stalePendingTheses,
+    pendingStudents,
+    pendingLecturerApplications,
     documentsAiError,
-    overdueMilestones,
-    unassignedTheses,
     storage,
     recentErrors,
   ] = await Promise.all([
@@ -725,34 +900,30 @@ export async function buildAdminOverview(user: AuthUser) {
     // chắn sẽ có lúc trả hai con số khác nhau cho cùng một câu hỏi.
     buildStatistics(user),
 
-    prisma.user.count({ where: { deleted_at: null, status: "PENDING_VERIFICATION" } }),
+    /* Tách làm hai vì `PENDING_VERIFICATION` mang hai nghĩa khác hẳn nhau, và
+       hai nghĩa đó dẫn tới hai hành động khác hẳn nhau.
 
-    prisma.thesis.count({
+       Với sinh viên, nó là "chưa bấm link trong hộp thư" — Admin không làm gì
+       được ngoài việc biết, cùng lắm là nhắc gửi lại email. Với giảng viên, nó
+       là "đơn đang chờ CHÍNH ADMIN xét giấy tờ" — một việc tồn đọng thật, và để
+       nó chìm chung vào một con số là cách chắc chắn nhất để một lá đơn nằm đó
+       hàng tuần. */
+    prisma.user.count({
+      where: { deleted_at: null, status: "PENDING_VERIFICATION", role: "STUDENT" },
+    }),
+
+    prisma.user.count({
       where: {
         deleted_at: null,
-        status: "PENDING",
-        // `submitted_at` chứ không phải `created_at`: một bản nháp nằm hai tháng
-        // rồi mới gửi duyệt hôm qua thì không phải là hồ sơ bị bỏ quên.
-        submitted_at: { lt: stalePendingBefore },
+        status: "PENDING_VERIFICATION",
+        role: "LECTURER",
+        // Cùng điều kiện nhận diện đơn với `listLecturerApplications`, nên con
+        // số ở đây không thể lệch với danh sách mà nó dẫn tới.
+        lecturer: { credential_image_url: { not: null } },
       },
     }),
 
     prisma.document.count({ where: { deleted_at: null, status_ai: "ERROR" } }),
-
-    prisma.milestone.count({
-      where: {
-        deleted_at: null,
-        thesis: { deleted_at: null },
-        status: { not: "COMPLETED" },
-        deadline: { lt: now },
-      },
-    }),
-
-    // Đề tài đã duyệt nhưng chưa có người hướng dẫn — sinh viên đang chờ mà
-    // không có ai chịu trách nhiệm.
-    prisma.thesis.count({
-      where: { deleted_at: null, lecturer_id: null, status: { in: ["PENDING", "ONGOING"] } },
-    }),
 
     prisma.document.aggregate({
       where: { deleted_at: null },
@@ -790,34 +961,26 @@ export async function buildAdminOverview(user: AuthUser) {
        người dùng bấm vào một danh sách không khớp con số vừa đọc. */
     actions_required: [
       {
+        key: "pending_lecturer_applications",
+        label: "Yêu cầu đăng ký giảng viên chờ duyệt",
+        count: pendingLecturerApplications,
+        /* Trỏ tới trang DUYỆT ĐƠN, không phải `/admin/users?role=LECTURER`.
+           Bảng người dùng hiện đúng những tài khoản đó nhưng không có nút duyệt
+           hay từ chối, cũng không xem được ảnh thẻ — dẫn Admin tới đó là dẫn vào
+           một ngõ cụt ngay từ dòng đầu của danh sách việc cần làm. */
+        href: "/admin/lecturer-applications",
+      },
+      {
         key: "pending_verification",
-        label: "Tài khoản chờ xác minh email",
-        count: pendingVerification,
-        href: "/admin/users?status=PENDING_VERIFICATION",
-      },
-      {
-        key: "stale_pending_theses",
-        label: `Đề tài chờ duyệt quá ${STALE_PENDING_DAYS} ngày`,
-        count: stalePendingTheses,
-        href: "/theses?status=PENDING",
-      },
-      {
-        key: "unassigned_theses",
-        label: "Đề tài chưa có giảng viên hướng dẫn",
-        count: unassignedTheses,
-        href: "/theses?status=PENDING",
+        label: "Tài khoản sinh viên chờ xác minh email",
+        count: pendingStudents,
+        href: "/admin/users?status=PENDING_VERIFICATION&role=STUDENT",
       },
       {
         key: "documents_ai_error",
         label: "Tài liệu lỗi lập chỉ mục",
         count: documentsAiError,
         href: "/documents?status_ai=ERROR",
-      },
-      {
-        key: "overdue_milestones",
-        label: "Mốc tiến độ quá hạn toàn hệ thống",
-        count: overdueMilestones,
-        href: "/milestones",
       },
     ],
 

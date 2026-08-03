@@ -2,7 +2,7 @@
 
 import React from "react";
 import {
-  GraduationCap,
+  ChatCircleDots,
   Heartbeat,
   Quotes,
   Robot,
@@ -10,33 +10,14 @@ import {
   Stack,
   ThumbsDown,
   ThumbsUp,
-  TrendUp,
-  Users,
   Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/layout";
 import { Badge, Button, Card, EmptyState, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAsync, type AsyncState } from "@/lib/use-async";
-import {
-  adminApi,
-  aiApi,
-  type AdminStatistics,
-  type AIStats,
-  type ThesisStatus,
-} from "@/lib/services";
+import { adminApi, aiApi, type AdminStatistics, type AIStats } from "@/lib/services";
 import { formatDate, formatNumber, formatPercent, formatRelative } from "@/lib/format";
-
-/* Mỗi trạng thái một màu cố định: backend luôn trả đủ 6 trạng thái kể cả khi
-   đếm bằng 0, nên bảng màu phải phủ hết 6 chứ không rơi vào nhánh `else`. */
-const THESIS_STATUS_COLOR: Record<ThesisStatus, string> = {
-  DRAFT: "var(--fg-muted)",
-  PENDING: "var(--warning)",
-  REVISION_REQUIRED: "var(--info)",
-  ONGOING: "var(--accent)",
-  COMPLETED: "var(--success)",
-  REJECTED: "var(--danger)",
-};
 
 /* `/ai/stats` trả khoá kỹ thuật (`chat`, `search`, …) chứ không kèm nhãn như
    `/reports/overview`. Dịch tại chỗ, và vẫn hiển thị nguyên khoá nếu backend bổ
@@ -125,7 +106,7 @@ export default function AdminStatisticsPage() {
     <div>
       <PageHeader
         title="Vận hành hệ thống AI"
-        description="Số liệu người dùng, đề tài, mức sử dụng AI và trạng thái vận hành của hệ thống."
+        description="Mức sử dụng trợ lý AI và trạng thái vận hành của hệ thống."
       />
 
       {/* Cảnh báo vận hành đứng trước mọi con số: nếu hàng đợi đang ùn hoặc CSDL
@@ -152,6 +133,12 @@ export default function AdminStatisticsPage() {
         </div>
       )}
 
+      {/* Sức khoẻ hệ thống đứng TRƯỚC số liệu AI và nằm ngoài nhánh tải của
+          `/admin/statistics`: nó đọc từ `/health/diagnostics` — một endpoint
+          khác — nên vẫn phải hiện được đúng lúc endpoint thống kê hỏng. Đó cũng
+          chính là lúc người ta cần nó nhất. */}
+      <SystemHealth state={health} />
+
       {error ? (
         <EmptyState
           icon={<Warning size={16} />}
@@ -167,53 +154,82 @@ export default function AdminStatisticsPage() {
         <StatisticsSkeleton />
       ) : data ? (
         <>
-          <KpiCards statistics={data.statistics} />
+          <AiKpiCards statistics={data.statistics} stats={data.ai} health={health.data} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ThesisDistribution statistics={data.statistics} />
-            <WeeklyAiUsage weekly={data.statistics.ai_usage_weekly} />
-          </div>
+          {/* Biểu đồ tuần chiếm trọn chiều ngang từ khi biểu đồ phân bố trạng
+              thái đề tài rời khỏi trang: 12 cột trong nửa màn hình thì chênh
+              lệch giữa hai tuần liền nhau nhỏ hơn bề rộng một cột. */}
+          <WeeklyAiUsage weekly={data.statistics.ai_usage_weekly} />
 
           <AiDetailSection stats={data.ai} />
         </>
       ) : null}
-
-      <SystemHealth state={health} />
     </div>
   );
 }
 
 /* ==========================================================================
-   UC 2.6 — SỐ LIỆU TỔNG QUAN
+   KPI — CHỈ VỀ AI VÀ VẬN HÀNH
+
+   Bốn thẻ cũ đếm sinh viên, giảng viên và đề tài đang chạy. Không con số nào
+   trong đó nói được điều gì về hệ thống AI, mà đây là trang "Vận hành hệ thống
+   AI" — ba phần tư diện tích đầu màn hình dành cho thứ tiêu đề không hứa. Số
+   người dùng và phân bố đề tài đã có ở trang Tổng quan; ở đây chúng chỉ làm
+   loãng thứ Admin mở trang này để xem.
    ========================================================================== */
 
-function KpiCards({ statistics }: { statistics: AdminStatistics }) {
-  const ongoing = statistics.theses.by_status.find((s) => s.status === "ONGOING")?.count ?? 0;
+function AiKpiCards({
+  statistics,
+  stats,
+  health,
+}: {
+  statistics: AdminStatistics;
+  stats: AIStats;
+  health: HealthDiagnostics | null;
+}) {
+  /* Tính năng được dùng nhiều nhất. `reduce` chứ không `sort`: chỉ cần phần tử
+     lớn nhất, và sắp xếp một mảng thuộc về props là sửa dữ liệu của người khác. */
+  const topFeature = stats.by_feature.reduce<AIStats["by_feature"][number] | null>(
+    (best, f) => (best === null || f.count > best.count ? f : best),
+    null
+  );
 
   const metrics = [
     {
-      label: "Tổng số sinh viên",
-      value: formatNumber(statistics.users.students),
-      icon: <Users size={20} />,
-      color: "var(--info)",
-    },
-    {
-      label: "Tổng số giảng viên",
-      value: formatNumber(statistics.users.lecturers),
-      icon: <GraduationCap size={20} />,
+      label: "Tổng lượt trả lời AI",
+      value: formatNumber(statistics.ai.total_messages),
+      sublabel: "toàn thời gian",
+      icon: <Robot size={20} />,
       color: "var(--accent)",
     },
     {
-      label: "Đề tài đang thực hiện",
-      value: formatNumber(ongoing),
-      icon: <TrendUp size={20} />,
+      label: "Tổng số hội thoại",
+      value: formatNumber(statistics.ai.total_sessions),
+      sublabel: "phiên đã tạo",
+      icon: <ChatCircleDots size={20} />,
+      color: "var(--info)",
+    },
+    {
+      label: "Tính năng dùng nhiều nhất",
+      value: topFeature
+        ? (AI_FEATURE_LABELS[topFeature.feature] ?? topFeature.feature)
+        : "—",
+      sublabel: topFeature ? `${formatNumber(topFeature.count)} lượt` : "chưa có dữ liệu",
+      icon: <Sparkle size={20} />,
       color: "var(--success)",
     },
     {
-      label: "Lượt hỏi AI (RAG)",
-      value: formatNumber(statistics.ai.total_messages),
-      icon: <Robot size={20} />,
-      color: "var(--warning)",
+      label: "Trạng thái hệ thống",
+      value: health?.status ?? "—",
+      sublabel: health
+        ? health.warnings.length > 0
+          ? `${health.warnings.length} cảnh báo`
+          : "không có cảnh báo"
+        : "đang đọc…",
+      icon: <Heartbeat size={20} />,
+      // Màu bám theo chính trạng thái: một thẻ ghi DEGRADED bằng màu trung tính
+      // thì không khác gì không ghi.
+      color: health?.status === "DEGRADED" ? "var(--warning)" : "var(--success)",
     },
   ];
 
@@ -221,61 +237,24 @@ function KpiCards({ statistics }: { statistics: AdminStatistics }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {metrics.map((m) => (
         <Card key={m.label} className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2">
             <span className="text-[12px] font-medium uppercase text-tertiary">{m.label}</span>
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
               style={{ background: "var(--bg-surface)", color: m.color }}
             >
               {m.icon}
             </div>
           </div>
-          <p className="text-2xl font-semibold">{m.value}</p>
+          {/* Nhãn tính năng dài hơn hẳn một con số, nên cỡ chữ co lại theo độ
+              dài thay vì tràn ra khỏi thẻ. */}
+          <p className={m.value.length > 12 ? "text-base font-semibold" : "text-2xl font-semibold"}>
+            {m.value}
+          </p>
+          <span className="text-[11px] text-tertiary">{m.sublabel}</span>
         </Card>
       ))}
     </div>
-  );
-}
-
-function ThesisDistribution({ statistics }: { statistics: AdminStatistics }) {
-  return (
-    <Card className="p-5">
-      <h2 className="text-[15px] font-semibold mb-4 flex items-center gap-2">
-        <GraduationCap size={18} style={{ color: "var(--accent)" }} />
-        Phân bố trạng thái đề tài
-      </h2>
-
-      {statistics.theses.total === 0 ? (
-        <EmptyState
-          compact
-          icon={<GraduationCap size={16} />}
-          title="Chưa có đề tài nào"
-          description="Biểu đồ xuất hiện sau khi sinh viên gửi đề tài đầu tiên và giảng viên xét duyệt."
-        />
-      ) : (
-        <div className="flex flex-col gap-4">
-          {statistics.theses.by_status.map((item) => (
-            <div key={item.status} className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-[13px]">
-                <span className="text-secondary">{item.label}</span>
-                <span className="font-mono text-primary font-medium">
-                  {formatNumber(item.count)} đề tài ({item.percent}%)
-                </span>
-              </div>
-              <div className="h-2 rounded-full overflow-hidden bg-[var(--bg-hover)]">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${item.percent}%`,
-                    background: THESIS_STATUS_COLOR[item.status],
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
   );
 }
 
@@ -286,7 +265,7 @@ function WeeklyAiUsage({ weekly }: { weekly: AdminStatistics["ai_usage_weekly"] 
   const peak = weekly.reduce((max, w) => Math.max(max, w.count), 0);
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 mb-6">
       <h2 className="text-[15px] font-semibold mb-4 flex items-center gap-2">
         <Robot size={18} style={{ color: "var(--accent)" }} />
         Tần suất sử dụng AI Assistant (12 tuần gần đây)
@@ -513,7 +492,7 @@ function SystemHealth({ state }: { state: AsyncState<HealthDiagnostics> }) {
   const memory = data?.runtime.memory;
 
   return (
-    <Card className="p-5 mt-6">
+    <Card className="p-5 mb-6">
       <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
         <h2 className="text-[15px] font-semibold flex items-center gap-2">
           <Heartbeat size={18} style={{ color: "var(--accent)" }} />
@@ -641,7 +620,7 @@ function HealthMetric({
    TRẠNG THÁI TẢI
    ========================================================================== */
 
-/* Khung xám đứng đúng chỗ của KPI, hai biểu đồ và bốn thẻ AI, nên khi số liệu
+/* Khung xám đứng đúng chỗ của KPI, biểu đồ tuần và bốn thẻ AI, nên khi số liệu
    về thì bố cục không nhảy — chuyển động đó tốn của người đọc một nhịp định vị
    lại, còn spinner giữa màn hình thì không nói được gì về thứ sắp hiện ra. */
 function StatisticsSkeleton() {
@@ -649,16 +628,13 @@ function StatisticsSkeleton() {
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[104px] rounded-[12px]" />
+          <Skeleton key={i} className="h-[118px] rounded-[12px]" />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Skeleton className="h-[268px] rounded-[12px]" />
-        <Skeleton className="h-[268px] rounded-[12px]" />
-      </div>
+      <Skeleton className="h-[268px] rounded-[12px] mb-6" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {[0, 1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-[210px] rounded-[12px]" />
         ))}
