@@ -34,7 +34,10 @@ import type { AuthUser } from "../../middleware/auth";
 export const MILESTONE_INCLUDE = {
   thesis: { select: { id: true, title: true } },
   approver: { select: { full_name: true } },
-  _count: { select: { feedbacks: true } },
+  // Đếm có ĐIỀU KIỆN: bản nháp nhận xét của AI nằm cùng bảng `feedbacks` nhưng
+  // không hiện trong luồng trao đổi (xem `feedbacks.service.ts`). Đếm cả nó sẽ
+  // khiến giao diện báo "3 phản hồi" trên một mốc chỉ mở ra được 2.
+  _count: { select: { feedbacks: { where: { is_ai_draft: false } } } },
 } satisfies Prisma.MilestoneInclude;
 
 export type MilestoneRecord = Prisma.MilestoneGetPayload<{ include: typeof MILESTONE_INCLUDE }>;

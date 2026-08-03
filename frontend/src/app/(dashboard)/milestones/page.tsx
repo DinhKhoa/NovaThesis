@@ -12,6 +12,8 @@ import {
   FilePdf,
   Plus,
   Prohibit,
+  Robot,
+  Sparkle,
   Trash,
   UploadSimple,
   Warning,
@@ -39,11 +41,14 @@ import {
 import { useAuthStore, isLecturer } from "@/lib/auth";
 import { isReadOnlyViewer } from "@/lib/permissions";
 import { toast } from "@/lib/toast";
+import { aiPanel } from "@/lib/ai-panel";
 import { isApiError } from "@/lib/api";
-import { useAsync } from "@/lib/use-async";
+import { useAsync, useSelection } from "@/lib/use-async";
 import { checkTransition, STATUS_LABELS, TRANSITION_TOASTS } from "@/lib/milestone-fsm";
 import { useBoardDrag } from "@/lib/use-board-drag";
 import {
+  aiApi,
+  feedbacksApi,
   milestonesApi,
   reportsApi,
   thesesApi,
@@ -105,6 +110,7 @@ export default function MilestonesPage() {
   const [extendOpen, setExtendOpen] = React.useState(false);
   const [revisionOpen, setRevisionOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [aiReviewOpen, setAiReviewOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<Milestone | null>(null);
   const [exportingPdf, setExportingPdf] = React.useState(false);
 
@@ -380,6 +386,11 @@ export default function MilestonesPage() {
                               }}
                               onApprove={() => void handleStatusChange(m.id, "COMPLETED")}
                               onDelete={() => setDeleteTarget(m)}
+                              onAskAi={() => aiPanel.openWithMilestone(m.id, m.thesis_id)}
+                              onAiReview={() => {
+                                setSelected(m);
+                                setAiReviewOpen(true);
+                              }}
                               onReviewExtension={async (approve) => {
                                 try {
                                   const updated = await milestonesApi.reviewExtension(m.id, approve);
@@ -598,6 +609,16 @@ export default function MilestonesPage() {
         onClose={() => setHistoryOpen(false)}
       />
 
+      {/* `key` gắn với mốc đang chọn: modal giữ state cục bộ (nội dung đã sửa),
+          và mở mốc thứ hai mà không dựng lại sẽ hiện nguyên bản nháp của mốc
+          trước. Cùng lý do đã dùng cho ba modal phía trên. */}
+      <AIReviewModal
+        key={`ai-review-${aiReviewOpen}-${selected?.id ?? 0}`}
+        open={aiReviewOpen}
+        milestone={selected}
+        onClose={() => setAiReviewOpen(false)}
+      />
+
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -640,6 +661,8 @@ function MilestoneActions({
   onApprove,
   onDelete,
   onReviewExtension,
+  onAskAi,
+  onAiReview,
 }: {
   milestone: Milestone;
   isLecturer: boolean;
@@ -652,6 +675,8 @@ function MilestoneActions({
   onApprove: () => void;
   onDelete: () => void;
   onReviewExtension: (approve: boolean) => void;
+  onAskAi: () => void;
+  onAiReview: () => void;
 }) {
   const pendingExtension = milestone.extension_requested && milestone.extension_status === "PENDING";
 
@@ -675,6 +700,17 @@ function MilestoneActions({
         <button className="btn-ghost p-1 rounded hover:text-primary text-[12px]">Thao tác</button>
       }
     >
+      {/* Hỏi trợ lý NGAY TẠI MỐC. Ngăn kéo mở ra đã biết mốc này yêu cầu gì,
+          hạn khi nào, và đọc sẵn minh chứng đã nộp làm nguồn — nên câu hỏi đầu
+          tiên không phải là "mốc nào?" mà đã là câu hỏi thật. */}
+      <DropdownItem
+        icon={<Robot size={16} />}
+        onClick={onAskAi}
+      >
+        Hỏi AI về mốc này
+      </DropdownItem>
+      <DropdownSeparator />
+
       {!isLecturer && (
         <>
           <DropdownItem icon={<UploadSimple size={16} />} onClick={onUpload}>
@@ -702,6 +738,17 @@ function MilestoneActions({
               <DropdownSeparator />
             </>
           )}
+          {/* Bản nháp nhận xét của trợ lý. Chỉ có nghĩa khi đã có minh chứng
+              để đọc — mốc chưa nộp gì thì không có gì để đối chiếu. */}
+          {milestone.evidence_filename && (
+            <>
+              <DropdownItem icon={<Sparkle size={16} />} onClick={onAiReview}>
+                Nhận xét sơ bộ của AI
+              </DropdownItem>
+              <DropdownSeparator />
+            </>
+          )}
+
           {milestone.status === "PENDING_APPROVAL" && (
             <>
               <DropdownItem icon={<CheckCircle size={16} />} onClick={onApprove}>
@@ -854,6 +901,19 @@ function EvidenceModal({
       description="Sau khi nộp, mốc sẽ chuyển sang trạng thái Chờ phê duyệt."
       footer={
         <>
+          {/* Hỏi trợ lý TRƯỚC KHI nộp, không phải sau. Đây là thời điểm duy nhất
+              sinh viên còn sửa được bài: sau khi bấm gửi duyệt, mốc đã sang tay
+              giảng viên. Ngăn kéo mở ra đã biết mốc này yêu cầu gì và đọc sẵn
+              minh chứng của những lần nộp trước. */}
+          {milestone && (
+            <Button
+              variant="ghost"
+              icon={<Robot size={15} />}
+              onClick={() => aiPanel.openWithMilestone(milestone.id, milestone.thesis_id)}
+            >
+              Hỏi AI về mốc này
+            </Button>
+          )}
           <Button variant="ghost" onClick={onClose}>
             Hủy
           </Button>
@@ -1025,6 +1085,150 @@ function RevisionModal({
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />
+    </Modal>
+  );
+}
+
+/* ==========================================================================
+   NHẬN XÉT SƠ BỘ CỦA AI
+
+   Bản nháp do trợ lý sinh khi sinh viên gửi mốc đi duyệt (xem
+   `backend/src/lib/milestone-review.ts`). Nó KHÔNG phải một phản hồi đã gửi:
+   sinh viên không thấy nó ở đâu cả cho tới khi giảng viên bấm "Chép sang phản
+   hồi" — và lúc đó thứ được gửi mang tên giảng viên, sau khi họ đã đọc và sửa.
+
+   Đó là ranh giới quan trọng nhất của tính năng này. Đăng thẳng nhận xét của mô
+   hình lên luồng trao đổi là để một bản đánh giá không ai chịu trách nhiệm đi
+   thẳng tới người học.
+   ========================================================================== */
+
+function AIReviewModal({
+  open,
+  milestone,
+  onClose,
+}: {
+  open: boolean;
+  milestone: Milestone | null;
+  onClose: () => void;
+}) {
+  const { data, loading, error, refetch } = useAsync(
+    () => milestonesApi.aiReview(milestone?.id ?? 0),
+    [milestone?.id, open],
+    { enabled: open && !!milestone }
+  );
+
+  /* Nội dung soạn thảo được, khởi tạo từ bản nháp. `useSelection` cho phép
+     "lấy giá trị tải về cho tới khi người dùng tự sửa" mà không cần một effect
+     đồng bộ — đúng mẫu đã dùng ở các trang khác. */
+  const [edited, setEdited] = useSelection<string>(data?.content ?? null);
+
+  const [generating, setGenerating] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
+
+  const regenerate = async () => {
+    if (!milestone) return;
+    setGenerating(true);
+    try {
+      await aiApi.milestoneReview(milestone.id);
+      setEdited(null); // Bản nháp mới thay chỗ bản đang sửa.
+      await refetch();
+      toast.success("Trợ lý đã viết lại bản nháp nhận xét.");
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Không tạo được bản nháp nhận xét.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copyToFeedback = async () => {
+    const content = (edited ?? data?.content ?? "").trim();
+    if (!milestone || !content) return;
+    setSending(true);
+    try {
+      await feedbacksApi.create({ milestone_id: milestone.id, content });
+      toast.success("Đã gửi nhận xét cho sinh viên dưới tên bạn.");
+      onClose();
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Không gửi được phản hồi.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const content = edited ?? data?.content ?? "";
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Nhận xét sơ bộ của AI"
+      description={milestone?.name}
+      width="max-w-2xl"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Đóng
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<Sparkle size={15} />}
+            loading={generating}
+            disabled={!milestone}
+            onClick={() => void regenerate()}
+          >
+            {data ? "Viết lại" : "Tạo bản nháp"}
+          </Button>
+          <Button
+            variant="primary"
+            loading={sending}
+            disabled={!content.trim()}
+            onClick={() => void copyToFeedback()}
+          >
+            Chép sang phản hồi
+          </Button>
+        </>
+      }
+    >
+      {loading ? (
+        <Skeleton className="h-48 rounded-md" />
+      ) : error ? (
+        <EmptyState
+          icon={<Warning size={15} />}
+          title="Không tải được bản nháp"
+          description={error}
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              Thử lại
+            </Button>
+          }
+        />
+      ) : !data ? (
+        <EmptyState
+          compact
+          icon={<Sparkle size={15} />}
+          title="Chưa có bản nháp nào"
+          description="Trợ lý tự viết bản nháp khi sinh viên gửi mốc đi duyệt. Bấm “Tạo bản nháp” để chạy ngay bây giờ."
+        />
+      ) : (
+        <>
+          <p className="text-[12.5px] text-tertiary mb-2">
+            Bản nháp do trợ lý đọc minh chứng và đối chiếu với yêu cầu của mốc.{" "}
+            <strong className="text-secondary">Sinh viên chưa nhìn thấy nội dung này.</strong> Sửa
+            lại theo ý bạn rồi bấm “Chép sang phản hồi” để gửi đi dưới tên bạn.
+          </p>
+
+          <Textarea
+            label="Nội dung nhận xét"
+            rows={12}
+            value={content}
+            onChange={(e) => setEdited(e.target.value)}
+          />
+
+          <p className="text-[11.5px] text-muted tnum mt-1.5">
+            Trợ lý viết lúc {formatDateTime(data.created_at)}
+          </p>
+        </>
+      )}
     </Modal>
   );
 }

@@ -671,6 +671,29 @@ model Feedback {
   file_url  String? @db.VarChar(512)
   file_name String? @db.VarChar(255)
 
+  /// BẢN NHÁP NHẬN XÉT DO TRỢ LÝ AI SINH.
+  ///
+  /// Dùng chính bảng này thay vì `ai_suggestions`: thứ AI sinh ra ở đây là một
+  /// đoạn NHẬN XÉT gửi cho người chấm, cùng hình dạng với mọi nhận xét khác, nên
+  /// giảng viên "chép sang phản hồi" là copy văn bản chứ không phải chuyển đổi
+  /// cấu trúc. `ai_suggestions` giữ payload JSON của lộ trình — một hình dạng
+  /// hoàn toàn khác.
+  ///
+  /// ⚠️ Bản ghi có cờ này KHÔNG được lọt vào luồng trao đổi thường
+  /// (`buildListWhere` trong `feedbacks.service.ts` loại nó ra). Nó là ghi chú
+  /// riêng cho người có quyền chấm; để sinh viên đọc được bản phê bình sơ bộ về
+  /// chính bài của mình trước khi giảng viên xem là chuyện khác hẳn.
+  is_ai_draft Boolean @default(false)
+
+  /// Mốc mà bản nháp AI nói về.
+  ///
+  /// Trùng giá trị với `milestone_id` ở mọi bản ghi hiện tại và cố ý như vậy:
+  /// `milestone_id` phải chịu CHECK `feedbacks_exactly_one_target` và cascade
+  /// delete, còn cột này là chỗ neo ngữ cảnh khi bản nháp về sau được gắn vào
+  /// một tài liệu (`document_id`) thay vì vào mốc. Chưa có đường ghi nào dùng
+  /// tới nhánh đó.
+  ai_milestone_id Int?
+
   is_resolved Boolean   @default(false)
   resolved_by Int?
   resolved_at DateTime?

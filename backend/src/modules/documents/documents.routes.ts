@@ -22,6 +22,7 @@ import { badRequest, conflict, forbidden, HttpError, notFound } from "../../lib/
 import { audit, AuditAction } from "../../lib/audit";
 import { signFileUrl } from "../../lib/crypto";
 import { assertAllowedType, deleteFile, DOCUMENT_MIME, saveBuffer } from "../../lib/storage";
+import { EVIDENCE_TAG } from "../../lib/evidence-to-document";
 import { currentUser, requireAuth, requireContributor } from "../../middleware/auth";
 import { aiLimiter, uploadLimiter } from "../../middleware/rate-limit";
 import { cleanText, idParam, optionalText, text, validateBody, validateParams, validateQuery } from "../../middleware/validate";
@@ -429,12 +430,25 @@ documentsRouter.delete(
     await deleteChunks(id).catch((err: unknown) => {
       logger.error({ err, documentId: id }, "Không xóa được vector của tài liệu");
     });
-    // Đường dẫn có thể trùng nhau giữa `documents` và bản hiện hành; `deleteFile`
-    // dùng `force` nên gọi lại trên tệp đã mất không phải là lỗi.
-    await Promise.all([
-      deleteFile(detail.file_path),
-      ...versions.map((v) => deleteFile(v.file_path)),
-    ]);
+    /*
+     * Minh chứng mốc tiến độ giữ nguyên tệp trên đĩa.
+     *
+     * Bản ghi `documents` sinh từ minh chứng (UC 4.9 → `lib/evidence-to-document.ts`)
+     * TRỎ CHUNG một tệp vật lý với `milestones.evidence_file_url`. Xoá tệp ở đây
+     * sẽ làm hỏng liên kết tải minh chứng của một mốc có thể đã được phê duyệt —
+     * mất bằng chứng của một hồ sơ đã chốt, chỉ vì người dùng dọn danh sách tài
+     * liệu. Xoá mềm bản ghi là đủ để nó biến khỏi kho tra cứu của trợ lý.
+     */
+    const isMilestoneEvidence = detail.tags.includes(EVIDENCE_TAG);
+
+    if (!isMilestoneEvidence) {
+      // Đường dẫn có thể trùng nhau giữa `documents` và bản hiện hành; `deleteFile`
+      // dùng `force` nên gọi lại trên tệp đã mất không phải là lỗi.
+      await Promise.all([
+        deleteFile(detail.file_path),
+        ...versions.map((v) => deleteFile(v.file_path)),
+      ]);
+    }
 
     audit({
       action: AuditAction.DOCUMENT_DELETE,
@@ -444,6 +458,7 @@ documentsRouter.delete(
         thesis_id: detail.thesis_id,
         filename: detail.filename,
         versions_removed: versions.length,
+        files_kept_for_milestone_evidence: isMilestoneEvidence,
       },
     });
 

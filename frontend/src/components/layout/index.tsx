@@ -1084,3 +1084,13 @@ export function Toolbar({
 		</div>
 	);
 }
+
+/* ==========================================================================
+   NGĂN KÉO TRỢ LÝ AI
+
+   Re-export chứ không định nghĩa tại chỗ: tệp này đã hơn nghìn dòng, và ngăn
+   kéo kéo theo cả cụm `ai-chat/components` — trộn vào đây sẽ buộc mọi trang
+   import `PageHeader` phải nạp luôn khung chat.
+   ========================================================================== */
+
+export { AIChatDrawer } from "./AIChatDrawer";

@@ -14,6 +14,7 @@ import {
   Files,
   MagnifyingGlass,
   PencilSimple,
+  Robot,
   ShareNetwork,
   Sparkle,
   Trash,
@@ -42,6 +43,7 @@ import {
   Tabs,
 } from "@/components/ui";
 import { toast } from "@/lib/toast";
+import { aiPanel } from "@/lib/ai-panel";
 import { api, isApiError } from "@/lib/api";
 import { useAsync, useDebounced } from "@/lib/use-async";
 import { isAdmin, useAuthStore } from "@/lib/auth";
@@ -514,6 +516,21 @@ export default function DocumentsPage() {
       align: "right",
       render: (d) => (
         <div className="row-actions flex items-center justify-end gap-0.5">
+          {/* Hỏi trợ lý NGAY TRÊN HÀNG của tài liệu.
+              Ngăn kéo mở ra với đúng tệp này làm nguồn duy nhất, nên người dùng
+              không phải sang trang trợ lý rồi chọn lại đề tài và tìm lại tệp —
+              ba bước đủ để phần lớn người dùng thôi hỏi.
+              Chỉ hiện khi tệp đã lập chỉ mục: hỏi về một tệp còn PENDING chỉ
+              nhận lại "không tìm thấy nội dung phù hợp". */}
+          {d.status_ai === "DONE" && (
+            <IconButton
+              label="Hỏi AI về tài liệu này"
+              size="sm"
+              onClick={() => aiPanel.openWithDocument(d.id, d.thesis_id)}
+            >
+              <Robot size={14} />
+            </IconButton>
+          )}
           <IconButton label="Xem trước" size="sm" onClick={() => setPreviewDoc(d)}>
             <Eye size={14} />
           </IconButton>

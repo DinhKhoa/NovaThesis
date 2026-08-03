@@ -64,6 +64,8 @@ export const AuditAction = {
   AI_SUMMARIZE: "AI_SUMMARIZE",
   AI_SUGGEST: "AI_SUGGEST",
   AI_PLAGIARISM: "AI_PLAGIARISM",
+  /** Bản nháp nhận xét mốc tiến độ (`lib/milestone-review.ts`). */
+  AI_MILESTONE_REVIEW: "AI_MILESTONE_REVIEW",
   AI_PROVIDER_ERROR: "AI_PROVIDER_ERROR",
 
   FEEDBACK_CREATE: "FEEDBACK_CREATE",

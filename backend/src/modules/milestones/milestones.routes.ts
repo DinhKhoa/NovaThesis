@@ -21,6 +21,9 @@ import { prisma } from "../../lib/prisma";
 import { asyncHandler, noContent, paginated, parsePage } from "../../lib/http";
 import { badRequest, conflict, forbidden, notFound, tooLarge } from "../../lib/errors";
 import { audit, AuditAction } from "../../lib/audit";
+import { logger } from "../../lib/logger";
+import { registerEvidenceAsDocument } from "../../lib/evidence-to-document";
+import { generateMilestoneReview, latestMilestoneReview } from "../../lib/milestone-review";
 import {
   assertAllowedType,
   deleteFile,
@@ -64,6 +67,31 @@ import {
 } from "./milestones.service";
 
 export const milestonesRouter = Router();
+
+/* ==========================================================================
+   BẢN NHÁP NHẬN XÉT CỦA AI
+   ========================================================================== */
+
+/**
+ * Kích hoạt bản nháp nhận xét khi mốc bước vào hàng chờ phê duyệt.
+ *
+ * KHÔNG `await`: sinh một bản nháp là một lượt gọi mô hình mất vài giây, còn
+ * thứ sinh viên đang chờ chỉ là xác nhận "đã nộp". Bắt họ nhìn spinner trong
+ * lúc trợ lý đọc bài hộ giảng viên là đổi trải nghiệm của người này lấy tiện
+ * nghi của người kia. Lỗi vì thế cũng chỉ ghi log — bản nháp là phần thêm, mất
+ * nó không làm hỏng việc nộp bài, và giảng viên vẫn bấm tạo lại bằng tay được.
+ *
+ * Chỉ chạy khi trạng thái THẬT SỰ đổi: gọi lại endpoint với đúng trạng thái
+ * hiện tại (tải lại minh chứng cho mốc đang chờ duyệt) sẽ sinh ra một bản nháp
+ * thứ hai giống hệt và tốn thêm một lượt gọi mô hình.
+ */
+function scheduleMilestoneReview(from: MilestoneStatus, to: MilestoneStatus, id: number): void {
+  if (to !== "PENDING_APPROVAL" || from === to) return;
+
+  void generateMilestoneReview(id).catch((err: unknown) => {
+    logger.warn({ err, milestoneId: id }, "Không sinh được bản nháp nhận xét AI cho mốc");
+  });
+}
 
 /* ==========================================================================
    TẢI MINH CHỨNG (UC 4.9)
@@ -573,6 +601,8 @@ milestonesRouter.patch(
       });
     }
 
+    scheduleMilestoneReview(from, body.status, updated.id);
+
     res.json({ data: toMilestoneView(updated, user.role) });
   })
 );
@@ -766,6 +796,33 @@ milestonesRouter.post(
       await deleteFile(previousPath);
     }
 
+    /*
+     * Đăng ký minh chứng thành tài liệu tra cứu được (xem `lib/evidence-to-document.ts`).
+     *
+     * `try/catch` nuốt lỗi là CÓ CHỦ ĐÍCH, không phải cẩu thả. Thao tác người
+     * dùng vừa thực hiện — nộp minh chứng — đã thành công và đã commit; để một
+     * lỗi ở bước lập chỉ mục biến nó thành 500 sẽ khiến sinh viên bấm nộp lại,
+     * và lần nộp thứ hai ghi đè đúng tệp vừa lưu thành công.
+     */
+    let evidenceDocumentId: number | null = null;
+    try {
+      const registered = await registerEvidenceAsDocument({
+        thesisId: updated.thesis_id,
+        milestoneId: updated.id,
+        uploaderId: user.id,
+        filePath: stored.relativePath,
+        filename: originalName,
+        mimeType: file.mimetype,
+        fileSize: stored.size,
+      });
+      evidenceDocumentId = registered.documentId;
+    } catch (err) {
+      logger.error(
+        { err, milestoneId: updated.id },
+        "Không đăng ký được minh chứng thành tài liệu tra cứu"
+      );
+    }
+
     audit({
       action: AuditAction.MILESTONE_UPDATE,
       req,
@@ -777,6 +834,9 @@ milestonesRouter.post(
         filename: originalName,
         size: stored.size,
         auto_submit,
+        // `null` khi bước đăng ký hỏng — đọc nhật ký là biết ngay tệp nào không
+        // vào được kho tài liệu, thay vì phải đối chiếu hai bảng.
+        evidence_document_id: evidenceDocumentId,
       },
     });
 
@@ -788,6 +848,12 @@ milestonesRouter.post(
       title: auto_submit ? "Mốc tiến độ chờ phê duyệt" : "Minh chứng mới được nộp",
       content: `${user.full_name} đã nộp minh chứng “${originalName}” cho mốc “${updated.name}”.`,
     });
+
+    // Nộp kèm "gửi duyệt" là con đường thường gặp nhất tới `PENDING_APPROVAL`,
+    // nên nó cũng phải kích hoạt bản nháp nhận xét. `milestone.status` là trạng
+    // thái TRƯỚC khi chuyển, đúng thứ `scheduleMilestoneReview` cần để không
+    // sinh trùng khi mốc vốn đã ở hàng chờ.
+    scheduleMilestoneReview(milestone.status, updated.status, updated.id);
 
     res.status(201).json({ data: toMilestoneView(updated, user.role) });
   })
@@ -965,6 +1031,49 @@ milestonesRouter.post(
     });
 
     res.json({ data: toMilestoneView(updated, user.role) });
+  })
+);
+
+/* ==========================================================================
+   BẢN NHÁP NHẬN XÉT CỦA AI (đọc)
+   ========================================================================== */
+
+/**
+ * Bản nháp mới nhất của một mốc.
+ *
+ * Quyền `review`, không phải `view`. Đây là ghi chú riêng cho người chấm: để
+ * sinh viên đọc được bản phê bình sơ bộ về chính bài của mình — trước cả khi
+ * giảng viên kịp xem — sẽ biến một công cụ hỗ trợ chấm thành một bản nhận xét
+ * không ai ký tên. Cùng lý do đó, `feedbacks.service.ts` cũng loại bản nháp
+ * khỏi luồng trao đổi bình thường.
+ *
+ * Trả `data: null` khi chưa có bản nháp, thay vì 404: giao diện chỉ cần biết
+ * "có hay không" để quyết định hiện hay ẩn khối, và 404 sẽ bật ra một thông báo
+ * lỗi cho một trạng thái hoàn toàn bình thường.
+ */
+milestonesRouter.get(
+  "/:id/ai-review",
+  requireAuth,
+  validateParams(idParam),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { id } = req.params as unknown as z.infer<typeof idParam>;
+
+    const milestone = await loadMilestone(id);
+    await assertThesisAccess(user, milestone.thesis_id, "review");
+
+    const draft = await latestMilestoneReview(id);
+
+    res.json({
+      data: draft
+        ? {
+            id: draft.id,
+            milestone_id: id,
+            content: draft.content,
+            created_at: draft.created_at.toISOString(),
+          }
+        : null,
+    });
   })
 );
 

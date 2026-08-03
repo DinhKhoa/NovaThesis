@@ -42,7 +42,9 @@ import {
 } from "../../services/ai/rag";
 import { searchHybridChunks, searchSimilarChunks } from "../../services/ai/vector.repository";
 import { embedOne } from "../../services/ai/embeddings";
-import type { ChatTurn } from "../../services/ai/llm";
+import { sanitizePrompt, type ChatTurn } from "../../services/ai/llm";
+import { milestoneTag } from "../../lib/evidence-to-document";
+import { generateMilestoneReview } from "../../lib/milestone-review";
 import {
   toChatMessageDTO,
   toChatSessionDTO,
@@ -106,6 +108,17 @@ const chatSchema = z.object({
   /** Chỉ dùng khi TẠO phiên mới; phiên đã có thì đọc từ CSDL. */
   answer_mode: answerModeSchema.optional(),
   document_ids: documentIdsSchema,
+  /**
+   * Mốc tiến độ mà câu hỏi đang nhắm tới.
+   *
+   * CHỈ SỐNG TRONG MỘT REQUEST. Cố ý KHÔNG có cột tương ứng trong
+   * `ai_chat_sessions`: gắn một phiên hội thoại vào một mốc là một lời hứa sai —
+   * người dùng mở khung chat từ mốc rồi hỏi tiếp sang chuyện khác ở câu thứ hai
+   * là chuyện bình thường, và lúc đó nhãn "hội thoại của mốc X" chỉ còn gây
+   * hiểu nhầm. Ngữ cảnh mốc được nạp vào chỉ dẫn hệ thống của đúng câu đầu tiên
+   * rồi thôi.
+   */
+  milestone_id: optionalId("Mã mốc tiến độ"),
 });
 
 const sessionSourcesSchema = z.object({
@@ -509,6 +522,16 @@ aiRouter.post(
       sources: Array<{ document_id: number }>;
     };
 
+    /**
+     * Ngữ cảnh mốc tiến độ, nối vào chỉ dẫn hệ thống của lượt này.
+     *
+     * `null` ở mọi trường hợp còn lại — kể cả khi hỏi tiếp trong một phiên vốn
+     * được mở từ một mốc. Đó là chủ ý: câu thứ hai trong cùng phiên thường đã
+     * chuyển sang chuyện khác, và giữ nguyên ngữ cảnh mốc sẽ kéo mọi câu trả lời
+     * về lại mốc đó.
+     */
+    let milestoneSystemContext: string | null = null;
+
     if (body.session_id !== undefined) {
       /* Phiên đã tồn tại thì chế độ và nguồn đọc từ CSDL, KHÔNG lấy từ body.
          Tin vào body sẽ để một người dùng đổi phạm vi giữa chừng mà lịch sử hội
@@ -519,7 +542,69 @@ aiRouter.post(
       if (body.thesis_id !== undefined) await assertThesisAccess(user, body.thesis_id, "view");
 
       const thesisId = body.thesis_id ?? null;
-      const sources = await keepAccessibleDocuments(user, thesisId, body.document_ids ?? []);
+
+      /* ---- Ngữ cảnh mốc tiến độ ------------------------------------------
+       *
+       * Đặt Ở ĐÂY, trước `aIChatSession.create`, vì hai lý do:
+       *
+       *   1. Nó ném lỗi được. Sau `initSSE(res)` thì header 200 đã đi và
+       *      `errorHandler` không còn đổi được mã trạng thái nữa (xem ghi chú
+       *      "RANH GIỚI SSE" ở đầu tệp).
+       *   2. Ném TRƯỚC khi tạo phiên thì một mã mốc sai không để lại một hội
+       *      thoại rỗng trong thanh bên của người dùng.
+       */
+      const evidenceDocumentIds: number[] = [];
+
+      if (body.milestone_id !== undefined) {
+        /* Phiên không gắn đề tài thì không có phạm vi nào để đối chiếu, và bỏ
+           qua điều kiện `thesis_id` sẽ cho phép nạp tên/mô tả/hạn chót của mốc
+           BẤT KỲ vào chỉ dẫn hệ thống — tức là đọc được dữ liệu của đề tài
+           người khác qua câu trả lời. Chặn thẳng thay vì nới điều kiện. */
+        if (thesisId === null) {
+          throw badRequest(
+            "Hỏi theo mốc tiến độ cần chọn đề tài trước để trợ lý biết phạm vi tài liệu."
+          );
+        }
+
+        const milestone = await prisma.milestone.findFirst({
+          // `thesisId` đã đi qua `assertThesisAccess` ngay phía trên, nên điều
+          // kiện này vừa là bộ lọc vừa là hàng rào phân quyền.
+          where: { id: body.milestone_id, thesis_id: thesisId, deleted_at: null },
+          select: { id: true, name: true, description: true, deadline: true, status: true },
+        });
+
+        if (!milestone) {
+          throw badRequest("Mốc tiến độ không tồn tại hoặc không thuộc đề tài đang chọn.");
+        }
+
+        milestoneSystemContext = [
+          `Người dùng đang hỏi về mốc tiến độ: “${sanitizePrompt(milestone.name, 300)}”`,
+          milestone.description
+            ? `Yêu cầu của mốc: ${sanitizePrompt(milestone.description, 2000)}`
+            : null,
+          // `deadline` là nửa đêm UTC của một NGÀY (xem `milestones.service.ts`),
+          // nên cắt 10 ký tự đầu là cách đọc đúng, không phải cách đọc tắt.
+          `Hạn chót: ${milestone.deadline.toISOString().slice(0, 10)}`,
+          `Trạng thái hiện tại: ${milestone.status}`,
+        ]
+          .filter((line): line is string => line !== null)
+          .join("\n");
+
+        /* Minh chứng của chính mốc đó được đưa vào tập nguồn.
+           Không lọc theo `thesis_id`: `keepAccessibleDocuments` ngay bên dưới
+           đã giao lại với `accessibleDocumentIds()`, nên một id lọt ra ngoài
+           phạm vi sẽ bị loại ở đó. */
+        const evidenceDocs = await prisma.document.findMany({
+          where: { deleted_at: null, tags: { has: milestoneTag(milestone.id) } },
+          select: { id: true },
+        });
+        evidenceDocumentIds.push(...evidenceDocs.map((d) => d.id));
+      }
+
+      const sources = await keepAccessibleDocuments(user, thesisId, [
+        ...(body.document_ids ?? []),
+        ...evidenceDocumentIds,
+      ]);
 
       const created = await prisma.aIChatSession.create({
         data: {
@@ -603,6 +688,7 @@ aiRouter.post(
         history,
         signal: controller.signal,
         mode: session.answer_mode,
+        ...(milestoneSystemContext ? { systemContext: milestoneSystemContext } : {}),
       })) {
         // Chế độ `local` phát lại văn bản có sẵn và không hề nhìn tới `signal`;
         // không tự thoát ở đây thì "Dừng" sẽ không dừng được gì.
@@ -801,6 +887,74 @@ aiRouter.post(
     });
 
     res.json(toChatMessageDTO(updated));
+  })
+);
+
+/* ==========================================================================
+   BẢN NHÁP NHẬN XÉT MỐC TIẾN ĐỘ
+
+   Nghiệp vụ nằm trong `lib/milestone-review.ts` vì module Mốc tiến độ cũng gọi
+   nó (tự động khi mốc chuyển sang "chờ phê duyệt"). Đặt ở một trong hai module
+   sẽ buộc module kia import ngang qua ranh giới module.
+   ========================================================================== */
+
+const milestoneParam = z.object({
+  milestoneId: z.coerce.number().int().positive("Mã mốc tiến độ không hợp lệ."),
+});
+
+aiRouter.post(
+  "/milestone-review/:milestoneId",
+  requireAuth,
+  aiLimiter,
+  validateParams(milestoneParam),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const { milestoneId } = req.params as unknown as z.infer<typeof milestoneParam>;
+
+    const milestone = await prisma.milestone.findFirst({
+      where: { id: milestoneId, deleted_at: null },
+      select: { id: true, thesis_id: true, name: true },
+    });
+    if (!milestone) throw notFound("Mốc tiến độ không tồn tại hoặc đã bị xóa.");
+
+    /* Quyền `review`, không phải `contribute`: bản nháp này là ghi chú cho
+       người CHẤM. Cho sinh viên tự sinh ra bản phê bình bài của chính mình sẽ
+       biến nó thành một công cụ dò đáp án — và mỗi lần bấm là một lượt gọi mô
+       hình mà đề tài phải trả tiền. */
+    await assertThesisAccess(user, milestone.thesis_id, "review");
+
+    const review = await generateMilestoneReview(milestone.id, { throwIfMissing: true });
+
+    if (!review) {
+      throw unprocessable(
+        "Đề tài chưa có giảng viên hướng dẫn nên chưa xác định được người nhận bản nháp nhận xét."
+      );
+    }
+
+    audit({
+      action: AuditAction.AI_MILESTONE_REVIEW,
+      req,
+      details: {
+        thesis_id: milestone.thesis_id,
+        milestone_id: milestone.id,
+        feedback_id: review.feedbackId,
+        evidence_chunks: review.evidenceChunks,
+        from_model: review.fromModel,
+        model_name: review.modelName,
+        trigger: "manual",
+      },
+    });
+
+    res.status(201).json({
+      data: {
+        id: review.feedbackId,
+        milestone_id: milestone.id,
+        content: review.content,
+        created_at: review.createdAt.toISOString(),
+        model_name: review.modelName,
+        evidence_chunks: review.evidenceChunks,
+      },
+    });
   })
 );
 

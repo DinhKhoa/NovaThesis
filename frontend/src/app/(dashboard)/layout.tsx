@@ -1,7 +1,7 @@
 "use client";
 
 import React, { ViewTransition } from "react";
-import { Sidebar, Topbar } from "@/components/layout";
+import { AIChatDrawer, Sidebar, Topbar } from "@/components/layout";
 import { ToastContainer, useStoredFlag } from "@/components/ui";
 import { RequireAuth } from "@/lib/guards";
 import { useToastStore } from "@/lib/toast";
@@ -82,6 +82,16 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </ViewTransition>
         </main>
       </div>
+
+      {/*
+        Ngăn kéo trợ lý AI. Gắn ở đây để nó sống sót qua mọi lần chuyển trang —
+        đặt trong từng trang thì cuộc trò chuyện đang dở sẽ mất mỗi lần người
+        dùng đi mở tài liệu để đối chiếu.
+
+        Không có state hay effect nào thêm vào layout: ngăn kéo tự đọc
+        `useAIPanelStore` và tự bắt phím tắt Ctrl+J.
+      */}
+      <AIChatDrawer />
     </div>
   );
 }

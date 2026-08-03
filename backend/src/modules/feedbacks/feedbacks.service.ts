@@ -276,6 +276,16 @@ export async function buildListWhere(
     // Chỉ bình luận gốc: các trả lời đã nằm sẵn trong `replies` của chính chúng,
     // liệt kê phẳng ra đây sẽ khiến chúng hiện hai lần trên giao diện.
     parent_id: null,
+    /*
+     * Bản nháp do AI sinh KHÔNG phải một bình luận đã gửi.
+     *
+     * Nó nằm cùng bảng vì cùng hình dạng (xem `lib/milestone-review.ts`), nhưng
+     * nó là ghi chú riêng cho người chấm và chỉ ra ở `GET /milestones/:id/ai-review`,
+     * nơi có kiểm tra quyền `review`. Bỏ điều kiện này thì sinh viên sẽ đọc được
+     * bản phê bình sơ bộ về chính bài của mình, mang tên giảng viên hướng dẫn,
+     * trước cả khi giảng viên kịp mở nó ra.
+     */
+    is_ai_draft: false,
     OR: branches,
     ...(filters.resolved === undefined ? {} : { is_resolved: filters.resolved }),
   };

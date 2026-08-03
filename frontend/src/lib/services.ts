@@ -168,6 +168,20 @@ export interface MilestoneHistoryEntry {
   created_at: string;
 }
 
+/**
+ * Bản nháp nhận xét mốc tiến độ do trợ lý sinh.
+ *
+ * Lưu trong bảng `feedbacks` với `is_ai_draft = true` (xem
+ * `backend/src/lib/milestone-review.ts`) nhưng KHÔNG xuất hiện trong luồng trao
+ * đổi: nó là ghi chú cho người chấm, chưa phải một nhận xét đã gửi.
+ */
+export interface MilestoneAIReview {
+  id: number;
+  milestone_id: number;
+  content: string;
+  created_at: string;
+}
+
 export interface StudentDashboard {
   thesis: Thesis | null;
   total: number;
@@ -234,6 +248,14 @@ export const milestonesApi = {
   requestRevision: (id: number, note: string) =>
     api.post<Milestone>(`/milestones/${id}/request-revision`, { note }),
   history: (id: number) => api.get<MilestoneHistoryEntry[]>(`/milestones/${id}/history`),
+  /**
+   * Bản nháp nhận xét do AI sinh (chỉ người có quyền chấm đọc được).
+   *
+   * `data` là `null` khi chưa có bản nháp — đó là trạng thái bình thường, không
+   * phải lỗi, nên backend cố ý trả 200 chứ không 404.
+   */
+  aiReview: async (id: number): Promise<MilestoneAIReview | null> =>
+    (await api.get<{ data: MilestoneAIReview | null }>(`/milestones/${id}/ai-review`)).data,
   reorder: (items: { id: number; order_index: number }[]) =>
     api.patch<void>("/milestones/reorder", { items }),
   studentDashboard: () => api.get<StudentDashboard>("/milestones/dashboard/student"),
@@ -489,6 +511,13 @@ export const aiApi = {
   regenerateSuggestion: (id: number) => api.post<AISuggestion>(`/ai/suggestions/${id}/regenerate`),
   plagiarism: (thesisId: number, text: string) =>
     api.post<PlagiarismResult>("/ai/plagiarism", { thesis_id: thesisId, text }),
+  /** Sinh lại bản nháp nhận xét cho một mốc. Chỉ người có quyền chấm gọi được. */
+  milestoneReview: async (milestoneId: number): Promise<MilestoneAIReview> =>
+    (
+      await api.post<{ data: MilestoneAIReview & { model_name: string; evidence_chunks: number } }>(
+        `/ai/milestone-review/${milestoneId}`
+      )
+    ).data,
   stats: () => api.get<AIStats & { generated_at: string }>("/ai/stats"),
 };
 
@@ -537,6 +566,15 @@ export function streamChat(
     /** Chỉ có tác dụng khi tạo phiên mới; phiên đã có thì server đọc từ CSDL. */
     answer_mode?: AnswerMode;
     document_ids?: number[];
+    /**
+     * Mốc tiến độ mà câu hỏi đang nhắm tới.
+     *
+     * Chỉ dùng TRONG một request và KHÔNG được lưu vào `ai_chat_sessions`:
+     * server nạp tên/yêu cầu/hạn chót của mốc vào system prompt rồi quên nó đi.
+     * Lưu lại sẽ biến một phiên hội thoại thành tài sản của một mốc, trong khi
+     * người dùng hoàn toàn có thể hỏi tiếp sang chuyện khác ở câu thứ hai.
+     */
+    milestone_id?: number;
   },
   handlers: ChatStreamHandlers
 ): () => void {
