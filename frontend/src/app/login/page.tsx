@@ -7,5 +7,5 @@ import { redirect } from "next/navigation";
  * signed-out sidebar, and any bookmark or email sent before the change.
  */
 export default function LoginRedirect() {
-  redirect("/?auth=login");
+	redirect("/?auth=login");
 }

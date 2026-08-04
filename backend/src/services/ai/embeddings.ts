@@ -179,25 +179,29 @@ async function embedOpenAI(texts: string[]): Promise<number[][]> {
 }
 
 async function embedGemini(texts: string[]): Promise<number[][]> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${env.GEMINI_API_KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requests: texts.map((t) => ({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text: t }] },
-      })),
-    }),
-    signal: AbortSignal.timeout(60_000),
-  });
+  // gemini-embedding-001 chỉ hỗ trợ embedContent (một văn bản/lần),
+  // không có batchEmbedContents như text-embedding-004 (đã bị xóa).
+  const results: number[][] = [];
+  for (const text of texts) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${env.GEMINI_API_KEY}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "models/gemini-embedding-001",
+        content: { parts: [{ text }] },
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
 
-  if (!res.ok) {
-    throw new Error(`Gemini embeddings HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+    if (!res.ok) {
+      throw new Error(`Gemini embeddings HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+    }
+
+    const body = (await res.json()) as { embedding: { values: number[] } };
+    results.push(fitDimension(body.embedding.values));
   }
-
-  const body = (await res.json()) as { embeddings: { values: number[] }[] };
-  return body.embeddings.map((e) => fitDimension(e.values));
+  return results;
 }
 
 /* ==========================================================================
@@ -209,7 +213,7 @@ export function embeddingModelName(): string {
     case "openai":
       return env.OPENAI_EMBEDDING_MODEL;
     case "gemini":
-      return "text-embedding-004";
+      return "gemini-embedding-001";
     default:
       return "local-hashing-v1";
   }

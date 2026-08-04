@@ -47,43 +47,43 @@ export type AuthMode = "login" | "register";
 
 /** "14:59" — mm:ss, vì "còn 1 phút" ở giây thứ 89 là nói dối. */
 function formatCountdown(ms: number): string {
-  const total = Math.max(0, Math.ceil(ms / 1000));
-  const mm = Math.floor(total / 60);
-  const ss = total % 60;
-  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+	const total = Math.max(0, Math.ceil(ms / 1000));
+	const mm = Math.floor(total / 60);
+	const ss = total % 60;
+	return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
 
 /** Đồng hồ đếm ngược tới thời điểm hết khóa. */
 function LockCountdown({
-  until,
-  onExpire,
+	until,
+	onExpire,
 }: {
-  until: number;
-  onExpire: () => void;
+	until: number;
+	onExpire: () => void;
 }) {
-  /* Giữ MỐC THỜI GIAN hiện tại chứ không giữ "số giây còn lại": `until` là thời
+	/* Giữ MỐC THỜI GIAN hiện tại chứ không giữ "số giây còn lại": `until` là thời
      điểm tuyệt đối, nên khi nó đổi thì phần hiển thị tự đúng ngay, không cần một
      lần setState nữa chỉ để đồng bộ lại bộ đếm. */
-  const [now, setNow] = React.useState(() => Date.now());
+	const [now, setNow] = React.useState(() => Date.now());
 
-  React.useEffect(() => {
-    const tick = () => {
-      const current = Date.now();
-      setNow(current);
-      if (current >= until) onExpire();
-    };
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [until, onExpire]);
+	React.useEffect(() => {
+		const tick = () => {
+			const current = Date.now();
+			setNow(current);
+			if (current >= until) onExpire();
+		};
+		const timer = setInterval(tick, 1000);
+		return () => clearInterval(timer);
+	}, [until, onExpire]);
 
-  return (
-    <p className="text-[11.5px] text-center text-tertiary">
-      Mở khóa sau{" "}
-      <span className="tnum font-semibold text-danger">
-        {formatCountdown(until - now)}
-      </span>
-    </p>
-  );
+	return (
+		<p className="text-[11.5px] text-center text-tertiary">
+			Mở khóa sau{" "}
+			<span className="tnum font-semibold text-danger">
+				{formatCountdown(until - now)}
+			</span>
+		</p>
+	);
 }
 
 interface FieldErrors {
@@ -172,7 +172,10 @@ export function AuthSheet({
 	/* Thời điểm hết khóa, kèm email mà nó áp cho.
 	   Gắn email vào là cần thiết: tài khoản A bị khóa không được chặn người ta
 	   đăng nhập tài khoản B trên cùng máy. */
-	const [lock, setLock] = React.useState<{ email: string; until: number } | null>(null);
+	const [lock, setLock] = React.useState<{
+		email: string;
+		until: number;
+	} | null>(null);
 
 	/* Không gọi `Date.now()` ở đây: đó là một hàm không thuần khiết, và đọc nó
 	   trong lúc render nghĩa là kết quả render phụ thuộc vào thời điểm React chạy

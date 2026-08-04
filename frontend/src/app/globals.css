@@ -247,7 +247,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *:not(.animate-spin):not(.animate-spin *),
+    *:not(.animate-spin):not(.animate-spin *)::before,
+    *:not(.animate-spin):not(.animate-spin *)::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
@@ -1054,8 +1056,8 @@
 .animate-spin,
 svg.animate-spin {
   animation: spin 0.75s linear infinite !important;
-  transform-origin: center !important;
-  transform-box: fill-box !important;
+  transform-origin: 50% 50% !important;
+  transform-box: view-box !important;
   display: inline-block;
 }
 
