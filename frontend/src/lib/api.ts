@@ -150,7 +150,7 @@ async function request<T>(
     // Backend chưa chạy hoặc mất mạng. Phân biệt rõ với lỗi do server trả về,
     // vì cách xử lý của người dùng khác hẳn nhau.
     throw {
-      message: "Không kết nối được máy chủ. Kiểm tra backend đã chạy chưa.",
+      message: "Không thể kết nối được máy chủ.",
       status: 0,
     } as ApiError;
   }
