@@ -1700,11 +1700,12 @@ export function Table<T>({
   const [page, setPage] = React.useState(0);
 
   const sorted = React.useMemo(() => {
-    if (!sort) return data;
+    const list = data ?? [];
+    if (!sort) return list;
     const col = columns.find((c) => c.key === sort.key);
-    if (!col?.sortValue) return data;
+    if (!col?.sortValue) return list;
     const dir = sort.dir === "asc" ? 1 : -1;
-    return [...data].sort((a, b) => {
+    return [...list].sort((a, b) => {
       const av = col.sortValue!(a);
       const bv = col.sortValue!(b);
       if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
