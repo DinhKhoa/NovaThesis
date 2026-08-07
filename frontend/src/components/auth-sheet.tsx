@@ -295,7 +295,6 @@ export function AuthSheet({
 			open={open}
 			onClose={onClose}
 			title={isLogin ? "Đăng nhập" : "Đăng ký tài khoản"}
-			description="Dùng email do nhà trường cấp."
 			footer={
 				registered ? undefined : (
 					<p className="text-[12.5px] text-tertiary text-center">
@@ -433,6 +432,36 @@ export function AuthSheet({
 							<LockCountdown until={lockedUntil} onExpire={releaseLock} />
 						)}
 					</form>
+
+					{isLogin && (
+						<div className="mt-6">
+							<h4 className="text-[12px] font-semibold text-tertiary tracking-wider mb-3 px-1">
+								Tài khoản dùng thử dự án:
+							</h4>
+							<div className="flex flex-col gap-2">
+								{[
+									{ label: "Admin", email: "admin@novathesis.edu.vn", pass: "Admin@123456" },
+									{ label: "Giảng viên", email: "nguyen.vana@novathesis.edu.vn", pass: "Admin@123456" },
+									{ label: "Sinh viên", email: "student@novathesis.edu.vn", pass: "Admin@123456" }
+								].map((acc) => (
+									<button
+										key={acc.label}
+										type="button"
+										onClick={() => {
+											setForm((prev) => ({ ...prev, email: acc.email, password: acc.pass }));
+											setErrors({});
+										}}
+										className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 text-[13px] px-3 py-2.5 rounded-[8px] bg-background border border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group cursor-pointer">
+										<div className="flex flex-col shrink-0">
+											<span className="font-medium group-hover:text-primary transition-colors">{acc.label}</span>
+											<span className="text-tertiary text-[11px] whitespace-nowrap">Pass: {acc.pass}</span>
+										</div>
+										<span className="text-tertiary text-[11.5px] sm:text-right truncate">{acc.email}</span>
+									</button>
+								))}
+							</div>
+						</div>
+					)}
 				</>
 			)}
 		</Sheet>
