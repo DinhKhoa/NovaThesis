@@ -1454,26 +1454,83 @@ export function Dropdown({
   width?: string;
 }) {
   const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const mounted = useMounted();
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = React.useState<{
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+  }>({});
+
+  const updateCoords = React.useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const newCoords: { top?: number; bottom?: number; left?: number; right?: number } = {};
+
+    if (position === "top") {
+      newCoords.bottom = window.innerHeight - rect.top + 4;
+    } else if (position === "right") {
+      newCoords.top = rect.top;
+      newCoords.left = rect.right + 6;
+    } else {
+      if (rect.bottom + 200 > window.innerHeight && rect.top > 200) {
+        newCoords.bottom = window.innerHeight - rect.top + 4;
+      } else {
+        newCoords.top = rect.bottom + 4;
+      }
+    }
+
+    if (position !== "right") {
+      if (align === "right") {
+        newCoords.right = Math.max(8, window.innerWidth - rect.right);
+      } else {
+        newCoords.left = Math.max(8, rect.left);
+      }
+    }
+
+    setCoords(newCoords);
+  }, [align, position]);
 
   React.useEffect(() => {
     if (!open) return;
+    updateCoords();
+
     const onPointerDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
     };
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+
+    const handleScrollOrResize = () => {
+      updateCoords();
+    };
+
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
     };
-  }, [open]);
+  }, [open, updateCoords]);
 
   return (
-    <div ref={ref} className="relative inline-flex">
+    <div ref={triggerRef} className="inline-flex">
       <div
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
@@ -1481,22 +1538,26 @@ export function Dropdown({
       >
         {trigger}
       </div>
-      {open && (
-        <div
-          role="menu"
-          className={`absolute ${
-            position === "top"
-              ? `bottom-full mb-1 ${align === "right" ? "right-0" : "left-0"}`
-              : position === "right"
-              ? "left-full ml-2 bottom-0"
-              : `top-full mt-1 ${align === "right" ? "right-0" : "left-0"}`
-          } z-50 ${width} card p-1 pop-in`}
-          style={{ boxShadow: "var(--shadow-md)" }}
-          onClick={() => setOpen(false)}
-        >
-          {children}
-        </div>
-      )}
+      {open &&
+        mounted &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            className={`fixed z-[100] ${width} card p-1 pop-in`}
+            style={{
+              boxShadow: "var(--shadow-md)",
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              left: coords.left !== undefined ? `${coords.left}px` : undefined,
+              right: coords.right !== undefined ? `${coords.right}px` : undefined,
+            }}
+            onClick={() => setOpen(false)}
+          >
+            {children}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
